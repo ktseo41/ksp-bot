@@ -267,6 +267,53 @@ namespace KspBot
             FlightDriver.StartAndFocusVessel("persistent", idx);
         }
 
+        // ---------------- Space center UI (for screenshots) ----------------
+
+        /// <summary>Open a space-center building's screen, like clicking it: e.g. "RnDBuilding",
+        /// "MissionControlBuilding", "AdministrationFacility", "AstronautComplexFacility", "TrackingStationBuilding".</summary>
+        [KRPCProcedure]
+        public static void OpenFacility(string typeName)
+        {
+            var b = UnityEngine.Object.FindObjectsOfType<SpaceCenterBuilding>().FirstOrDefault(x => x.GetType().Name == typeName)
+                    ?? throw new ArgumentException("no building " + typeName + "; have: " +
+                        string.Join(", ", UnityEngine.Object.FindObjectsOfType<SpaceCenterBuilding>().Select(x => x.GetType().Name)));
+            b.EnterBuilding();
+        }
+
+        /// <summary>Active UI toggles and buttons: "path|kind|label", to find a tab to press with UiPress.</summary>
+        [KRPCProcedure]
+        public static IList<string> UiList()
+        {
+            var o = new List<string>();
+            foreach (var t in UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Selectable>())
+            {
+                if (!t.isActiveAndEnabled) continue;
+                var label = t.GetComponentInChildren<TMPro.TextMeshProUGUI>()?.text ?? "";
+                o.Add(Path(t.transform) + "|" + t.GetType().Name + "|" + label);
+            }
+            return o;
+        }
+
+        /// <summary>Press the first active toggle/button whose path or label contains `match`.</summary>
+        [KRPCProcedure]
+        public static string UiPress(string match)
+        {
+            foreach (var t in UnityEngine.Object.FindObjectsOfType<UnityEngine.UI.Selectable>())
+            {
+                if (!t.isActiveAndEnabled) continue;
+                var label = t.GetComponentInChildren<TMPro.TextMeshProUGUI>()?.text ?? "";
+                var path = Path(t.transform);
+                if (!path.Contains(match) && !label.Contains(match)) continue;
+                if (t is UnityEngine.UI.Toggle tg) tg.isOn = true;
+                else if (t is UnityEngine.UI.Button bt) bt.onClick.Invoke();
+                else continue;
+                return path + "|" + label;
+            }
+            throw new ArgumentException("no active toggle/button matching " + match);
+        }
+
+        static string Path(Transform t) => t.parent == null ? t.name : Path(t.parent) + "/" + t.name;
+
         // ---------------- Crew ----------------
 
         /// <summary>Hire an applicant from the astronaut complex, paying the hire cost.</summary>
