@@ -42,8 +42,11 @@ def cmd_vessel(a):
         if True:
             print(f"  stage {st.number}: dv={st.delta_v:.0f} (vac {st.vacuum_delta_v:.0f}) twr={st.twr:.2f} "
                   f"burn={st.burn_time:.0f}s")
-    for n in v.control.nodes:
-        print(f"  node in {n.ut - sc().ut:.0f}s dv={n.delta_v:.1f}")
+    try:
+        for n in v.control.nodes:
+            print(f"  node in {n.ut - sc().ut:.0f}s dv={n.delta_v:.1f}")
+    except Exception:
+        pass  # maneuver nodes locked (Mission Control / Tracking Station level)
 
 
 def cmd_parts(a):
@@ -88,8 +91,8 @@ def cmd_upgrade(a):
 
 
 def _contracts(kind):
-    cm = sc().contract_manager
-    return {"offered": cm.offered_contracts, "active": cm.active_contracts}[kind]
+    # kRPC's active_contracts list can miss freshly accepted contracts; filter all_contracts by state
+    return [c for c in sc().contract_manager.all_contracts if c.state.name == kind]
 
 
 def cmd_contracts(a):
@@ -99,17 +102,30 @@ def cmd_contracts(a):
                   f"sci {c.science_completion:.0f} rep {c.reputation_completion:.0f}")
             if kind == "active" or a.verbose:
                 for p in c.parameters:
-                    print(f"      - {'[x]' if p.completed else '[ ]'} {p.title}")
+                    kids = [q.title for q in p.children]
+                    print(f"      - {'[x]' if p.completed else '[ ]'} {p.title}" + (f" {kids}" if kids else ""))
+
+
+def _pick(kind, key):
+    cs = _contracts(kind)
+    if key.isdigit():
+        return cs[int(key)]
+    hits = [c for c in cs if key.lower() in c.title.lower()]
+    if len(hits) != 1:
+        raise SystemExit(f"'{key}' matches {len(hits)} {kind} contracts: {[c.title for c in hits]}")
+    return hits[0]
 
 
 def cmd_accept(a):
-    c = _contracts("offered")[a.index]
+    c = _pick("offered", a.key)
     c.accept()
-    print("accepted:", c.title)
+    time.sleep(1)
+    ok = any(x.title == c.title for x in _contracts("active"))
+    print("accepted:" if ok else "ACCEPT FAILED:", c.title)
 
 
 def cmd_decline(a):
-    c = _contracts("offered")[a.index]
+    c = _pick("offered", a.key)
     c.decline()
     print("declined:", c.title)
 
@@ -204,8 +220,9 @@ PHASES = {
     "land": lambda a: flight.land(),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
-    "reentry": lambda a: flight.reentry(),
+    "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
     "node": lambda a: flight.execute_node(),
+    "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
 }
 
 
@@ -228,10 +245,10 @@ def main(argv=None):
     p.add_argument("id")
     p = add("contracts", cmd_contracts)
     p.add_argument("-v", "--verbose", action="store_true")
-    p = add("accept", cmd_accept, help="accept offered contract by index")
-    p.add_argument("index", type=int)
+    p = add("accept", cmd_accept, help="accept an offered contract by title substring (or index)")
+    p.add_argument("key")
     p = add("decline", cmd_decline)
-    p.add_argument("index", type=int)
+    p.add_argument("key")
     p = add("build", cmd_build, help="build a .craft from a JSON spec file")
     p.add_argument("spec")
     p = add("launch", cmd_launch, help="roll out a VAB craft to the launch pad (pays its cost)")
@@ -279,8 +296,14 @@ def main(argv=None):
     p.add_argument("--heading", type=float, default=90)
     p = add("return", PHASES["return"], help="leave a moon for the parent with periapsis --pe")
     p.add_argument("--pe", type=float, default=30000)
-    add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, chutes, land")
+    p = add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, drogues, main chutes, land")
+    p.add_argument("--main-alt", type=float, default=4000)
+    p.add_argument("--main-speed", type=float, default=250)
     add("node", PHASES["node"], help="execute the next maneuver node")
+    p = add("hop", PHASES["hop"], help="suborbital hop: launch, science at apex, chutes")
+    p.add_argument("--no-science", action="store_true")
+    p.add_argument("--heading", type=float, default=90)
+    p.add_argument("--pitch", type=float, default=90)
 
     a = ap.parse_args(argv)
     try:

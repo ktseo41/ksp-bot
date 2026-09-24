@@ -1,0 +1,7 @@
+{"name": "Hopper 1", "parts": [
+  {"id": "pod", "part": "mk1pod.v2"},
+  {"id": "chute", "part": "parachuteSingle", "parent": "pod", "node": "top", "stage": 2},
+  {"id": "goo", "part": "GooExperiment", "parent": "pod", "height": -0.1},
+  {"id": "flea", "part": "solidBooster.sm.v2", "parent": "pod", "node": "bottom", "stage": 1},
+  {"id": "fins", "part": "basicFin", "parent": "flea", "symmetry": 3, "height": -0.5}
+]}

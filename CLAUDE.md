@@ -63,8 +63,8 @@ return ≈ 160 (reentry free). Mun: transfer ≈ 860, capture ≈ 310, land/take
 Upper stage for a Minmus landing mission: ≥ 2000 m/s after LKO, lander TWR (Minmus) > 1.
 
 ## Facility gates that matter
-Mission Control lvl 2 → maneuver nodes (all burns here use nodes; needed from the first orbit on).
-Tracking Station lvl 2 → patched conics (encounter prediction for `transfer`/`correct`/`return`).
+Maneuver nodes need Mission Control lvl 2 AND Tracking Station lvl 2 (patched conics, encounter
+prediction for `transfer`/`correct`/`return`). Without them burns fall back to manual (`manual_burn`).
 Astronaut Complex lvl 2 → EVA outside KSC. Level-1 pad: 18 t, VAB: 30 parts. `uv run ksp facilities`.
 
 ## Dev notes

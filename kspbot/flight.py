@@ -109,6 +109,8 @@ def execute_node(node=None, tol=0.2):
         left = node.remaining_delta_v
         if rem[1] < 0 or left < tol:
             break
+        if left > 5:  # steer at what is still missing (long burns drift off the initial direction)
+            ap.target_direction = _norm(rem)
         acc = max(v.available_thrust / v.mass, 1e-3)
         v.control.throttle = max(0.02, min(1.0, left / (acc * 1.5)))
         time.sleep(0.02)
@@ -128,14 +130,64 @@ def _wait_pointing(ap, timeout=90):
 
 
 def burn_at(t, prograde=0.0, normal=0.0, radial=0.0):
-    """Burn a delta-v (orbital frame at UT t) via a maneuver node."""
-    node = vessel().control.add_node(t, prograde, normal, radial)
+    """Burn a delta-v (orbital frame at UT t): via a maneuver node, or manually if nodes are locked
+    (Tracking Station / Mission Control level 1)."""
+    try:
+        node = vessel().control.add_node(t, prograde, normal, radial)
+    except RuntimeError as e:
+        if "Maneuver node" not in str(e):
+            raise
+        return manual_burn(t, prograde, normal, radial)
     return execute_node(node)
+
+
+def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
+    """Node-less burn: fixed inertial direction from the orbital frame at t, delivered dv integrated
+    from thrust/mass."""
+    v = vessel()
+    body = v.orbit.body
+    frame = body.non_rotating_reference_frame
+    r = v.orbit.position_at(t, frame)
+    vel = tuple((b - a) for a, b in zip(v.orbit.position_at(t - 0.5, frame), v.orbit.position_at(t + 0.5, frame)))
+    pro = _norm(vel)
+    nrm = _norm(_cross(r, vel))
+    rad = _cross(pro, nrm)
+    vec = tuple(prograde * a + normal * b + radial * c for a, b, c in zip(pro, nrm, rad))
+    dv = math.sqrt(_dot(vec, vec))
+    if dv < 0.05:
+        return 0.0
+    bt = burn_time(v, dv)
+    ap = v.auto_pilot
+    ap.reference_frame = frame
+    ap.target_direction = _norm(vec)
+    ap.engaged = True
+    say(f"manual burn {dv:.0f} m/s, ~{bt:.0f}s, in {t - ut():.0f}s")
+    warp_to(t - bt / 2, lead=60)
+    _wait_pointing(ap)
+    warp_to(t - bt / 2, lead=5)
+    while ut() < t - bt / 2:
+        time.sleep(0.05)
+    done, last = 0.0, ut()
+    v.control.throttle = 1.0
+    while done < dv - tol:
+        auto_stage(v)
+        now = ut()
+        done += v.thrust / v.mass * (now - last)
+        last = now
+        acc = max(v.available_thrust / v.mass, 1e-3)
+        v.control.throttle = max(0.02, min(1.0, (dv - done) / (acc * 1.5)))
+        if v.available_thrust <= 0:
+            break
+        time.sleep(0.02)
+    v.control.throttle = 0.0
+    ap.engaged = False
+    say(f"manual burn done ({done:.0f}/{dv:.0f} m/s)")
+    return dv - done
 
 
 # ---------------------------------------------------------------- launch
 
-def ascent(target_alt=80000, heading=90.0, turn_start=1000, turn_end=45000, shape=0.5, max_aoa=15.0):
+def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape=0.5, max_aoa=15.0):
     """Launch from Kerbin (or any atmospheric body) to an apoapsis of target_alt, coast out of the
     atmosphere keeping the apoapsis up. Then call circularize()."""
     v = vessel()
@@ -168,17 +220,15 @@ def ascent(target_alt=80000, heading=90.0, turn_start=1000, turn_end=45000, shap
         if not _thrust_ok(v, state):
             return False
         time.sleep(0.05)
-    # Phase 2: apoapsis is high enough. Keep burning mostly horizontally while the apoapsis is close
-    # (steep/high-TWR ascents), steering pitch to hold time-to-apoapsis; coast once it is comfortably ahead.
+    # Phase 2 (low-TWR / flat ascents only): if the apoapsis is less than ~35 s ahead we would fall back
+    # before leaving the atmosphere, so keep burning at a shallow positive pitch to hold it ahead.
+    # Otherwise just coast (steep or high-TWR ascents).
     while v.orbit.periapsis_altitude < min(atmo, target_alt - 5000):
         auto_stage(v)
-        alt = fl.mean_altitude
         t_apo = v.orbit.time_to_apoapsis if fl.vertical_speed > 0 else 0.0
-        apo = v.orbit.apoapsis_altitude
-        if t_apo > 50 and alt > atmo * 0.85:
+        if t_apo > 35 or v.orbit.apoapsis_altitude > target_alt + 10000:
             break
-        pitch = max(-10.0, min(40.0, 0.8 * (40 - t_apo) - 0.002 * (apo - target_alt)))
-        ap.target_pitch_and_heading(pitch, heading)
+        ap.target_pitch_and_heading(max(0.0, min(30.0, 0.8 * (35 - t_apo))), heading)
         v.control.throttle = 1.0
         if not _thrust_ok(v, state):
             return False
@@ -494,8 +544,9 @@ def liftoff(target_alt=15000, heading=90.0):
 
 # ---------------------------------------------------------------- reentry
 
-def reentry():
-    """Coast to the atmosphere, drop everything except the parachute stage, hold retrograde, deploy chutes."""
+def reentry(main_alt=4000, main_speed=250):
+    """Coast to the atmosphere, drop everything except the parachute stages, hold retrograde, arm drogues
+    below 20 km, stage the main chutes once below main_alt and slower than main_speed (or at 2.5 km)."""
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
@@ -519,16 +570,32 @@ def reentry():
     ap.target_direction = (0, -1, 0)
     ap.engaged = True
     say("reentry: holding retrograde")
-    while fl.mean_altitude > 5000 or fl.speed > 300:
-        if fl.mean_altitude < 3000:
+
+    def next_is(kind):
+        nxt = _stage_parts(v, v.control.current_stage - 1) if v.control.current_stage > 0 else []
+        chutes = [p for p in nxt if p.parachute is not None]
+        if not chutes or len(chutes) != len(nxt):
+            return False
+        drogue = all("drogue" in p.name.lower() for p in chutes)
+        return drogue if kind == "drogue" else not drogue
+
+    while True:
+        alt, spd = fl.mean_altitude, fl.speed
+        if next_is("drogue") and alt < 20000:
+            v.control.activate_next_stage()
+            say(f"drogues armed at {alt:.0f} m, {spd:.0f} m/s")
+        if next_is("main") and ((alt < main_alt and spd < main_speed) or alt < 2500):
             break
-        time.sleep(0.5)
+        if v.control.current_stage == 0 or v.situation.name in ("landed", "splashed"):
+            break
+        time.sleep(0.2)
     ap.engaged = False
+    if next_is("main"):
+        say(f"main chutes staged at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
+        v.control.activate_next_stage()
     for p in v.parts.parachutes:
         if not p.deployed:
             p.deploy()
-    if v.control.current_stage > 0:
-        v.control.activate_next_stage()
     say("chutes deployed")
     while v.situation.name not in ("landed", "splashed"):
         time.sleep(1)
@@ -558,3 +625,33 @@ def do_science(transmit=False):
     for row in out:
         print(row)
     return out
+
+
+# ---------------------------------------------------------------- early career
+
+def hop(science=True, heading=90.0, pitch=90.0):
+    """Suborbital hop: launch at a fixed pitch, run experiments near the apex, land under chutes."""
+    v = vessel()
+    fl = v.flight(v.orbit.body.reference_frame)
+    ap = v.auto_pilot
+    ap.reference_frame = v.surface_reference_frame
+    ap.target_pitch_and_heading(pitch, heading)
+    ap.engaged = True
+    v.control.throttle = 1.0
+    if v.situation.name == "pre_launch":
+        say("liftoff")
+        v.control.activate_next_stage()
+    top = 0.0
+    while True:
+        auto_stage(v)
+        top = max(top, fl.mean_altitude)
+        if fl.vertical_speed < 0 and fl.mean_altitude < top - 20:
+            break
+        time.sleep(0.1)
+    say(f"apex {top:.0f} m")
+    if science:
+        do_science()
+    ap.engaged = False
+    v.control.throttle = 0.0
+    reentry()
+    return top

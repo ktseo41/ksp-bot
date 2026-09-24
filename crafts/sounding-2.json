@@ -1,0 +1,14 @@
+{"name": "Sounding 2", "parts": [
+  {"id": "pod", "part": "mk1pod.v2"},
+  {"id": "chute", "part": "parachuteSingle", "parent": "pod", "node": "top", "stage": 4},
+  {"id": "goo", "part": "GooExperiment", "parent": "pod", "height": -0.1},
+  {"id": "thermo", "part": "sensorThermometer", "parent": "pod", "height": -0.1, "angle": 180},
+  {"id": "dec1", "part": "Decoupler.1", "parent": "pod", "node": "bottom", "stage": 3},
+  {"id": "t1", "part": "fuelTankSmallFlat", "parent": "dec1", "node": "bottom"},
+  {"id": "t2", "part": "fuelTankSmallFlat", "parent": "t1", "node": "bottom"},
+  {"id": "t3", "part": "fuelTankSmallFlat", "parent": "t2", "node": "bottom"},
+  {"id": "swivel", "part": "liquidEngine2.v2", "parent": "t3", "node": "bottom", "stage": 2},
+  {"id": "dec2", "part": "Decoupler.1", "parent": "swivel", "node": "bottom", "stage": 2},
+  {"id": "hammer", "part": "solidBooster.v2", "parent": "dec2", "node": "bottom", "stage": 1},
+  {"id": "fins", "part": "basicFin", "parent": "hammer", "symmetry": 3, "height": -1.2}
+]}

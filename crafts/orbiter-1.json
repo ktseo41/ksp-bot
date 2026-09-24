@@ -1,0 +1,19 @@
+{"name": "Orbiter 1", "description": "3-stage serial LKO rocket: Thumper / Swivel / Reliant", "parts": [
+  {"id": "pod", "part": "mk1pod.v2"},
+  {"id": "main", "part": "parachuteSingle", "parent": "pod", "node": "top", "stage": 6},
+  {"id": "drogue", "part": "radialDrogue", "parent": "pod", "symmetry": 2, "height": 0.1, "stage": 5},
+  {"id": "goo", "part": "GooExperiment", "parent": "pod", "height": -0.15, "angle": 90},
+  {"id": "thermo", "part": "sensorThermometer", "parent": "pod", "height": -0.15, "angle": 270},
+  {"id": "dec3", "part": "Decoupler.1", "parent": "pod", "node": "bottom", "stage": 4},
+  {"id": "u1", "part": "fuelTankSmall", "parent": "dec3", "node": "bottom"},
+  {"id": "u2", "part": "fuelTankSmall", "parent": "u1", "node": "bottom"},
+  {"id": "reliant", "part": "liquidEngine.v2", "parent": "u2", "node": "bottom", "stage": 3},
+  {"id": "dec2", "part": "Decoupler.1", "parent": "reliant", "node": "bottom", "stage": 3},
+  {"id": "m1", "part": "fuelTankSmall", "parent": "dec2", "node": "bottom"},
+  {"id": "m2", "part": "fuelTankSmall", "parent": "m1", "node": "bottom"},
+  {"id": "m3", "part": "fuelTankSmall", "parent": "m2", "node": "bottom"},
+  {"id": "swivel", "part": "liquidEngine2.v2", "parent": "m3", "node": "bottom", "stage": 2},
+  {"id": "fins", "part": "basicFin", "parent": "m3", "symmetry": 4, "angle": 45, "height": -0.3},
+  {"id": "dec1", "part": "Decoupler.1", "parent": "swivel", "node": "bottom", "stage": 2},
+  {"id": "thumper", "part": "solidBooster1-1", "parent": "dec1", "node": "bottom", "stage": 1}
+]}
