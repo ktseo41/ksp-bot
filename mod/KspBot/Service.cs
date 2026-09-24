@@ -392,6 +392,26 @@ namespace KspBot
             });
         }
 
+        /// A kerbal hanging at the bottom end of a pod's short ladder ("Ladder (End Reached)") is ~0.5 m below
+        /// the airlock trigger; a player would climb up a step and board. Accept a crewable part whose airlock
+        /// is within `range` metres.
+        static Part NearHatch(KerbalEVA k, float range)
+        {
+            Part best = null;
+            var bestD = range;
+            foreach (var v in FlightGlobals.VesselsLoaded)
+            {
+                if (v == k.vessel) continue;
+                foreach (var p in v.parts)
+                {
+                    if (p.airlock == null || p.CrewCapacity <= p.protoModuleCrew.Count) continue;
+                    var d = Vector3.Distance(p.airlock.position, k.transform.position);
+                    if (d < bestD) { best = p; bestD = d; }
+                }
+            }
+            return best;
+        }
+
         /// <summary>Plant a flag (kerbal must stand on the ground).</summary>
         [KRPCProcedure]
         public static void EvaPlantFlag()
@@ -408,6 +428,7 @@ namespace KspBot
         {
             var k = ActiveKerbal();
             var airlock = typeof(KerbalEVA).GetField("currentAirlockPart", Any)?.GetValue(k) as Part
+                          ?? NearHatch(k, 2.0f)
                           ?? throw new InvalidOperationException("not at a hatch");
             k.BoardPart(airlock);
         }
