@@ -103,8 +103,16 @@ def execute_node(node=None, tol=0.2):
     while ut() < node.ut - bt / 2:
         time.sleep(0.05)
     v.control.throttle = 1.0
+    no_thrust = None
     while True:
         auto_stage(v)
+        if v.available_thrust <= 0:  # out of fuel with nothing left to stage: stop instead of waiting forever
+            no_thrust = no_thrust or time.time()
+            if time.time() - no_thrust > 3:
+                say("out of thrust")
+                break
+        else:
+            no_thrust = None
         rem = node.remaining_burn_vector(node.reference_frame)
         left = node.remaining_delta_v
         if rem[1] < 0 or left < tol:
@@ -812,7 +820,7 @@ def liftoff(target_alt=15000, heading=90.0):
             return False
         v.control.legs = False
         return circularize()
-    fl = v.flight(v.orbit.body.reference_frame)
+    fl = v.flight(body.reference_frame)
     v.control.sas = False
     ap = v.auto_pilot
     ap.reference_frame = v.surface_reference_frame
@@ -820,23 +828,45 @@ def liftoff(target_alt=15000, heading=90.0):
     ap.engaged = True
     v.control.throttle = 1.0
     t0 = time.time()
-    while time.time() - t0 < 4 or fl.surface_altitude < 200:
+    while time.time() - t0 < 4 or fl.surface_altitude < 100:
         auto_stage(v)
         if time.time() - t0 > 3 and v.available_thrust <= 0:
             v.control.throttle = 0.0
             say("liftoff aborted: no thrust")
             return False
         time.sleep(0.05)
-    ap.target_pitch_and_heading(30, heading)
-    while v.orbit.apoapsis_altitude < target_alt:
+    v.control.legs = False
+    # Fly low and build horizontal speed, climbing as the speed grows (and as the terrain ahead needs), until the
+    # periapsis is safe. The old profile (45/15 deg pitch until the apoapsis reached the target, then circularize)
+    # cost ~850 m/s off the Mun instead of ~600.
+    R, g, mu = body.equatorial_radius, body.surface_gravity, body.gravitational_parameter
+    v_circ = math.sqrt(mu / (R + target_alt))
+    hd = math.radians(heading)
+    while v.orbit.periapsis_altitude < target_alt * 0.85:
         auto_stage(v)
-        # keep climbing if the terrain is close
-        ap.target_pitch_and_heading(45 if fl.surface_altitude < 2000 else 15, heading)
+        if v.available_thrust <= 0:
+            say("liftoff: out of thrust")
+            break
+        lat, lon = math.radians(fl.latitude), math.radians(fl.longitude)
+        hs, alt = fl.horizontal_speed, fl.mean_altitude
+        ahead = 0.0
+        for dt in (3, 6, 10, 15, 20, 30, 45):  # highest terrain on the path over the next 45 s
+            d = max(hs, 50.0) * dt / R
+            la = math.asin(math.sin(lat) * math.cos(d) + math.cos(lat) * math.sin(d) * math.cos(hd))
+            lo = lon + math.atan2(math.sin(hd) * math.sin(d) * math.cos(lat), math.cos(d) - math.sin(lat) * math.sin(la))
+            ahead = max(ahead, body.surface_height(math.degrees(la), math.degrees(lo)))
+        frac = min(1.0, v.orbit.speed / v_circ) ** 2
+        alt_want = max(ahead + 600, target_alt * frac)
+        vs_want = max(-5.0, min(80.0, (alt_want - alt) / 6))
+        a = max(v.available_thrust / v.mass, 1e-3)
+        g_eff = g * (R / (R + alt)) ** 2 - hs ** 2 / (R + alt)
+        sin_p = max(0.0, min(0.95, (g_eff + 0.8 * (vs_want - fl.vertical_speed)) / a))
+        ap.target_pitch_and_heading(math.degrees(math.asin(sin_p)), heading)
         time.sleep(0.05)
     v.control.throttle = 0.0
     ap.engaged = False
-    v.control.legs = False
-    circularize()
+    say(f"orbit {v.orbit.periapsis_altitude:.0f} x {v.orbit.apoapsis_altitude:.0f} m")
+    return v.orbit.periapsis_altitude > 0
 
 
 # ---------------------------------------------------------------- reentry
