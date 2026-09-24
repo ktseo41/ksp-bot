@@ -1,13 +1,14 @@
 from common import *
 
-career = ['hopper-1', 'sounding-2', 'orbiter-1', 'minmus-flyby-1', 'minmus-lander-1', 'mun-lander-1',
-          'sounding-3', 'pad-lab', 'mun-lander-2', 'mun-lander-3', 'mun-lander-5', 'mun-lander-6']
-sandbox = ['sandbox-minmus-test', 'sandbox-lander-test', 'mun-lander-4', 'mun-lander-7']
+# career crafts, first-appearance order, deduped -- straight from docs/record/career.json career_launches
+career = list(dict.fromkeys(slug for _, slug, *_ in LAUNCHES))
+# photographed sandbox crafts, in record order (only entries with a "crafts" list get a card here)
+sandbox = [c['slug'] for entry in RECORD.get('sandbox_test_crafts', []) for c in entry.get('crafts', [])]
 
 rec = {}
 for n, slug, r, *_ in LAUNCHES:
     rec.setdefault(slug, []).append((n, r))
-assert sum(len(v) for v in rec.values()) == 20
+assert sum(len(v) for v in rec.values()) == len(LAUNCHES)
 
 css = '''
 .hdr{display:flex;justify-content:space-between;align-items:flex-end}
@@ -69,7 +70,7 @@ body = f'''
 <div class="hdr">
   <div>
     <div class="kicker">{icon('rocket', 26, '#8e98b6')}<span>Crafts</span></div>
-    <div class="title">12 <small>career</small> <span style="color:var(--dim);font-weight:500">+</span> 4 <small>sandbox</small></div>
+    <div class="title">{len(career)} <small>career</small> <span style="color:var(--dim);font-weight:500">+</span> {len(sandbox)} <small>sandbox</small></div>
   </div>
   {legend()}
 </div>

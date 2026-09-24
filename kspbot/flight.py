@@ -666,13 +666,13 @@ def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
     return None
 
 
-def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
     biomes: first wait for a pass over one of these biomes with gentle terrain."""
     if biomes:
-        t = find_site(biomes, max_slope)
+        t = find_site(biomes, max_slope, orbits=orbits)
         if t is None:
-            say(f"no site under {max_slope} deg in {biomes} within 8 orbits")
+            say(f"no site under {max_slope} deg in {biomes} within {orbits} orbits")
             return False
     v = vessel()
     body = v.orbit.body

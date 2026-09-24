@@ -1,6 +1,11 @@
+import json
 import random
 
 OUT = './docs/media/summary/'
+RECORD_PATH = './docs/record/career.json'
+
+with open(RECORD_PATH) as _f:
+    RECORD = json.load(_f)
 
 ICONS = '''
 <svg width="0" height="0" style="position:absolute">
@@ -111,6 +116,13 @@ def write(name, html):
         f.write(html)
 
 
+def fmt_funds(n):
+    """25000 -> '25k', 1299942 -> '1.30M' (matches career.json funds_timeline label style)."""
+    if n >= 1_000_000:
+        return f'{n / 1_000_000:.2f}M'
+    return f'{round(n / 1000)}k'
+
+
 _pid = [0]
 
 
@@ -147,34 +159,22 @@ def planet(kind, size, dashed=False):
 
 RES = {'ok': ('check', 'c-ok'), 'rev': ('revert', 'c-rev'), 'dead': ('skull', 'c-dead')}
 
-LAUNCHES = [
-    # n, craft slug, result, destination, fun number, crew note
-    (1, 'hopper-1', 'ok', 'kerbin', '16 km', ''),
-    (2, 'sounding-2', 'ok', 'kerbin', '208 km', ''),
-    (3, 'orbiter-1', 'rev', 'kerbin', '2.5 km/s', ''),
-    (4, 'orbiter-1', 'ok', 'kerbin', '71×140 km', ''),
-    (5, 'minmus-flyby-1', 'ok', 'minmus', '', 'Jeb'),
-    (6, 'minmus-lander-1', 'dead', 'minmus', '1:02', 'Jeb'),
-    (7, 'minmus-lander-1', 'rev', 'minmus', '0.4°', 'Bill'),
-    (8, 'minmus-lander-1', 'rev', 'minmus', '15 m/s', 'Bill'),
-    (9, 'minmus-lander-1', 'rev', 'minmus', 't=0 ×2', ''),
-    (10, 'minmus-lander-1', 'ok', 'minmus', '', 'Bill'),
-    (11, 'mun-lander-1', 'dead', 'mun', 'max-Q', 'Jeb'),
-    (12, 'sounding-3', 'dead', 'kerbin', '960 m/s', 'Bill'),
-    (13, 'minmus-lander-1', 'rev', 'mun', 't=0 ×4', ''),
-    (14, 'pad-lab', 'ok', 'kerbin', '', ''),
-    (15, 'mun-lander-2', 'rev', 'mun', '1.4 m/s', ''),
-    (16, 'mun-lander-3', 'ok', 'mun', '', 'Bob'),
-    (17, 'mun-lander-3', 'rev', 'minmus', '', ''),
-    (18, 'mun-lander-3', 'ok', 'minmus', '3 sites', 'Jeb'),
-    (19, 'mun-lander-5', 'rev', 'minmus', '1400 m/s', 'Jeb'),
-    (20, 'mun-lander-6', 'ok', 'minmus', '', 'Jeb'),
-]
-FIRSTS = {10: 'minmus', 16: 'mun'}
+# career.json uses the save's own result wording; the images use these short codes.
+RESULT_CODE = {'success': 'ok', 'reverted': 'rev', 'crew lost': 'dead'}
 
-CRAFT_NAMES = {
-    'hopper-1': 'Hopper 1', 'sounding-2': 'Sounding 2', 'orbiter-1': 'Orbiter 1', 'minmus-flyby-1': 'Minmus Flyby 1',
-    'minmus-lander-1': 'Minmus Lander 1', 'mun-lander-1': 'Mun Lander 1', 'sounding-3': 'Sounding 3', 'pad-lab': 'Pad Lab',
-    'mun-lander-2': 'Mun Lander 2', 'mun-lander-3': 'Mun Lander 3', 'mun-lander-5': 'Mun Lander 5', 'mun-lander-6': 'Mun Lander 6',
-    'mun-lander-4': 'Mun Lander 4', 'mun-lander-7': 'Mun Lander 7', 'sandbox-minmus-test': 'Sandbox Minmus Test',
-    'sandbox-lander-test': 'Sandbox Lander Test', 'duna-1': 'Duna 1'}
+# n, craft slug, result, destination, short stat blurb, crew note -- straight from docs/record/career.json
+LAUNCHES = [
+    (l['n'], l['slug'], RESULT_CODE[l['result']], l['dest'], l.get('stat', ''), l.get('crew', ''))
+    for l in RECORD['career_launches']
+]
+
+# launch numbers whose note is flagged as a career first (note text uses "FIRST" in caps), mapped to the body reached
+FIRSTS = {l['n']: l['dest'] for l in RECORD['career_launches'] if 'FIRST' in l['note']}
+
+# craft slug -> display name: first career_launches row for that slug, then any photographed sandbox craft
+CRAFT_NAMES = {}
+for l in RECORD['career_launches']:
+    CRAFT_NAMES.setdefault(l['slug'], l['craft'])
+for _entry in RECORD.get('sandbox_test_crafts', []):
+    for _c in _entry.get('crafts', []):
+        CRAFT_NAMES[_c['slug']] = _c['name']

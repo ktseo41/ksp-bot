@@ -19,27 +19,34 @@ def mono(t, ic=None, col=None):
     return f'<span class="mn">{i}{t}</span>'
 
 
+# per-launch stat/crew content is data (straight from career.json via LAUNCHES); only the layout
+# (which combination of mono/kb/sk, icon overrides) is a presentation choice kept here.
+STAT = {n: stat for n, _, _, _, stat, _ in LAUNCHES}
+CREW = {n: crew for n, _, _, _, _, crew in LAUNCHES}
+REVERT_DEATH_COUNT = {l['n']: l['revert_death_count'] for l in RECORD['career_launches'] if 'revert_death_count' in l}
+DIVERTED_TO = {l['n']: l['diverted_to'] for l in RECORD['career_launches'] if 'diverted_to' in l}
+
 DETAIL = {
-    1: [mono('16 km')],
-    2: [mono('208 km')],
-    3: [mono('2.5 km/s')],
-    4: [mono('71×140 km', 'orbit')],
-    5: [kb('Jeb')],
-    6: [sk(1, name='Jeb')],
-    7: [mono('0.4°'), kb('Bill')],
-    8: [mono('15 m/s'), sk(1, True, 'Bill')],
-    9: [mono('t=0 ×2', 'boom', '#ff9a2e')],
-    10: [kb('Bill')],
-    11: [sk(1, name='Jeb')],
-    12: [mono('960 m/s'), sk(1, name='Bill')],
-    13: [mono('t=0 ×4', 'boom', '#ff9a2e'), sk(4, True)],
-    14: [mono('Pad', 'pad')],
-    15: [mono('1.4 m/s')],
-    16: [kb('Bob')],
-    17: [f'<span class="kb">{icon("arrow", 20, "#8e98b6")}{planet("mun", 24)}Mun</span>'],
-    18: [mono('3 sites'), kb('Jeb')],
-    19: [mono('1400 m/s'), kb('Jeb')],
-    20: [mono('4 biomes'), kb('Jeb')],
+    1: [mono(STAT[1])],
+    2: [mono(STAT[2])],
+    3: [mono(STAT[3])],
+    4: [mono(STAT[4], 'orbit')],
+    5: [kb(CREW[5])],
+    6: [sk(1, name=CREW[6])],
+    7: [mono(STAT[7]), kb(CREW[7])],
+    8: [mono(STAT[8]), sk(1, True, CREW[8])],
+    9: [mono(STAT[9], 'boom', '#ff9a2e')],
+    10: [kb(CREW[10])],
+    11: [sk(1, name=CREW[11])],
+    12: [mono(STAT[12]), sk(1, name=CREW[12])],
+    13: [mono(STAT[13], 'boom', '#ff9a2e'), sk(REVERT_DEATH_COUNT[13], True)],
+    14: [mono(STAT[14], 'pad')],
+    15: [mono(STAT[15])],
+    16: [kb(CREW[16])],
+    17: [f'<span class="kb">{icon("arrow", 20, "#8e98b6")}{planet(DIVERTED_TO[17], 24)}{DIVERTED_TO[17].capitalize()}</span>'],
+    18: [mono(STAT[18]), kb(CREW[18])],
+    19: [mono(STAT[19]), kb(CREW[19])],
+    20: [mono(STAT[20]), kb(CREW[20])],
 }
 
 css = '''
@@ -82,7 +89,7 @@ body = f'''
 <div class="hdr">
   <div>
     <div class="kicker">{icon('rocket', 26, '#8e98b6')}<span>Career launches</span></div>
-    <div class="title">#1 <span style="color:var(--dim);font-weight:500">→</span> #20</div>
+    <div class="title">#{LAUNCHES[0][0]} <span style="color:var(--dim);font-weight:500">→</span> #{LAUNCHES[-1][0]}</div>
   </div>
   {legend()}
 </div>

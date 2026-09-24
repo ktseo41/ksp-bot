@@ -1,9 +1,10 @@
 from common import *
 
+CN = RECORD['career_now']
+
 counts = {'ok': 0, 'rev': 0, 'dead': 0}
 for l in LAUNCHES:
     counts[l[2]] += 1
-assert counts == {'ok': 9, 'rev': 8, 'dead': 3}
 
 css = '''
 .hdr{display:flex;justify-content:space-between;align-items:flex-end}
@@ -54,9 +55,9 @@ css = '''
 .next{font-size:16px;font-weight:700;letter-spacing:.14em;color:#ffb08e;border:1.5px dashed #ff9d73;border-radius:999px;padding:4px 12px}
 '''
 
-# funds chart
-pts = [('start', 25000), ('#1', 110000), ('#2', 136000), ('#4', 212000), ('B', 13700), ('#5', 121800),
-       ('#10', 385300), ('#16', 342800), ('#18', 609000), ('#20', 1299942), ('B', 848942)]
+# funds chart -- points and facility-upgrade markers straight from docs/record/career.json
+pts = [(p['tick'], p['funds']) for p in CN['funds_timeline']]
+labels = {i: p['label'] for i, p in enumerate(CN['funds_timeline']) if p['label']}
 W, H = 968 - 52, 262
 x0, x1, ytop, ybot = 40, W - 40, 34, H - 44
 ymax = 1300000
@@ -73,7 +74,6 @@ def Y(v):
 
 poly = ' '.join(f'{X(i):.1f},{Y(v):.1f}' for i, (_, v) in enumerate(pts))
 area = f'M{X(0):.1f},{ybot} L' + ' L'.join(f'{X(i):.1f},{Y(v):.1f}' for i, (_, v) in enumerate(pts)) + f' L{X(len(pts)-1):.1f},{ybot} Z'
-labels = {0: '25k', 3: '212k', 4: '13.7k', 6: '385k', 8: '609k', 9: '1.30M', 10: '849k'}
 svg = [f'<svg width="{W}" height="{H}" viewBox="0 0 {W} {H}" style="display:block;margin-top:6px;overflow:visible">',
        '<defs><linearGradient id="fa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7d75c" stop-opacity=".45"/><stop offset="1" stop-color="#f7d75c" stop-opacity="0"/></linearGradient></defs>']
 for v in (500000, 1000000):
@@ -83,7 +83,7 @@ svg.append(f'<line x1="{x0}" x2="{x1}" y1="{ybot}" y2="{ybot}" stroke="rgba(255,
 svg.append(f'<path d="{area}" fill="url(#fa)"/>')
 svg.append(f'<polyline points="{poly}" fill="none" stroke="#f7d75c" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>')
 for i, (lab, v) in enumerate(pts):
-    fac = lab == 'B'
+    fac = lab == 'facility'
     col = '#ff9a2e' if fac else '#f7d75c'
     r = 9 if i == 9 else 6.5
     svg.append(f'<circle cx="{X(i):.1f}" cy="{Y(v):.1f}" r="{r}" fill="{col}" stroke="#070b17" stroke-width="3"/>')
@@ -102,8 +102,9 @@ for i, (lab, v) in enumerate(pts):
     # axis labels
     if not fac:
         svg.append(f'<text x="{X(i):.1f}" y="{ybot+30}" text-anchor="middle" font-size="17" fill="#8e98b6" font-family="JetBrains Mono">{lab if lab!="start" else "▶"}</text>')
-# facility upgrades (6): MC2 between #1/#2, TS2+Pad2 at idx4, VAB2 between #10/#16, AC2 between #18/#20, R&D2 at idx10
-for fx, n in ((1.5, 1), (4, 2), (6.5, 1), (8.5, 1), (10, 1)):
+# facility upgrades: MC2 between #1/#2, TS2+Pad2 at idx4, VAB2 between #10/#16, AC2 between #18/#20, R&D2 at idx10
+for m in CN['funds_timeline_facility_markers']:
+    fx, n = m['pos'], m['count']
     xc = x0 + (x1 - x0) * fx / (len(pts) - 1)
     for k in range(n):
         off = (k - (n - 1) / 2) * 24
@@ -113,6 +114,26 @@ chart = ''.join(svg)
 
 strip = ''.join(
     f'<i class="{RES[r][1]}{" star" if n in FIRSTS else ""}">{n}</i>' for n, s, r, *_ in LAUNCHES)
+
+sci = CN['science_by_body']
+n_tech = len(RECORD['research'])
+n_dead = len(RECORD['kerbals']['deaths_that_stood'])
+DEAD_SLOTS = 8  # fixed-width tally row; filled = actual deaths, rest faded
+dead_dots = ''.join(icon('skull', 21, '#ff4d5e', style='opacity:1') for _ in range(n_dead))
+dead_dots += '<span style="width:6px"></span>' if n_dead else ''
+dead_dots += ''.join(icon('skull', 21, '#ff4d5e', style='opacity:0.3') for _ in range(DEAD_SLOTS - n_dead))
+
+facilities = CN['facilities']
+n_fac = len(facilities)
+fac_levels = set(facilities.values())
+fac_lv = f'<span class="lv">Lv.{fac_levels.pop()}</span>' if len(fac_levels) == 1 else ''
+fac_icons = ''.join(icon('building', 24, '#ff9a2e') for _ in range(n_fac))
+
+crew_by_n = {l[0]: l[5] for l in LAUNCHES}
+body_first_n = {dest: n for n, dest in FIRSTS.items()}
+kerbin_first_n = next(l['n'] for l in RECORD['career_launches'] if 'first orbit' in l['note'].lower())
+minmus_first_n = body_first_n['minmus']
+mun_first_n = body_first_n['mun']
 
 body = f'''
 <div class="hdr">
@@ -124,12 +145,12 @@ body = f'''
 </div>
 
 <div class="sec launch">
-  <div class="big"><div class="n">20</div><div class="l">{icon('rocket', 22, '#8e98b6')} Launches</div></div>
+  <div class="big"><div class="n">{len(LAUNCHES)}</div><div class="l">{icon('rocket', 22, '#8e98b6')} Launches</div></div>
   <div class="right">
     <div class="bar">
-      <div class="c-ok" style="flex:9">{icon('check', 46)}9</div>
-      <div class="c-rev" style="flex:8">{icon('revert', 46)}8</div>
-      <div class="c-dead" style="flex:3">{icon('skull', 42)}3</div>
+      <div class="c-ok" style="flex:{counts['ok']}">{icon('check', 46)}{counts['ok']}</div>
+      <div class="c-rev" style="flex:{counts['rev']}">{icon('revert', 46)}{counts['rev']}</div>
+      <div class="c-dead" style="flex:{counts['dead']}">{icon('skull', 42)}{counts['dead']}</div>
     </div>
     <div class="strip">{strip}</div>
   </div>
@@ -138,30 +159,30 @@ body = f'''
 <div class="sec panel funds">
   <div class="top">
     {icon('coin', 50, '#f7d75c')}
-    <span class="v s">25k</span>{icon('arrow', 34, '#5c6684', 'arr')}<span class="v">1.30M</span>
+    <span class="v s">{fmt_funds(CN['funds_start'])}</span>{icon('arrow', 34, '#5c6684', 'arr')}<span class="v">{fmt_funds(CN['funds_peak'])}</span>
   </div>
   {chart}
 </div>
 
 <div class="sec tiles">
-  <div class="tile"><div class="l">{icon('flask', 24, '#56c8ff')} Science</div><div class="n" style="color:var(--sci)">750.5</div>
-     <div class="mini"><div class="mbar"><i style="flex:89.9;background:var(--kerbin)"></i><i style="flex:122;background:var(--mun)"></i><i style="flex:538.6;background:var(--minmus)"></i></div></div></div>
-  <div class="tile"><div class="l">{icon('gyro', 24, '#b28cff')} Tech</div><div class="n" style="color:var(--tech)">16</div>
-     <div class="mini dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-  <div class="tile"><div class="l">{icon('skull', 24, '#ff4d5e')} Kerbals</div><div class="n" style="color:var(--dead)">3</div>
-     <div class="mini row">{icon('skull', 21, '#ff4d5e', style='opacity:1')}{icon('skull', 21, '#ff4d5e', style='opacity:1')}{icon('skull', 21, '#ff4d5e', style='opacity:1')}<span style="width:6px"></span>{icon('skull', 21, '#ff4d5e', style='opacity:0.3')}{icon('skull', 21, '#ff4d5e', style='opacity:0.3')}{icon('skull', 21, '#ff4d5e', style='opacity:0.3')}{icon('skull', 21, '#ff4d5e', style='opacity:0.3')}{icon('skull', 21, '#ff4d5e', style='opacity:0.3')}</div></div>
-  <div class="tile"><div class="l">{icon('building', 24, '#ff9a2e')} Facilities</div><div class="n">6<span class="lv">Lv.2</span></div>
-     <div class="mini row">{icon('building', 24, '#ff9a2e')}{icon('building', 24, '#ff9a2e')}{icon('building', 24, '#ff9a2e')}{icon('building', 24, '#ff9a2e')}{icon('building', 24, '#ff9a2e')}{icon('building', 24, '#ff9a2e')}</div></div>
+  <div class="tile"><div class="l">{icon('flask', 24, '#56c8ff')} Science</div><div class="n" style="color:var(--sci)">{CN['science_earned_total']}</div>
+     <div class="mini"><div class="mbar"><i style="flex:{sci['kerbin']};background:var(--kerbin)"></i><i style="flex:{sci['mun']};background:var(--mun)"></i><i style="flex:{sci['minmus']};background:var(--minmus)"></i></div></div></div>
+  <div class="tile"><div class="l">{icon('gyro', 24, '#b28cff')} Tech</div><div class="n" style="color:var(--tech)">{n_tech}</div>
+     <div class="mini dots">{'<i></i>' * n_tech}</div></div>
+  <div class="tile"><div class="l">{icon('skull', 24, '#ff4d5e')} Kerbals</div><div class="n" style="color:var(--dead)">{n_dead}</div>
+     <div class="mini row">{dead_dots}</div></div>
+  <div class="tile"><div class="l">{icon('building', 24, '#ff9a2e')} Facilities</div><div class="n">{n_fac}{fac_lv}</div>
+     <div class="mini row">{fac_icons}</div></div>
 </div>
 
 <div class="sec bodies">
   <svg class="traj" viewBox="0 0 768 2" preserveAspectRatio="none"><line x1="0" y1="1" x2="768" y2="1" stroke="#3a4566" stroke-width="2" stroke-dasharray="6 7"/></svg>
   <div class="body"><div class="pl">{planet('kerbin', 156)}</div><div class="badge" style="background:#1d3a66">{icon('orbit', 28, '#bfe3ff')}</div>
-     <div class="nm">Kerbin</div><div class="st">{icon('orbit', 22, '#8e98b6')} <b>#4</b></div></div>
+     <div class="nm">Kerbin</div><div class="st">{icon('orbit', 22, '#8e98b6')} <b>#{kerbin_first_n}</b></div></div>
   <div class="body"><div class="pl">{planet('minmus', 118)}</div><div class="badge" style="background:var(--gold)">{icon('flag', 26, '#3b2a00')}</div>
-     <div class="nm">Minmus</div><div class="st">{icon('star', 22, '#ffcf4a')} <b>#10</b> · Bill</div></div>
+     <div class="nm">Minmus</div><div class="st">{icon('star', 22, '#ffcf4a')} <b>#{minmus_first_n}</b> · {crew_by_n[minmus_first_n]}</div></div>
   <div class="body"><div class="pl">{planet('mun', 132)}</div><div class="badge" style="background:var(--gold)">{icon('flag', 26, '#3b2a00')}</div>
-     <div class="nm">Mun</div><div class="st">{icon('star', 22, '#ffcf4a')} <b>#16</b> · Bob</div></div>
+     <div class="nm">Mun</div><div class="st">{icon('star', 22, '#ffcf4a')} <b>#{mun_first_n}</b> · {crew_by_n[mun_first_n]}</div></div>
   <div class="body"><div class="pl">{planet('duna', 140, dashed=True)}</div>
      <div class="nm" style="color:#ffb08e">Duna</div><div class="st"><span class="next">NEXT</span></div></div>
 </div>
