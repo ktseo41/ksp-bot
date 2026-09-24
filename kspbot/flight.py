@@ -662,3 +662,76 @@ def hop(science=True, heading=90.0, pitch=90.0):
     v.control.throttle = 0.0
     reentry()
     return top
+
+
+# ---------------------------------------------------------------- contract surveys
+
+def _latlon_at(v, t):
+    """Sub-vessel latitude/longitude at future UT t (accounts for the body's rotation)."""
+    body = v.orbit.body
+    p = v.orbit.position_at(t, body.non_rotating_reference_frame)
+    p = sc().transform_position(p, body.non_rotating_reference_frame, body.reference_frame)
+    lat = body.latitude_at_position(p, body.reference_frame)
+    lon = body.longitude_at_position(p, body.reference_frame) - math.degrees(body.rotational_speed) * (t - ut())
+    return lat, lon
+
+
+def _ground_dist(body, lat1, lon1, lat2, lon2):
+    a, b = math.radians(lat1), math.radians(lat2)
+    d = math.radians(lon2 - lon1)
+    c = math.sin(a) * math.sin(b) + math.cos(a) * math.cos(b) * math.cos(d)
+    return body.equatorial_radius * math.acos(max(-1.0, min(1.0, c)))
+
+
+def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0):
+    """Orbital survey contracts: for each waypoint of a matching contract on this body, warp to the closest
+    pass of the ground track and run the matching experiment there (lateral trigger range is up to 15 km)."""
+    v = vessel()
+    body = v.orbit.body
+    wps = [w for w in sc().waypoint_manager.waypoints
+           if w.body == body and w.has_contract and keyword in w.contract.title.lower()]
+    exp_name = {"temperature": "temperatureScan", "pressure": "barometerScan"}.get(keyword)
+    say(f"{len(wps)} {keyword} waypoints on {body.name}: " + ", ".join(f"{w.name} ({w.latitude:.1f}, {w.longitude:.1f})" for w in wps))
+    todo = list(wps)
+    while todo:
+        # scan the predicted ground track for the earliest pass within max_dist of any remaining site
+        t0, best = ut(), None
+        end = t0 + horizon_orbits * v.orbit.period
+        t = t0 + 30
+        while t < end and best is None:
+            lat, lon = _latlon_at(v, t)
+            for w in todo:
+                if _ground_dist(body, lat, lon, w.latitude, w.longitude) < max_dist * 1.5:
+                    best = (t, w)
+                    break
+            t += step
+        if best is None:
+            say(f"no pass within {max_dist:.0f} m of {[w.name for w in todo]} in {horizon_orbits} orbits")
+            return False
+        t, w = best
+        say(f"next: {w.name} around UT {t:.0f} (in {t - ut():.0f} s)")
+        warp_to(t, lead=60)
+        # fly through the pass at 1x, run the experiment at the closest point (or once inside max_dist)
+        last = 1e12
+        while True:
+            f = v.flight(body.reference_frame)
+            d = _ground_dist(body, f.latitude, f.longitude, w.latitude, w.longitude)
+            if d > last and last < max_dist:
+                break
+            if d > last and last >= max_dist and d > max_dist * 3:
+                say(f"missed {w.name}: closest {last:.0f} m")
+                break
+            last = d
+            time.sleep(0.5)
+        if last < max_dist:
+            for e in v.parts.experiments:
+                if e.name == exp_name or (exp_name is None and keyword in e.title.lower()):
+                    if e.has_data:
+                        e.reset()
+                        time.sleep(0.5)
+                    e.run()
+                    say(f"{w.name}: ran {e.title} at {last:.0f} m lateral, alt {f.mean_altitude:.0f} m")
+                    break
+            todo.remove(w)
+        time.sleep(1)
+    return True

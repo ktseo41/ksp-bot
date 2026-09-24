@@ -250,6 +250,7 @@ PHASES = {
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
+    "survey": lambda a: flight.survey(a.kind, a.dist),
 }
 
 
@@ -327,6 +328,9 @@ def main(argv=None):
     p.add_argument("--main-alt", type=float, default=4000)
     p.add_argument("--main-speed", type=float, default=250)
     add("node", PHASES["node"], help="execute the next maneuver node")
+    p = add("survey", PHASES["survey"], help="orbital survey contract: run the experiment over each waypoint")
+    p.add_argument("--kind", default="temperature")
+    p.add_argument("--dist", type=float, default=8000.0)
     p = add("hop", PHASES["hop"], help="suborbital hop: launch, science at apex, chutes")
     p.add_argument("--no-science", action="store_true")
     p.add_argument("--heading", type=float, default=90)
