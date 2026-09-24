@@ -72,6 +72,12 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - **Duna liftoff (first test)**: ascent() to 60 km, circularize → 59×60 km. Used ~1450 m/s; ~1090 left.
 - Duna→Kerbin window 615 days later (warped in the tracking station). Ejection 741 m/s (Hohmann estimate 616) + 2 m/s correction → Kerbin pe 29 km, ~350 m/s left.
 
+- Chute deploy in `reentry` threw an RPC error after the mains staged (a part gone); now tolerated. Rehearsal complete: **Duna landing + return works end to end in the sandbox.**
+- Career: Duna window recomputed with the new method: **UT 5,108,742** (the old estimate said ~4.79M). 130 days to spare → a Minmus science trip first.
+
+## 2026-09-25 — career
+- **Mun Lander 7 (Minmus Poles/Flats/Slopes, Jeb)**, accepted "Science data from space around Minmus". LKO 79×81, transfer 928 + 30 m/s correction, `correct --inc 85` 0.5 m/s → captured 18×19 km at 89°. `science` spent the goo in low orbit for 9.2 (threshold for single-use experiments raised 8 → 15). Landed at Poles (77.1 N), crew report 25 + thermo 40 transmitted. **`eva out` flung Jeb at ~400 m/s onto a Minmus escape path and knocked the empty lander over** (it was upright, pitch 87.6°, during the science just before). Same ML7 layout had worked in the sandbox on Minmus and Duna → intermittent KSP physics blow-up at EVA spawn (KspBot calls the stock spawnEVA). **Reverted to launch** (offered by the game). Rule from now on: no EVA on other bodies' surfaces in the career. Recovered on the pad, restarted KSP (revert + autostrut lesson), relaunched.
+
 ### Next steps (plan)
 1. **Duna rehearsal in the sandbox**: Duna 1 was left in LKO in the sandbox (UT ~487k). `ksp window Duna` → go to the tracking station (`ksp scene tracking_station`), `ksp warp-sc <window − 1 h>`, `ksp fly "Duna 1"` → `transfer Duna --pe 60000` (interplanetary code, UNTESTED) → `soi` → `capture` (lander does the capture; Poodle only ejects) → `land` (land_atmo: deorbit, entry, chutes armed, powered touchdown; UNTESTED) → science + EVA (ML7 layout) → `liftoff` (ascent() in atmosphere; UNTESTED) → return: `transfer Kerbin --pe 30000` at the Duna→Kerbin window → `reentry`. Fix what breaks.
 2. **Duna 1 in the career** at UT ~4.79M: warp at the space center (`warp-sc`), launch ~1 day before the window. Budget from LKO: Poodle 1196 (ejection ~1060), lander 3893 (capture ~650, landing ~200, ascent ~1450, return ~1050).

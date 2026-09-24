@@ -914,7 +914,7 @@ def _antennas(v, extend):
         time.sleep(6)
 
 
-def do_science(transmit=False, min_single=8.0):
+def do_science(transmit=False, min_single=15.0):
     """Run every available experiment that has no data yet; optionally transmit results.
     Single-use experiments (goo, materials bay) only run when the subject still has >= min_single science left,
     so a low-value situation (LKO, orbit before landing) doesn't spend them."""
