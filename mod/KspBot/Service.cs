@@ -280,6 +280,14 @@ namespace KspBot
             HighLogic.LoadScene(GameScenes.MAINMENU);
         }
 
+        /// <summary>Time-warp to UT in any scene (kRPC's warp_to is flight-only; the space center and the
+        /// tracking station have no altitude warp limit). Returns at once; poll Status().ut.</summary>
+        [KRPCProcedure]
+        public static void WarpTo(double ut)
+        {
+            TimeWarp.fetch.WarpTo(ut);
+        }
+
         // ---------------- Space center UI (for screenshots) ----------------
 
         /// <summary>Open a space-center building's screen, like clicking it: e.g. "RnDBuilding",
@@ -291,6 +299,13 @@ namespace KspBot
                     ?? throw new ArgumentException("no building " + typeName + "; have: " +
                         string.Join(", ", UnityEngine.Object.FindObjectsOfType<SpaceCenterBuilding>().Select(x => x.GetType().Name)));
             b.EnterBuilding();
+        }
+
+        /// <summary>Hide or show the game UI (like F2), for clean screenshots.</summary>
+        [KRPCProcedure]
+        public static void HideUi(bool hide)
+        {
+            if (hide) GameEvents.onHideUI.Fire(); else GameEvents.onShowUI.Fire();
         }
 
         /// <summary>Active UI toggles and buttons: "path|kind|label", to find a tab to press with UiPress.</summary>
@@ -346,6 +361,22 @@ namespace KspBot
             Funding.Instance?.AddFunds(-cost, TransactionReasons.CrewRecruited);
             roster.HireApplicant(applicant);
             return Json.Write(new Obj { ["hired"] = applicant.name, ["trait"] = applicant.trait, ["cost"] = cost });
+        }
+
+        /// <summary>SANDBOX ONLY: take a kerbal off whatever unloaded vessel holds it (or clear a stale
+        /// "Assigned" status) and make it available at the astronaut complex.</summary>
+        [KRPCProcedure]
+        public static string SandboxReleaseCrew(string name)
+        {
+            if (HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX) throw new InvalidOperationException("sandbox saves only");
+            if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("from the space center");
+            var pcm = HighLogic.CurrentGame.CrewRoster[name] ?? throw new ArgumentException("no kerbal " + name);
+            var from = "none";
+            foreach (var pv in HighLogic.CurrentGame.flightState.protoVessels)
+                foreach (var pp in pv.protoPartSnapshots)
+                    if (pp.protoModuleCrew.Remove(pcm)) { pp.protoCrewNames.Remove(name); from = pv.vesselName; }
+            pcm.rosterStatus = ProtoCrewMember.RosterStatus.Available;
+            return Json.Write(new Obj { ["kerbal"] = name, ["from"] = from });
         }
 
         // ---------------- EVA (kRPC has none) ----------------
@@ -410,6 +441,15 @@ namespace KspBot
                 }
             }
             return best;
+        }
+
+        /// <summary>Let go of the ladder (like pressing the ladder-release key): the kerbal drops to the ground.</summary>
+        [KRPCProcedure]
+        public static string EvaLetGo()
+        {
+            var k = ActiveKerbal();
+            k.fsm.RunEvent(k.On_ladderLetGo);
+            return k.fsm.currentStateName;
         }
 
         /// <summary>Plant a flag (kerbal must stand on the ground).</summary>

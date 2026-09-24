@@ -194,6 +194,15 @@ def cmd_scene(a):
     print(status())
 
 
+def cmd_warp_any(a):
+    """Warp to UT (or +seconds) from the space center / tracking station, where warp is unlimited."""
+    t = float(a.ut[1:]) + status()["ut"] if a.ut.startswith("+") else float(a.ut)
+    bot().warp_to(t)
+    while status()["ut"] < t - 60:
+        time.sleep(2)
+    print(status())
+
+
 def cmd_fly(a):
     bot().fly_vessel(a.name)
     time.sleep(10)
@@ -347,6 +356,8 @@ def main(argv=None):
     p.add_argument("name")
     p = add("load-save", cmd_load_save, help="switch to another save folder without restarting KSP")
     p.add_argument("name")
+    p = add("warp-sc", cmd_warp_any, help="warp from the space center / tracking station to UT or +seconds")
+    p.add_argument("ut")
     p = add("fly", cmd_fly, help="from the space center: fly (switch to) the named vessel")
     p.add_argument("name")
     p = add("shot", cmd_shot, help="screenshot of the game -> runs/<name>.png")
