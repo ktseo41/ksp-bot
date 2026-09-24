@@ -496,8 +496,40 @@ def return_to_parent(pe_alt=30000):
 
 # ---------------------------------------------------------------- landing / takeoff (airless bodies)
 
-def land(safety=1.3, final_speed=1.5, max_decel=3.0):
-    """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn."""
+def _slope(body, lat, lon, d=150.0):
+    """Steepest terrain slope (deg) from (lat, lon) to points d metres N/S/E/W."""
+    dl = math.degrees(d / body.equatorial_radius)
+    dlo = dl / max(0.2, math.cos(math.radians(lat)))
+    h = body.surface_height(lat, lon)
+    around = [body.surface_height(lat + dl, lon), body.surface_height(lat - dl, lon),
+              body.surface_height(lat, lon + dlo), body.surface_height(lat, lon - dlo)]
+    return max(math.degrees(math.atan(abs(x - h) / d)) for x in around)
+
+
+def find_site(biomes, max_slope=5.0, orbits=8, step=15.0):
+    """Earliest UT when the ground track is over one of `biomes` for ~45 s with gentle terrain (lander start)."""
+    v = vessel()
+    body = v.orbit.body
+    t0 = ut()
+    t = t0 + 120
+    while t < t0 + orbits * v.orbit.period:
+        pts = [_latlon_at(v, t + dt) for dt in (0, 15, 30, 45)]
+        if all(body.biome_at(*p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
+            say(f"site: {body.biome_at(*pts[1])} at {pts[1][0]:.2f}, {pts[1][1]:.2f} in {t - t0:.0f} s")
+            return t
+        t += step
+    return None
+
+
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None):
+    """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
+    biomes: first wait for a pass over one of these biomes with gentle terrain."""
+    if biomes:
+        t = find_site(biomes)
+        if t is None:
+            say(f"no gentle site in {biomes} within 8 orbits")
+            return False
+        warp_to(t, lead=45)
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
@@ -657,7 +689,9 @@ def do_science(transmit=False):
         if e.has_data:
             val = sum(d.science_value for d in e.data)
             out.append((e.title, e.science_subject.title, round(val, 2)))
-            if transmit and e.data and any(d.transmit_value > 0 for d in e.data):
+            # transmit only what can be run again (crew report, thermometer); keep goo etc. for recovery.
+            ec = v.resources.amount("ElectricCharge")
+            if transmit and e.rerunnable and ec > 120 and e.data and any(d.transmit_value > 0 for d in e.data):
                 e.transmit()
     for row in out:
         print(row)

@@ -264,7 +264,10 @@ namespace KspBot
             if (active >= GameVariables.Instance.GetActiveCrewLimit(ac)) throw new InvalidOperationException("crew limit reached");
             var cost = GameVariables.Instance.GetRecruitHireCost(active);
             if (Funding.Instance != null && Funding.Instance.Funds < cost) throw new InvalidOperationException("not enough funds");
-            var applicant = roster.Applicants.FirstOrDefault() ?? throw new InvalidOperationException("no applicants");
+            var applicant = roster.Applicants.FirstOrDefault()
+                            ?? (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX  // sandbox tests strand crews on test craft
+                                ? roster.GetNewKerbal(ProtoCrewMember.KerbalType.Applicant)
+                                : throw new InvalidOperationException("no applicants"));
             Funding.Instance?.AddFunds(-cost, TransactionReasons.CrewRecruited);
             roster.HireApplicant(applicant);
             return Json.Write(new Obj { ["hired"] = applicant.name, ["trait"] = applicant.trait, ["cost"] = cost });

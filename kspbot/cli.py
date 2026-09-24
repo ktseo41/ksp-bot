@@ -274,7 +274,7 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
-    "land": lambda a: flight.land(),
+    "land": lambda a: flight.land(biomes=a.biome),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
@@ -351,7 +351,8 @@ def main(argv=None):
     add("soi", PHASES["soi"], help="warp to the next SOI change")
     p = add("capture", PHASES["capture"], help="burn at periapsis into orbit (circular or --apo)")
     p.add_argument("--apo", type=float)
-    add("land", PHASES["land"], help="powered landing on an airless body")
+    p = add("land", PHASES["land"], help="powered landing on an airless body")
+    p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
