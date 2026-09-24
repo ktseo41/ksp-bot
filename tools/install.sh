@@ -17,8 +17,8 @@ mkdir -p "$K/GameData/KspBot/Plugins" "$K/GameData/KspBot/PluginData"
 rm -f "$K/GameData/KspBot/Plugins/KspBot.dll"
 cp "$ROOT/mod/KspBot/bin/Release/net472/KspBot.dll" "$K/GameData/KspBot/Plugins/"
 cp "$ROOT/tools/krpc-settings.cfg" "$K/GameData/kRPC/PluginData/settings.cfg"
-# All game sounds at 20%.
-sed -i -E 's/^((MASTER|SHIP|AMBIENCE|MUSIC|UI|VOICE)_VOLUME = )[0-9.]+/\10.2/' "$K/settings.cfg"
+# All game sounds muted.
+sed -i -E 's/^((MASTER|SHIP|AMBIENCE|MUSIC|UI|VOICE)_VOLUME = )[0-9.]+/\10/' "$K/settings.cfg"
 if [ $# -ge 1 ]; then printf '%s' "$1" > "$K/GameData/KspBot/PluginData/autoload.txt"; fi
 echo "installed; autoload=$(cat "$K/GameData/KspBot/PluginData/autoload.txt" 2>/dev/null || echo none)"
 (cd /mnt/c && cmd.exe /c start steam://rungameid/220200)

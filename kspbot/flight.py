@@ -467,7 +467,7 @@ def return_to_parent(pe_alt=30000):
 
 # ---------------------------------------------------------------- landing / takeoff (airless bodies)
 
-def land(safety=1.3, final_speed=1.5):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn."""
     v = vessel()
     body = v.orbit.body
@@ -486,10 +486,12 @@ def land(safety=1.3, final_speed=1.5):
         time.sleep(0.05)
     v.control.throttle = 0.0
     v.control.legs = True
-    say("descending")
+    time.sleep(1)
+    feet = -v.bounding_box(v.reference_frame)[0][1]  # CoM to the lowest point (legs) along the vessel axis
+    say(f"descending (feet {feet:.1f} m below CoM)")
     while v.situation.name not in ("landed", "splashed"):
         auto_stage(v)
-        h = fl.surface_altitude
+        h = fl.surface_altitude - feet
         a_max = v.available_thrust / v.mass
         spd = fl.speed
         if spd > 2:
@@ -498,12 +500,15 @@ def land(safety=1.3, final_speed=1.5):
         else:
             ap.reference_frame = v.surface_reference_frame
             ap.target_direction = (1, 0, 0)
-        # desired descent speed: what we can still stop from with margin
-        brake = max(a_max - g, 0.1)
-        want = -max(final_speed, math.sqrt(max(0.0, 2 * brake * (h - 3) / safety)))
+        # descend along a constant-deceleration curve (capped, so high-TWR landers don't brake at the last moment)
+        a_d = min(max(a_max - g, 0.1) / safety, max_decel)
+        curve = math.sqrt(max(0.0, 2 * a_d * (h - 2)))
+        want = -max(final_speed, curve)
         vs = fl.vertical_speed
-        # throttle = hover + proportional on speed error (+ horizontal kill)
-        acc_cmd = g + 1.5 * (want - vs) + 0.5 * fl.horizontal_speed
+        # throttle = hover + curve deceleration (feedforward) + proportional on speed error (+ horizontal kill).
+        # Without the feedforward the speed lagged the curve by a_d/Kp: 15 m/s touchdown at Minmus TWR 28.
+        ff = a_d if curve > final_speed else 0.0
+        acc_cmd = g + ff + 2.0 * (want - vs) + 0.5 * fl.horizontal_speed
         v.control.throttle = max(0.0, min(1.0, acc_cmd / max(a_max, 1e-3)))
         time.sleep(0.03)
     v.control.throttle = 0.0
