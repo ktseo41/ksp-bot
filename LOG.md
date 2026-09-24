@@ -21,6 +21,11 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 
 - **Minmus Lander 1 (final)** after a KSP restart: LKO 79×81 km (3203 m/s), transfer + 35 m/s correction, SOI, 4 m/s correction, captured 15×15.5 km (2031 m/s). Warped until over the Great Flats, then the fixed `land()` set it down upright with all 3 legs grounded (CoM 3.7 m above the feet). Surface science: crew 25, goo 50, thermo 40. Liftoff to a 14×16 km orbit (1511 m/s), return 179 m/s → Kerbin pe 31.9 km, reentry OK (goo/thermo at pod height +0.15 survived; only the jettisoned lander stage burned), splashdown, Bill safe. **First crewed Minmus landing and return.** "Science data from surface of Minmus" done. After recovery: funds 385.3k, sci 171.8, rep 90.
 
+- Researched heavyRocketry + generalConstruction, upgraded the VAB to level 2 (225k).
+- **Mun Lander 1** (3×Kickback / Swivel+4×FL-T400 / Terrier+3×FL-T400, 91 t): the pad torque was ~0, so the pod wheel (5 kN·m, MoI 5.8e6) couldn't have pitched it over. I added a full FL-T200 as ballast on the core's east side (26.5 kN·m). It pitched too fast (60° at 14 s), flipped at q 27 kPa and crashed. **Jebediah killed. DESIGN ERROR (mine), stands.** Lesson: don't fake a pitch-over with an offset torque; it grows as the SRBs burn down and can't be controlled. Get real authority (flightControl: inline reaction wheels, AV-R8 fins).
+- **Sounding 3** (Sounding 2 + Science Jr under the pod, no drogues, no heat shield), vertical to 170 km for science to buy flightControl: on the way down the pod + Science Jr flipped nose-first at 7.8 km (960 m/s), the main chute staged at 2.5 km far too fast, and it crashed. **Bill killed. DESIGN ERROR (mine), stands.** Lesson: anything stacked under the pod changes its reentry aero. Keep a heat shield at the bottom and drogues on every capsule.
+- Process change: new designs that change aero or control authority fly in the sandbox first; the career only flies proven designs.
+
 ### Next steps (plan)
 1. Spend science (171.8): flightControl, generalConstruction (struts, radial decouplers 2), fuelSystems (FL-T800), heavyRocketry (Poodle/Skipper/Kickback). R&D is level 1 (≤100 per node).
 2. Upgrades to consider: Astronaut Complex 2 (EVA reports on other bodies, flags), VAB 2 (255 parts), R&D 2.

@@ -16,6 +16,8 @@
   pod axis, giving 26 kN·m of torque against the Mk1's 5 kN·m wheel. It fell over in 8 s (two crashes, Jeb lost). Put `"rigid": true` and
   `"autostrut": "Root"` on the stack parts. Measure it on the pad before flying: sum of thruster positions × directions
   about the CoM (`thruster.thrust_position/direction(v.reference_frame)`) against `v.available_torque`. (Minmus Lander 1)
+- Don't make an uncontrollable rocket pitch over with a deliberate CoM offset: the torque grows as the SRBs burn down and flipped Mun Lander 1 (Jeb lost). Heavy SRB stacks (90 t, MoI ~6e6) need real authority (inline reaction wheels, AV-R8 fins).
+- Capsule reentry: nothing heavy/draggy stacked under the pod without a heat shield at the very bottom, and always drogues. Pod + Science Jr flipped nose-first and hit the chute window at 960 m/s (Sounding 3, Bill lost).
 - LT-05 legs: attach at tank height −1.05 (just past the FL-T400 bottom) → feet 25 cm below a Terrier bell.
 - Drogues alone do not slow a Mk1 pod below ~110 m/s at 6–9 km (Mk16 test contract window missed).
 
