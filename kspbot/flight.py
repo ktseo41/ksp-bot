@@ -602,6 +602,12 @@ def _slope(body, lat, lon, d=150.0):
     return max(math.degrees(math.atan(abs(x - h) / d)) for x in around)
 
 
+def _biome(body, lat, lon):
+    """Biome at lat/lon (deg). kRPC 0.6's CelestialBody.biome_at passes its arguments straight to KSP's
+    BiomeMap.GetAtt, which takes RADIANS, so give it radians (verified against Vessel.biome)."""
+    return body.biome_at(math.radians(lat), math.radians(lon))
+
+
 def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
     """Earliest UT when the ground track is over one of `biomes` with gentle terrain for +-margin seconds
     (the touchdown point; land() centres its braking burn on it)."""
@@ -612,10 +618,10 @@ def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
     t = t0 + 120
     while t < t0 + orbits * v.orbit.period:
         mid = track(t)
-        if body.biome_at(*mid) in biomes:
+        if _biome(body, *mid) in biomes:
             pts = [track(t - margin), mid, track(t + margin)]
-            if all(body.biome_at(*p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
-                say(f"site: {body.biome_at(*mid)} at {mid[0]:.2f}, {mid[1]:.2f} in {t - t0:.0f} s")
+            if all(_biome(body, *p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
+                say(f"site: {_biome(body, *mid)} at {mid[0]:.2f}, {mid[1]:.2f} in {t - t0:.0f} s")
                 return t
         t += step
     return None
@@ -636,7 +642,7 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0)
     if biomes:
         # the braking burn covers ~hs*burn/2 of ground: start it half a burn before the site
         burn = fl.horizontal_speed / (v.available_thrust / v.mass)
-        start = t - burn / 2
+        start = t - burn / 2 - 10  # measured: touchdowns landed 1.4-1.7 km (~10 s) past the site
         warp_to(start, lead=40)
     ap = v.auto_pilot
     ap.reference_frame = v.surface_velocity_reference_frame
@@ -653,6 +659,13 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0)
         v.control.throttle = min(1.0, max(0.05, fl.horizontal_speed / 50))
         time.sleep(0.05)
     v.control.throttle = 0.0
+    # free fall until shortly before the braking curve is reached: warp through it (engines are off)
+    a_d = min(max(v.available_thrust / v.mass - g, 0.1) / safety, max_decel)
+    h0 = fl.surface_altitude
+    t_fall = math.sqrt(2 * a_d * h0 / (g * g + a_d * g))
+    if t_fall > 60:
+        say(f"free fall from {h0:.0f} m: warping {0.8 * t_fall - 20:.0f} s")
+        warp_to(ut() + 0.8 * t_fall - 20)
     _powered_descent(v, fl, ap, safety, final_speed, max_decel)
 
 
@@ -879,6 +892,14 @@ def do_science(transmit=False, min_single=8.0):
     time.sleep(1.5)
     if transmit:
         _antennas(v, True)
+        # no link (Kerbin below the horizon): warp until it rises, up to ~7 h
+        for _ in range(40):
+            if v.comms.signal_strength > 0.05:
+                break
+            warp_to(ut() + 600)
+            time.sleep(1)
+        else:
+            say("no signal to KSC; data kept on board")
     for e in v.parts.experiments:
         if e.has_data:
             val = sum(d.science_value for d in e.data)
