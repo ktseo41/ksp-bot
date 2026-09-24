@@ -205,6 +205,22 @@ def cmd_fly(a):
     print(status())
 
 
+def cmd_load_save(a):
+    before = status()["save"]
+    bot().load_save(a.name)
+    time.sleep(8)
+    for _ in range(90):
+        try:
+            s = status()
+            if s["save"] == a.name and s["scene"] == "SPACECENTER":
+                print(s)
+                return
+        except Exception:
+            pass
+        time.sleep(2)
+    raise SystemExit(f"save {a.name} did not load (was {before})")
+
+
 def cmd_shot(a):
     print(screenshot(a.name))
 
@@ -328,6 +344,8 @@ def main(argv=None):
     p.add_argument("--crew", nargs="*")
     add("recover", cmd_recover)
     p = add("scene", cmd_scene, help="space_center | tracking_station | editor_vab | flight")
+    p.add_argument("name")
+    p = add("load-save", cmd_load_save, help="switch to another save folder without restarting KSP")
     p.add_argument("name")
     p = add("fly", cmd_fly, help="from the space center: fly (switch to) the named vessel")
     p.add_argument("name")

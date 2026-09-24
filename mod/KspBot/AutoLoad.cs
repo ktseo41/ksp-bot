@@ -10,21 +10,29 @@ namespace KspBot
     public class AutoLoad : MonoBehaviour
     {
         static bool done;
+        /// Save to load on the next main-menu visit (KspBotService.LoadSave: switch saves without restarting KSP).
+        public static string Pending;
 
         void Start()
         {
+            if (Pending != null)
+            {
+                var p = Pending;
+                Pending = null;
+                StartCoroutine(Run(p));
+                return;
+            }
             if (done) return;
             done = true;
-            StartCoroutine(Run());
+            var cfg = KSPUtil.ApplicationRootPath + "GameData/KspBot/PluginData/autoload.txt";
+            if (File.Exists(cfg)) StartCoroutine(Run(File.ReadAllText(cfg).Trim()));
         }
 
-        IEnumerator Run()
+        IEnumerator Run(string spec)
         {
             for (int i = 0; i < 30; i++) yield return null;
-            var cfg = KSPUtil.ApplicationRootPath + "GameData/KspBot/PluginData/autoload.txt";
-            if (!File.Exists(cfg)) yield break;
             // "<save>" or "<save>:sandbox" (new saves only; default is a Normal career)
-            var parts = File.ReadAllText(cfg).Trim().Split(':');
+            var parts = spec.Split(':');
             var name = parts[0];
             var mode = parts.Length > 1 && parts[1] == "sandbox" ? Game.Modes.SANDBOX : Game.Modes.CAREER;
             if (name.Length == 0) yield break;

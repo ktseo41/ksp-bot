@@ -267,6 +267,19 @@ namespace KspBot
             FlightDriver.StartAndFocusVessel("persistent", idx);
         }
 
+        /// <summary>From the space center: save, go to the main menu and load another save folder
+        /// (e.g. career <-> sandbox) without restarting KSP.</summary>
+        [KRPCProcedure]
+        public static void LoadSave(string name)
+        {
+            if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("go to the space center first");
+            if (!System.IO.File.Exists(KSPUtil.ApplicationRootPath + "saves/" + name.Split(':')[0] + "/persistent.sfs"))
+                throw new ArgumentException("no save " + name);
+            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            AutoLoad.Pending = name;
+            HighLogic.LoadScene(GameScenes.MAINMENU);
+        }
+
         // ---------------- Space center UI (for screenshots) ----------------
 
         /// <summary>Open a space-center building's screen, like clicking it: e.g. "RnDBuilding",
