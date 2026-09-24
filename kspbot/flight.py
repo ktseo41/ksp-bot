@@ -602,38 +602,49 @@ def _slope(body, lat, lon, d=150.0):
     return max(math.degrees(math.atan(abs(x - h) / d)) for x in around)
 
 
-def find_site(biomes, max_slope=5.0, orbits=8, step=15.0):
-    """Earliest UT when the ground track is over one of `biomes` for ~45 s with gentle terrain (lander start)."""
+def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
+    """Earliest UT when the ground track is over one of `biomes` with gentle terrain for +-margin seconds
+    (the touchdown point; land() centres its braking burn on it)."""
     v = vessel()
     body = v.orbit.body
+    track = _track(v)
     t0 = ut()
     t = t0 + 120
     while t < t0 + orbits * v.orbit.period:
-        pts = [_latlon_at(v, t + dt) for dt in (0, 15, 30, 45)]
-        if all(body.biome_at(*p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
-            say(f"site: {body.biome_at(*pts[1])} at {pts[1][0]:.2f}, {pts[1][1]:.2f} in {t - t0:.0f} s")
-            return t
+        mid = track(t)
+        if body.biome_at(*mid) in biomes:
+            pts = [track(t - margin), mid, track(t + margin)]
+            if all(body.biome_at(*p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
+                say(f"site: {body.biome_at(*mid)} at {mid[0]:.2f}, {mid[1]:.2f} in {t - t0:.0f} s")
+                return t
         t += step
     return None
 
 
-def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
     biomes: first wait for a pass over one of these biomes with gentle terrain."""
     if biomes:
-        t = find_site(biomes)
+        t = find_site(biomes, max_slope)
         if t is None:
-            say(f"no gentle site in {biomes} within 8 orbits")
+            say(f"no site under {max_slope} deg in {biomes} within 8 orbits")
             return False
-        warp_to(t, lead=45)
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
+    start = None
+    if biomes:
+        # the braking burn covers ~hs*burn/2 of ground: start it half a burn before the site
+        burn = fl.horizontal_speed / (v.available_thrust / v.mass)
+        start = t - burn / 2
+        warp_to(start, lead=40)
     ap = v.auto_pilot
     ap.reference_frame = v.surface_velocity_reference_frame
     ap.target_direction = (0, -1, 0)
     ap.engaged = True
     _wait_pointing(ap)
+    while start and ut() < start:
+        time.sleep(0.05)
     g = body.surface_gravity
     say(f"deorbit: killing horizontal speed ({fl.horizontal_speed:.0f} m/s)")
     v.control.throttle = 1.0
@@ -737,6 +748,7 @@ def liftoff(target_alt=15000, heading=90.0):
     """Take off from an airless body into a low circular orbit (atmosphere: gravity turn above it)."""
     v = vessel()
     body = v.orbit.body
+    _antennas(v, False)
     if body.has_atmosphere:
         alt = max(target_alt, body.atmosphere_depth + 10000)
         if not ascent(alt, heading, turn_start=100, turn_end=alt * 0.5):
@@ -786,6 +798,7 @@ def reentry(main_alt=4000, main_speed=250):
         r = body.equatorial_radius + atmo
         nu = -math.acos(max(-1.0, min(1.0, (p / r - 1) / o.eccentricity)))
         warp_to(o.ut_at_true_anomaly(nu), lead=60)
+    _antennas(v, False)
     # jettison stages until only parachutes remain in the next stage
     while v.control.current_stage > 0:
         nxt = _stage_parts(v, v.control.current_stage - 1)
@@ -832,6 +845,15 @@ def reentry(main_alt=4000, main_speed=250):
 
 # ---------------------------------------------------------------- science
 
+def _antennas(v, extend):
+    """Extend (before transmitting: a stowed Communotron can't) or retract (before atmosphere/liftoff) antennas."""
+    ants = [a for a in v.parts.antennas if a.deployable and a.deployed != extend]
+    for a in ants:
+        a.deployed = extend
+    if ants:
+        time.sleep(6)
+
+
 def do_science(transmit=False, min_single=8.0):
     """Run every available experiment that has no data yet; optionally transmit results.
     Single-use experiments (goo, materials bay) only run when the subject still has >= min_single science left,
@@ -855,6 +877,8 @@ def do_science(transmit=False, min_single=8.0):
         except Exception as ex:
             out.append((e.title, f"error {ex}"))
     time.sleep(1.5)
+    if transmit:
+        _antennas(v, True)
     for e in v.parts.experiments:
         if e.has_data:
             val = sum(d.science_value for d in e.data)
@@ -911,13 +935,63 @@ def _latlon_at(v, t):
 
 
 def _ground_dist(body, lat1, lon1, lat2, lon2):
+    return _ground_dist_r(body.equatorial_radius, lat1, lon1, lat2, lon2)
+
+
+def _ground_dist_r(R, lat1, lon1, lat2, lon2):
     a, b = math.radians(lat1), math.radians(lat2)
     d = math.radians(lon2 - lon1)
     c = math.sin(a) * math.sin(b) + math.cos(a) * math.cos(b) * math.cos(d)
-    return body.equatorial_radius * math.acos(max(-1.0, min(1.0, c)))
+    return R * math.acos(max(-1.0, min(1.0, c)))
 
 
-def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0):
+def _track(v):
+    """Fast ground track for the current orbit (no burns): Kepler in Python, calibrated against kRPC.
+    Returns f(t) -> (lat, lon). Replaces thousands of kRPC calls (the game ran at 1x meanwhile)."""
+    body = v.orbit.body
+    frame = body.non_rotating_reference_frame
+    o = v.orbit
+    a_, e = o.semi_major_axis, o.eccentricity
+    n = 2 * math.pi / o.period
+    t_pe = ut() + o.time_to_periapsis
+    P = _norm(o.position_at(t_pe, frame))
+    r2 = o.position_at(t_pe + o.period / 4, frame)
+    Q = _norm(tuple(x - _dot(r2, P) * p for x, p in zip(r2, P)))
+    w = math.degrees(body.rotational_speed)
+
+    def inertial(t):
+        M = n * (t - t_pe)
+        E = M if e < 0.8 else math.pi
+        for _ in range(30):
+            E -= (E - e * math.sin(E) - M) / (1 - e * math.cos(E))
+        nu = 2 * math.atan2(math.sqrt(1 + e) * math.sin(E / 2), math.sqrt(1 - e) * math.cos(E / 2))
+        r = a_ * (1 - e * math.cos(E))
+        x, y, z = (r * (math.cos(nu) * p + math.sin(nu) * q) for p, q in zip(P, Q))
+        return math.degrees(math.asin(y / r)), math.degrees(math.atan2(z, x))
+
+    # calibrate the longitude convention (sign, offset) on two points from kRPC's own transform
+    t0 = ut() + 60
+    refs = [(t, _latlon_at(v, t)) for t in (t0, t0 + o.period / 3, t0 + o.period * 0.71)]
+    best = None
+    for sgn in (1, -1):
+        c = refs[0][1][1] - (sgn * inertial(refs[0][0])[1] - w * (refs[0][0] - t0))
+        err = 0.0
+        for t, (lat, lon) in refs:
+            glon = sgn * inertial(t)[1] - w * (t - t0) + c
+            err += abs((glon - lon + 180) % 360 - 180) + abs(inertial(t)[0] - lat)
+        if best is None or err < best[0]:
+            best = (err, sgn, c)
+    err, sgn, c = best
+    if err > 1.0:
+        say(f"WARNING: fast ground track off by {err:.2f} deg on the calibration points")
+
+    def f(t):
+        lat, ilon = inertial(t)
+        return lat, (sgn * ilon - w * (t - t0) + c + 180) % 360 - 180
+    return f
+
+
+def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=5.0):
     """Orbital survey contracts: for each waypoint of a matching contract on this body, warp to the closest
     pass of the ground track and run the matching experiment there (lateral trigger range is up to 15 km)."""
     v = vessel()
@@ -930,46 +1004,43 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0)
         return False
     exp_name = {"temperature": "temperatureScan", "pressure": "barometerScan", "observational": "crewReport"}.get(keyword)
     say(f"{len(wps)} {keyword} waypoints on {body.name}: " + ", ".join(f"{w.name} ({w.latitude:.1f}, {w.longitude:.1f})" for w in wps))
-    todo = list(wps)
+    R = body.equatorial_radius
+    todo = [(w, w.name, w.latitude, w.longitude) for w in wps]
+    track = _track(v)
     while todo:
-        # scan the predicted ground track for the earliest pass within max_dist of any remaining site
-        t0, best = ut(), None
+        # earliest pass (local minimum of the ground distance) within max_dist of any remaining site
+        t0 = ut()
         end = t0 + horizon_orbits * v.orbit.period
+        best = None
+        prev = {}
         t = t0 + 30
         while t < end and best is None:
-            lat, lon = _latlon_at(v, t)
-            for w in todo:
-                if _ground_dist(body, lat, lon, w.latitude, w.longitude) < max_dist * 1.5:
-                    best = (t, w)
+            lat, lon = track(t)
+            for site in todo:
+                d = _ground_dist_r(R, lat, lon, site[2], site[3])
+                if site[1] in prev and prev[site[1]][1] < max_dist and d > prev[site[1]][1]:
+                    best = (prev[site[1]][0], site, prev[site[1]][1])
                     break
+                prev[site[1]] = (t, d)
             t += step
         if best is None:
-            say(f"no pass within {max_dist:.0f} m of {[w.name for w in todo]} in {horizon_orbits} orbits")
+            say(f"no pass within {max_dist:.0f} m of {[s_[1] for s_ in todo]} in {horizon_orbits} orbits")
             return False
-        t, w = best
-        say(f"next: {w.name} around UT {t:.0f} (in {t - ut():.0f} s)")
-        warp_to(t, lead=60)
-        # fly through the pass at 1x, run the experiment at the closest point (or once inside max_dist)
-        last = 1e12
-        while True:
-            f = v.flight(body.reference_frame)
-            d = _ground_dist(body, f.latitude, f.longitude, w.latitude, w.longitude)
-            if d > last and last < max_dist:
+        t, site, d = best
+        say(f"next: {site[1]} at UT {t:.0f} (in {t - ut():.0f} s), predicted {d:.0f} m")
+        warp_to(t, lead=15)
+        while ut() < t - 0.3:
+            time.sleep(0.1)
+        f = v.flight(body.reference_frame)
+        d = _ground_dist_r(R, f.latitude, f.longitude, site[2], site[3])
+        for e in v.parts.experiments:
+            if e.name == exp_name or (exp_name is None and keyword in e.title.lower()):
+                if e.has_data:
+                    e.reset()
+                    time.sleep(0.5)
+                e.run()
+                say(f"{site[1]}: ran {e.title} at {d:.0f} m lateral, alt {f.mean_altitude:.0f} m")
                 break
-            if d > last and last >= max_dist and d > max_dist * 3:
-                say(f"missed {w.name}: closest {last:.0f} m")
-                break
-            last = d
-            time.sleep(0.5)
-        if last < max_dist:
-            for e in v.parts.experiments:
-                if e.name == exp_name or (exp_name is None and keyword in e.title.lower()):
-                    if e.has_data:
-                        e.reset()
-                        time.sleep(0.5)
-                    e.run()
-                    say(f"{w.name}: ran {e.title} at {last:.0f} m lateral, alt {f.mean_altitude:.0f} m")
-                    break
-            todo.remove(w)
+        todo.remove(site)
         time.sleep(1)
     return True

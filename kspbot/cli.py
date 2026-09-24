@@ -288,7 +288,7 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
-    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome)),
+    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
@@ -371,6 +371,7 @@ def main(argv=None):
     p.add_argument("--apo", type=float)
     p = add("land", PHASES["land"], help="powered landing (airless), or entry + chutes + powered touchdown (atmosphere)")
     p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
+    p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
