@@ -274,7 +274,7 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
-    "land": lambda a: flight.land(biomes=a.biome),
+    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
@@ -341,17 +341,19 @@ def main(argv=None):
     p.add_argument("--at", default="apoapsis", choices=["apoapsis", "periapsis"])
     p = add("periapsis", PHASES["periapsis"], help="burn at apoapsis to set periapsis --alt")
     p.add_argument("--alt", type=float, required=True)
-    p = add("transfer", PHASES["transfer"], help="Hohmann transfer to a moon, tuned for periapsis --pe")
+    p = add("transfer", PHASES["transfer"], help="Hohmann transfer to a moon or (at the window) a planet, tuned for periapsis --pe")
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
     p = add("correct", PHASES["correct"], help="mid-course correction for periapsis --pe")
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
     p.add_argument("--inc", type=float, help="minimum arrival inclination (deg)")
+    p = add("window", lambda a: flight.planet_window(a.body), help="next Hohmann window to another planet")
+    p.add_argument("body")
     add("soi", PHASES["soi"], help="warp to the next SOI change")
     p = add("capture", PHASES["capture"], help="burn at periapsis into orbit (circular or --apo)")
     p.add_argument("--apo", type=float)
-    p = add("land", PHASES["land"], help="powered landing on an airless body")
+    p = add("land", PHASES["land"], help="powered landing (airless), or entry + chutes + powered touchdown (atmosphere)")
     p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)

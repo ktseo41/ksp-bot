@@ -307,14 +307,42 @@ def _phase_angle(v, target, t=None):
     return ang % (2 * math.pi)
 
 
+def _ancestors(body):
+    """Names of the bodies body orbits (parent, grandparent, ...)."""
+    out = []
+    while True:
+        o = body.orbit
+        if o is None:
+            return out
+        body = o.body
+        out.append(body.name)
+
+
 def _encounter(orbit, body):
-    """(periapsis altitude at body, orbit patch) if the orbit is in / enters body's SOI, else None."""
-    if orbit.body.name == body.name:
-        return orbit.periapsis_altitude, orbit
+    """(periapsis altitude at body, orbit patch) if the orbit is in / enters body's SOI, else None.
+    Escapes to a parent body are followed (LKO -> Sun -> Duna); entering any other body first ends the search."""
     # only the FIRST SOI entered counts: a Minmus "encounter" after a Mun flyby sent Mun Lander 3 into Mun orbit
-    o = orbit.next_orbit
-    if o is not None and o.body.name == body.name:
-        return o.periapsis_altitude, o
+    o = orbit
+    for _ in range(4):
+        if o.body.name == body.name:
+            return o.periapsis_altitude, o
+        nxt = o.next_orbit
+        if nxt is None or (nxt.body.name != body.name and nxt.body.name not in _ancestors(o.body)):
+            return None
+        o = nxt
+    return None
+
+
+def _patch_around(orbit, parent_name):
+    """The first patch of this trajectory that orbits parent_name, following escapes only."""
+    o = orbit
+    for _ in range(4):
+        if o.body.name == parent_name:
+            return o
+        nxt = o.next_orbit
+        if nxt is None or nxt.body.name not in _ancestors(o.body):
+            return None
+        o = nxt
     return None
 
 
@@ -333,12 +361,16 @@ def _node_cost(node, target, pe_alt, min_inc=None):
     enc = _encounter(node.orbit, target)
     if enc:
         return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc)
-    ca = node.orbit.next_closest_approach(target.orbit).distance
-    other = node.orbit.next_orbit
-    if other is not None and other.body.name != node.orbit.body.name:
-        # another moon's SOI comes first (a Mun graze on the way to Minmus): push the path out of it
-        return 2000.0 + (other.body.sphere_of_influence - other.periapsis) / 1000.0 + ca / 1000.0
-    return 1000.0 + ca / 1000.0
+    o = _patch_around(node.orbit, target.orbit.body.name)
+    if o is None:
+        return 1e9
+    ca = o.next_closest_approach(target.orbit).distance
+    miss = 1000.0 + target.sphere_of_influence / 1000.0  # any encounter must beat any miss
+    other = o.next_orbit
+    if other is not None and other.body.name != o.body.name and other.body.name not in _ancestors(o.body):
+        # another body's SOI comes first (a Mun graze on the way to Minmus): push the path out of it
+        return 2 * miss + (other.body.sphere_of_influence - other.periapsis) / 1000.0 + ca / 1000.0
+    return miss + ca / 1000.0
 
 
 def tune_node(node, cost, steps=(("prograde", 5.0), ("normal", 5.0), ("radial", 5.0), ("ut", 30.0)),
@@ -370,6 +402,8 @@ def transfer_to(target_name, pe_alt):
     tuned so the moon periapsis is ~pe_alt. Then use capture()."""
     v = vessel()
     target = sc().bodies[target_name]
+    if target.orbit.body.name != v.orbit.body.name:
+        return transfer_planet(target_name, pe_alt)
     mu = v.orbit.body.gravitational_parameter
     r1 = v.orbit.semi_major_axis
     r2 = target.orbit.semi_major_axis
@@ -395,6 +429,68 @@ def transfer_to(target_name, pe_alt):
     enc = _encounter(v.orbit, target)
     if not enc or abs(enc[0] - pe_alt) > 3000:
         return correct_course(target_name, pe_alt)
+    return True
+
+
+def planet_window(target_name, origin=None):
+    """UT of the next Hohmann window from origin (default: the planet we orbit) to another planet."""
+    target = sc().bodies[target_name]
+    if origin is None:
+        try:
+            origin = vessel().orbit.body
+        except Exception:  # space center: no active vessel
+            origin = sc().bodies["Kerbin"]
+    home = origin
+    sun = home.orbit.body
+    mu = sun.gravitational_parameter
+    r1, r2 = home.orbit.semi_major_axis, target.orbit.semi_major_axis
+    t_trans = math.pi * math.sqrt(((r1 + r2) / 2) ** 3 / mu)
+    n1, n2 = math.sqrt(mu / r1 ** 3), math.sqrt(mu / r2 ** 3)
+    need = (math.pi - n2 * t_trans) % (2 * math.pi)
+    frame = sun.non_rotating_reference_frame
+    ph, pt = home.position(frame), target.position(frame)
+    h = _norm(_cross(ph, home.velocity(frame)))
+    phase = math.atan2(_dot(h, _cross(ph, pt)), _dot(ph, pt)) % (2 * math.pi)
+    # the phase changes at n2 - n1
+    wait = ((need - phase) % (2 * math.pi)) / (n2 - n1) if n2 > n1 else ((phase - need) % (2 * math.pi)) / (n1 - n2)
+    say(f"{home.name}->{target_name}: phase {math.degrees(phase):.1f} deg, need {math.degrees(need):.1f}, "
+        f"window in {wait / 21600:.1f} days (UT {ut() + wait:.0f}), flight {t_trans / 21600:.0f} days")
+    return ut() + wait
+
+
+def transfer_planet(target_name, pe_alt, samples=48):
+    """From a circular parking orbit, at the Hohmann window, burn to another planet of the same star:
+    sample the ejection point around one parking orbit, keep the closest pass, tune for periapsis pe_alt."""
+    v = vessel()
+    target = sc().bodies[target_name]
+    home = v.orbit.body
+    t_win = planet_window(target_name)
+    P = v.orbit.period
+    if t_win - ut() > P:
+        warp_to(t_win - P / 2)
+    mu_s = home.orbit.body.gravitational_parameter
+    r1, r2 = home.orbit.semi_major_axis, target.orbit.semi_major_axis
+    v_inf = abs(math.sqrt(mu_s / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1))
+    mu, r0 = home.gravitational_parameter, v.orbit.semi_major_axis
+    dv = math.sqrt(v_inf ** 2 + 2 * mu / r0) - math.sqrt(mu / r0)
+    t0 = ut() + 300
+    node = v.control.add_node(t0, dv, 0, 0)
+    cost = lambda n: _node_cost(n, target, pe_alt)
+    best = None
+    for i in range(samples):
+        node.ut = t0 + i * P / samples
+        c = cost(node)
+        if best is None or c < best[0]:
+            best = (c, node.ut)
+    node.ut = best[1]
+    say(f"ejection {dv:.0f} m/s (v_inf {v_inf:.0f}), best seed cost {best[0]:.0f} at +{best[1] - ut():.0f}s; tuning")
+    c = tune_node(node, cost, steps=(("prograde", 10.0), ("ut", 30.0), ("normal", 10.0), ("radial", 5.0)))
+    enc = _encounter(node.orbit, target)
+    say(f"cost {c:.1f}, encounter {enc[0] if enc else None}, dv {node.delta_v:.0f}")
+    if not enc and c > 1000.0 + target.sphere_of_influence / 1000.0 + 5e5:  # >500,000 km off: don't burn
+        say("no usable ejection found; node left for inspection")
+        return False
+    execute_node(node)
     return True
 
 
@@ -546,6 +642,13 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None):
         v.control.throttle = min(1.0, max(0.05, fl.horizontal_speed / 50))
         time.sleep(0.05)
     v.control.throttle = 0.0
+    _powered_descent(v, fl, ap, safety, final_speed, max_decel)
+
+
+def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
+    """Throttled suicide burn down to touchdown, holding surface retrograde (drag and chutes only help)."""
+    body = v.orbit.body
+    g = body.surface_gravity
     v.control.legs = True
     time.sleep(1)
     feet = -v.bounding_box(v.reference_frame)[0][1]  # CoM to the lowest point (legs) along the vessel axis
@@ -578,9 +681,68 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None):
     say(f"landed on {body.name} at {v.flight().latitude:.2f}, {v.flight().longitude:.2f}")
 
 
-def liftoff(target_alt=15000, heading=90.0):
-    """Take off from an airless body into a low circular orbit."""
+def land_atmo(pe_alt=5000, burn_alt=12000):
+    """Land on a body with a thin atmosphere (Duna) from a low orbit: deorbit burn to periapsis pe_alt,
+    hold surface retrograde through entry, arm every parachute (they open when safe), and fly the powered
+    descent below burn_alt."""
     v = vessel()
+    body = v.orbit.body
+    fl = v.flight(body.reference_frame)
+    ap = v.auto_pilot
+    if v.orbit.periapsis_altitude > body.atmosphere_depth:
+        _deorbit_now(v, pe_alt)
+    atmo = body.atmosphere_depth
+    if fl.mean_altitude > atmo:
+        o = v.orbit
+        p = o.semi_major_axis * (1 - o.eccentricity ** 2)
+        nu = -math.acos(max(-1.0, min(1.0, (p / (body.equatorial_radius + atmo) - 1) / o.eccentricity)))
+        warp_to(o.ut_at_true_anomaly(nu), lead=30)
+    ap.reference_frame = v.surface_velocity_reference_frame
+    ap.target_direction = (0, -1, 0)
+    ap.engaged = True
+    say(f"entry: holding retrograde, {fl.speed:.0f} m/s at {fl.mean_altitude:.0f} m")
+    armed = False
+    while fl.surface_altitude > burn_alt and v.situation.name not in ("landed", "splashed"):
+        if not armed and fl.mean_altitude < atmo * 0.6:
+            for c in v.parts.parachutes:
+                if not c.deployed:
+                    c.arm()
+            armed = True
+            say(f"chutes armed at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
+        time.sleep(0.2)
+    if not armed:
+        for c in v.parts.parachutes:
+            if not c.deployed:
+                c.arm()
+    say(f"powered descent from {fl.surface_altitude:.0f} m AGL at {fl.speed:.0f} m/s")
+    _powered_descent(v, fl, ap)
+
+
+def _deorbit_now(v, pe_alt):
+    """Retrograde burn right now until the periapsis is at pe_alt."""
+    ap = v.auto_pilot
+    ap.reference_frame = v.orbital_reference_frame
+    ap.target_direction = (0, -1, 0)
+    ap.engaged = True
+    _wait_pointing(ap)
+    say(f"deorbit to pe {pe_alt:.0f} m")
+    while v.orbit.periapsis_altitude > pe_alt:
+        err = v.orbit.periapsis_altitude - pe_alt
+        v.control.throttle = min(1.0, max(0.05, err / 20000))
+        time.sleep(0.05)
+    v.control.throttle = 0.0
+
+
+def liftoff(target_alt=15000, heading=90.0):
+    """Take off from an airless body into a low circular orbit (atmosphere: gravity turn above it)."""
+    v = vessel()
+    body = v.orbit.body
+    if body.has_atmosphere:
+        alt = max(target_alt, body.atmosphere_depth + 10000)
+        if not ascent(alt, heading, turn_start=100, turn_end=alt * 0.5):
+            return False
+        v.control.legs = False
+        return circularize()
     fl = v.flight(v.orbit.body.reference_frame)
     v.control.sas = False
     ap = v.auto_pilot
@@ -670,8 +832,10 @@ def reentry(main_alt=4000, main_speed=250):
 
 # ---------------------------------------------------------------- science
 
-def do_science(transmit=False):
-    """Run every available experiment that has no data yet; optionally transmit results."""
+def do_science(transmit=False, min_single=8.0):
+    """Run every available experiment that has no data yet; optionally transmit results.
+    Single-use experiments (goo, materials bay) only run when the subject still has >= min_single science left,
+    so a low-value situation (LKO, orbit before landing) doesn't spend them."""
     v = vessel()
     out = []
     for e in v.parts.experiments:
@@ -680,6 +844,12 @@ def do_science(transmit=False):
             time.sleep(0.3)
         if e.inoperable or e.has_data or not e.available:
             continue
+        if not e.rerunnable:
+            sub = e.science_subject
+            left = sub.science_cap - sub.science
+            if left < min_single:
+                out.append((e.title, sub.title, f"kept (only {left:.1f} left)"))
+                continue
         try:
             e.run()
         except Exception as ex:
@@ -747,6 +917,39 @@ def _ground_dist(body, lat1, lon1, lat2, lon2):
     return body.equatorial_radius * math.acos(max(-1.0, min(1.0, c)))
 
 
+class _Site:
+    def __init__(self, name, lat, lon):
+        self.name, self.latitude, self.longitude = name, lat, lon
+
+
+def _saved_survey_sites(body, keyword):
+    """Waypoints of an active survey contract accepted mid-flight: KSP only registers them on the next scene
+    load, but the save file already has their coordinates. Save the game (no load) and read them from it."""
+    import re
+    from .core import KSP_DIR, status
+    sc().save("survey-coords")
+    time.sleep(1)
+    text = open(f"{KSP_DIR}/saves/{status()['save']}/survey-coords.sfs", encoding="utf-8").read()
+    sites = []
+    for c in text.split("CONTRACT\n")[1:]:
+        head = c.split("PARAM")[0]
+        if "state = Active" not in head or f"dataName = {keyword}" not in head:
+            continue
+        if f"targetBody = {_FG_INDEX[body.name]}\n" not in head:
+            continue
+        for prm in c.split("PARAM")[1:]:
+            if "SurveyWaypointParameter" in prm and "state = Incomplete" in prm:
+                lat = float(re.search(r"wpLatitude = (\S+)", prm).group(1))
+                lon = float(re.search(r"wpLongitude = (\S+)", prm).group(1))
+                sites.append(_Site(f"site {lat:.1f},{lon:.1f}", lat, lon))
+    return sites
+
+
+# FlightGlobals body index (stock), as used by contracts in the save file
+_FG_INDEX = {"Sun": 0, "Kerbin": 1, "Mun": 2, "Minmus": 3, "Moho": 4, "Eve": 5, "Duna": 6, "Ike": 7, "Jool": 8,
+             "Laythe": 9, "Vall": 10, "Bop": 11, "Tylo": 12, "Gilly": 13, "Pol": 14, "Dres": 15, "Eeloo": 16}
+
+
 def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0):
     """Orbital survey contracts: for each waypoint of a matching contract on this body, warp to the closest
     pass of the ground track and run the matching experiment there (lateral trigger range is up to 15 km)."""
@@ -754,7 +957,9 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0)
     body = v.orbit.body
     wps = [w for w in sc().waypoint_manager.waypoints
            if w.body == body and w.has_contract and keyword in w.contract.title.lower()]
-    exp_name = {"temperature": "temperatureScan", "pressure": "barometerScan"}.get(keyword)
+    if not wps:
+        wps = _saved_survey_sites(body, keyword)
+    exp_name = {"temperature": "temperatureScan", "pressure": "barometerScan", "observational": "crewReport"}.get(keyword)
     say(f"{len(wps)} {keyword} waypoints on {body.name}: " + ", ".join(f"{w.name} ({w.latitude:.1f}, {w.longitude:.1f})" for w in wps))
     todo = list(wps)
     while todo:
