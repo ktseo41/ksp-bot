@@ -79,7 +79,7 @@ for n, slug, r, dst, fun, crew in LAUNCHES:
     style = f'background:rgba({TINT[r]},{ALPHA[r]});border-color:rgba({TINT[r]},.55)'
     dhtml = f'{planet(dst, 28)}{BODY[dst]}'
     fb = ''
-    det = (f'<span class="fb">{icon("star", 18, "#2b2000")}FIRST</span>' if first else '') + ''.join(DETAIL[n])
+    det = (f'<span class="fb">{icon("star", 18, "#2b2000")}FIRST</span>' if first else '') + ''.join(DETAIL.get(n) or [mono(STAT[n]), kb(CREW[n])])
     cards.append(f'''<div class="lc{" first" if first else ""}" style="{style}">
 <div class="th"><img src="crafts/{slug}.jpg"></div>
 <div class="bd"><div class="top"><div class="num"><span>#</span>{n}</div><div class="res {cls}">{icon(ic, 26)}</div></div>

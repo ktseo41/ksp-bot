@@ -1,6 +1,6 @@
 {
  "_source": "LOG.md (career journal), career save persistent.sfs, flight recorder. Game: KSP 1.12.5 career 'kspbot', Normal difficulty, all flying by Claude through kRPC + own KspBot mod, no autopilot mods. One real day: 2026-09-24.",
- "career_now": {"funds": 848942, "science": 5.5, "science_earned_total": 750.5, "reputation": 181,
+ "career_now": {"funds": 913142, "science": 246.8, "science_earned_total": 987.8, "reputation": 188,
    "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 2, "AstronautComplex": 2, "R&D": 2},
    "funds_start": 25000, "funds_peak": 1299942,
    "funds_spent_on_facilities": "MC2 75k, TS2 + Pad2, VAB2 225k, AC2, R&D2 451k",
@@ -30,7 +30,8 @@
    "First crewed Mun landing and return (Mun Lander 3, Bob)",
    "Minmus temperature survey contract (3 sites)",
    "Two Minmus observational survey contracts (8 sites)",
-   "Minmus biome tour: Midlands, Greater Flats, Lesser Flats, Highlands (+ Great Flats, Lowlands earlier)"
+   "Minmus biome tour: Midlands, Greater Flats, Lesser Flats, Highlands (+ Great Flats, Lowlands earlier)",
+   "Every Minmus surface biome visited (Poles, Flats, Slopes on Mun Lander 7)"
  ],
  "career_launches": [
   {"n":1,"craft":"Hopper 1","slug":"hopper-1","dest":"kerbin","stat":"16 km","crew":"","goal":"first hop, science","result":"success","note":"16 km hop, first science; funds 25k→110k"},
@@ -52,7 +53,9 @@
   {"n":17,"craft":"Mun Lander 3","slug":"mun-lander-3","dest":"minmus","stat":"","crew":"","diverted_to":"mun","goal":"Minmus survey","result":"reverted","note":"navigation bug: aimed at Minmus, got captured by the Mun"},
   {"n":18,"craft":"Mun Lander 3","slug":"mun-lander-3","dest":"minmus","stat":"3 sites","crew":"Jeb","goal":"Minmus survey","result":"success","note":"temperature survey contract + Minmus landing (Jeb)"},
   {"n":19,"craft":"Mun Lander 5","slug":"mun-lander-5","dest":"minmus","stat":"1400 m/s","crew":"Jeb","goal":"Minmus biome tour","result":"reverted","note":"EVA on Minmus: lander broke apart as Jeb stepped out, Jeb flung at 1400 m/s"},
-  {"n":20,"craft":"Mun Lander 6","slug":"mun-lander-6","dest":"minmus","stat":"4 biomes","crew":"Jeb","goal":"Minmus surveys + biome tour","result":"success","note":"2 survey contracts, 4 new biomes, 1.28M funds; Jeb safe"}
+  {"n":20,"craft":"Mun Lander 6","slug":"mun-lander-6","dest":"minmus","stat":"4 biomes","crew":"Jeb","goal":"Minmus surveys + biome tour","result":"success","note":"2 survey contracts, 4 new biomes, 1.28M funds; Jeb safe"},
+  {"n":21,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"400 m/s","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes","result":"reverted","note":"landed at Minmus Poles; EVA flung Jeb off at 400 m/s onto an escape path and tipped the lander (the ML7 layout had worked in the sandbox)"},
+  {"n":22,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"all biomes","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes, no landed EVA","result":"success","note":"polar orbit; landed at Poles, Flats and Slopes, so every Minmus surface biome is now visited; orbital EVA report; science 5.5 -> 247; Jeb safe"}
  ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
