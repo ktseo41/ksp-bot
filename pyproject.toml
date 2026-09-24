@@ -1,0 +1,16 @@
+[project]
+name = "kspbot"
+version = "0.1.0"
+description = "Drive a KSP1 career from an LLM session via kRPC + the KspBot helper mod"
+requires-python = ">=3.12"
+dependencies = [
+    "krpc==0.6.0",
+    "pillow>=12.3.0",
+]
+
+[project.scripts]
+ksp = "kspbot.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

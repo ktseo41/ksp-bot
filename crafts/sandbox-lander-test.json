@@ -1,0 +1,61 @@
+{
+ "name": "Sandbox Lander Test",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "mk1pod.v2"
+  },
+  {
+   "id": "chute",
+   "part": "parachuteSingle",
+   "parent": "pod",
+   "node": "top",
+   "stage": 4
+  },
+  {
+   "id": "shield",
+   "part": "HeatShield1",
+   "parent": "pod",
+   "node": "bottom"
+  },
+  {
+   "id": "dec1",
+   "part": "Decoupler.1",
+   "parent": "shield",
+   "node": "bottom",
+   "stage": 3
+  },
+  {
+   "id": "utank1",
+   "part": "fuelTank",
+   "parent": "dec1",
+   "node": "bottom"
+  },
+  {
+   "id": "utank2",
+   "part": "fuelTank",
+   "parent": "utank1",
+   "node": "bottom"
+  },
+  {
+   "id": "utank3",
+   "part": "fuelTank",
+   "parent": "utank2",
+   "node": "bottom"
+  },
+  {
+   "id": "legs",
+   "part": "landingLeg1",
+   "parent": "utank3",
+   "symmetry": 3,
+   "height": -0.7
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "utank3",
+   "node": "bottom",
+   "stage": 2
+  }
+ ]
+}
