@@ -311,13 +311,10 @@ def _encounter(orbit, body):
     """(periapsis altitude at body, orbit patch) if the orbit is in / enters body's SOI, else None."""
     if orbit.body.name == body.name:
         return orbit.periapsis_altitude, orbit
-    o = orbit
-    for _ in range(3):
-        o = o.next_orbit
-        if o is None:
-            return None
-        if o.body.name == body.name:
-            return o.periapsis_altitude, o
+    # only the FIRST SOI entered counts: a Minmus "encounter" after a Mun flyby sent Mun Lander 3 into Mun orbit
+    o = orbit.next_orbit
+    if o is not None and o.body.name == body.name:
+        return o.periapsis_altitude, o
     return None
 
 
@@ -398,6 +395,10 @@ def correct_course(target_name, pe_alt):
               steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
     enc = _encounter(node.orbit, target)
     say(f"correction {node.delta_v:.1f} m/s -> pe {enc[0] if enc else None}")
+    if enc is None and v.orbit.body.name != target.name:
+        node.remove()
+        say("no encounter reachable with a small correction; not burning")
+        return False
     if node.delta_v < 0.3:
         node.remove()
         return enc is not None
