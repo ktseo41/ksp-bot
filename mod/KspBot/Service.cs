@@ -252,6 +252,21 @@ namespace KspBot
             return Json.Write(new Obj { ["id"] = id, ["level"] = fac.FacilityLevel + 1, ["funds"] = Funding.Instance.Funds });
         }
 
+        // ---------------- Vessels ----------------
+
+        /// <summary>From the space center / tracking station: save and switch to flying the named vessel
+        /// (like "Fly" in the tracking station). Also re-registers contract waypoints on the way in.</summary>
+        [KRPCProcedure]
+        public static void FlyVessel(string name)
+        {
+            if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("already in flight; go to the space center first");
+            var pvs = HighLogic.CurrentGame.flightState.protoVessels;
+            var idx = pvs.FindIndex(pv => pv.vesselName == name);
+            if (idx < 0) throw new ArgumentException("no vessel named " + name);
+            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            FlightDriver.StartAndFocusVessel("persistent", idx);
+        }
+
         // ---------------- Crew ----------------
 
         /// <summary>Hire an applicant from the astronaut complex, paying the hire cost.</summary>

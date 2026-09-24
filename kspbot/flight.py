@@ -917,39 +917,6 @@ def _ground_dist(body, lat1, lon1, lat2, lon2):
     return body.equatorial_radius * math.acos(max(-1.0, min(1.0, c)))
 
 
-class _Site:
-    def __init__(self, name, lat, lon):
-        self.name, self.latitude, self.longitude = name, lat, lon
-
-
-def _saved_survey_sites(body, keyword):
-    """Waypoints of an active survey contract accepted mid-flight: KSP only registers them on the next scene
-    load, but the save file already has their coordinates. Save the game (no load) and read them from it."""
-    import re
-    from .core import KSP_DIR, status
-    sc().save("survey-coords")
-    time.sleep(1)
-    text = open(f"{KSP_DIR}/saves/{status()['save']}/survey-coords.sfs", encoding="utf-8").read()
-    sites = []
-    for c in text.split("CONTRACT\n")[1:]:
-        head = c.split("PARAM")[0]
-        if "state = Active" not in head or f"dataName = {keyword}" not in head:
-            continue
-        if f"targetBody = {_FG_INDEX[body.name]}\n" not in head:
-            continue
-        for prm in c.split("PARAM")[1:]:
-            if "SurveyWaypointParameter" in prm and "state = Incomplete" in prm:
-                lat = float(re.search(r"wpLatitude = (\S+)", prm).group(1))
-                lon = float(re.search(r"wpLongitude = (\S+)", prm).group(1))
-                sites.append(_Site(f"site {lat:.1f},{lon:.1f}", lat, lon))
-    return sites
-
-
-# FlightGlobals body index (stock), as used by contracts in the save file
-_FG_INDEX = {"Sun": 0, "Kerbin": 1, "Mun": 2, "Minmus": 3, "Moho": 4, "Eve": 5, "Duna": 6, "Ike": 7, "Jool": 8,
-             "Laythe": 9, "Vall": 10, "Bop": 11, "Tylo": 12, "Gilly": 13, "Pol": 14, "Dres": 15, "Eeloo": 16}
-
-
 def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0):
     """Orbital survey contracts: for each waypoint of a matching contract on this body, warp to the closest
     pass of the ground track and run the matching experiment there (lateral trigger range is up to 15 km)."""
@@ -958,7 +925,9 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=20.0)
     wps = [w for w in sc().waypoint_manager.waypoints
            if w.body == body and w.has_contract and keyword in w.contract.title.lower()]
     if not wps:
-        wps = _saved_survey_sites(body, keyword)
+        # contracts accepted mid-flight only register their waypoints on the next scene load
+        say(f"no registered {keyword} waypoints on {body.name}: go to the space center and `ksp fly` the vessel")
+        return False
     exp_name = {"temperature": "temperatureScan", "pressure": "barometerScan", "observational": "crewReport"}.get(keyword)
     say(f"{len(wps)} {keyword} waypoints on {body.name}: " + ", ".join(f"{w.name} ({w.latitude:.1f}, {w.longitude:.1f})" for w in wps))
     todo = list(wps)

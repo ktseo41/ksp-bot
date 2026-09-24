@@ -186,8 +186,22 @@ def cmd_scene(a):
     sc_mod = __import__("krpc").client  # noqa
     conn = __import__("kspbot.core", fromlist=["conn"]).conn()
     names = {s.name: s for s in conn.krpc.GameScene}
+    if status()["scene"] == "FLIGHT":
+        sc().save("persistent")  # kRPC's scene switch doesn't save: leaving flight would roll back to the last autosave
+        time.sleep(1)
     conn.krpc.game_scene = names[a.name]
     time.sleep(3)
+    print(status())
+
+
+def cmd_fly(a):
+    bot().fly_vessel(a.name)
+    time.sleep(10)
+    for _ in range(60):
+        if status()["scene"] == "FLIGHT":
+            break
+        time.sleep(2)
+    bot().dismiss_dialogs()
     print(status())
 
 
@@ -314,6 +328,8 @@ def main(argv=None):
     p.add_argument("--crew", nargs="*")
     add("recover", cmd_recover)
     p = add("scene", cmd_scene, help="space_center | tracking_station | editor_vab | flight")
+    p.add_argument("name")
+    p = add("fly", cmd_fly, help="from the space center: fly (switch to) the named vessel")
     p.add_argument("name")
     p = add("shot", cmd_shot, help="screenshot of the game -> runs/<name>.png")
     p.add_argument("name", nargs="?", default="shot")
