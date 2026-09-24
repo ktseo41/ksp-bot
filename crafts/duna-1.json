@@ -1,6 +1,6 @@
 {
  "name": "Duna 1",
- "description": "Duna lander/return (Mun Lander 6 lander + 3 Mk2-R for Duna) on Poodle/X200-16 transfer stage, Skipper/X200-32 core, 4 Kickbacks",
+ "description": "Duna landing + return: Mun Lander 7 lander (EVA-safe legs) + 3 Mk2-R for Duna, Poodle/X200-16 transfer stage, Skipper/X200-32 second stage, Mainsail/2xX200-32 first stage",
  "parts": [
   {
    "id": "pod",
@@ -69,18 +69,11 @@
    "angle": 30
   },
   {
-   "id": "legsA",
+   "id": "legs",
    "part": "miniLandingLeg",
    "parent": "rt",
    "height": -0.9,
-   "angle": 90
-  },
-  {
-   "id": "legsB",
-   "part": "miniLandingLeg",
-   "parent": "rt",
-   "height": -0.9,
-   "angle": -90
+   "angle": 0
   },
   {
    "id": "antenna",
@@ -93,8 +86,8 @@
    "id": "solar",
    "part": "solarPanels5",
    "parent": "rt",
-   "angle": 0,
-   "height": 0.3
+   "angle": 20,
+   "height": 0.75
   },
   {
    "id": "batA",
@@ -115,7 +108,7 @@
    "part": "parachuteRadial",
    "parent": "rt",
    "angle": 0,
-   "height": 0.75,
+   "height": 0.3,
    "stage": 4
   },
   {
@@ -177,7 +170,7 @@
    "autostrut": "Root"
   },
   {
-   "id": "tC",
+   "id": "t2",
    "part": "Rockomax32.BW",
    "parent": "decB",
    "node": "bottom",
@@ -187,7 +180,7 @@
   {
    "id": "skipper",
    "part": "engineLargeSkipper.v2",
-   "parent": "tC",
+   "parent": "t2",
    "node": "bottom",
    "stage": 2,
    "rigid": true,
@@ -195,7 +188,7 @@
   },
   {
    "id": "decA",
-   "part": "Decoupler.1",
+   "part": "Decoupler.2",
    "parent": "skipper",
    "node": "bottom",
    "stage": 2,
@@ -203,37 +196,37 @@
    "autostrut": "Root"
   },
   {
-   "id": "core",
-   "part": "MassiveBooster",
+   "id": "t1a",
+   "part": "Rockomax32.BW",
    "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1b",
+   "part": "Rockomax32.BW",
+   "parent": "t1a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mainsail",
+   "part": "liquidEngineMainsail.v2",
+   "parent": "t1b",
    "node": "bottom",
    "stage": 1,
    "rigid": true,
    "autostrut": "Root"
   },
   {
-   "id": "r8",
+   "id": "fins",
    "part": "R8winglet",
-   "parent": "core",
+   "parent": "t1b",
    "symmetry": 4,
    "angle": 45,
-   "height": -3.2
-  },
-  {
-   "id": "side",
-   "part": "MassiveBooster",
-   "parent": "core",
-   "symmetry": 3,
-   "stage": 1,
-   "rigid": true,
-   "angle": 0
-  },
-  {
-   "id": "cones",
-   "part": "noseCone",
-   "parent": "side",
-   "node": "top",
-   "childNode": "bottom01"
+   "height": -2.5
   }
  ]
 }
