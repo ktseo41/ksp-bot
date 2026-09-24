@@ -136,7 +136,30 @@ def cmd_build(a):
     print(bot().build_craft(spec))
 
 
+def _clear_pad(radius_deg=0.01):
+    """Recover landed vessels/debris near the pad (~1 km): KSP only clears a vessel sitting exactly on it, and
+    boosters left beside it made new crafts explode at spawn (Jeb lost twice, 2026-09-24)."""
+    s = sc()
+    kerbin = s.bodies["Kerbin"]
+    pad_lat, pad_lon = -0.0972, -74.5577
+    for v in list(s.vessels):
+        if v.orbit.body != kerbin or v.situation.name not in ("landed", "splashed", "pre_launch"):
+            continue
+        pos = v.position(kerbin.reference_frame)
+        lat, lon = kerbin.latitude_at_position(pos, kerbin.reference_frame), kerbin.longitude_at_position(pos, kerbin.reference_frame)
+        if abs(lat - pad_lat) < radius_deg and abs(lon - pad_lon) < radius_deg:
+            try:
+                v.recover()
+                print("cleared from pad area:", v.name)
+            except Exception as e:
+                print("could not clear", v.name, e)
+
+
 def cmd_launch(a):
+    try:
+        _clear_pad()
+    except Exception as e:  # some calls are flight-scene only
+        print("pad check skipped:", str(e).splitlines()[0])
     sc().launch_vessel("VAB", a.craft, "LaunchPad", a.crew or [])
     time.sleep(5)
     try:

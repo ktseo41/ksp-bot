@@ -16,6 +16,9 @@
   pod axis, giving 26 kN·m of torque against the Mk1's 5 kN·m wheel. It fell over in 8 s (two crashes, Jeb lost). Put `"rigid": true` and
   `"autostrut": "Root"` on the stack parts. Measure it on the pad before flying: sum of thruster positions × directions
   about the CoM (`thruster.thrust_position/direction(v.reference_frame)`) against `v.available_torque`. (Minmus Lander 1)
+- **Never autostrut surface-attached side boosters**: the cluster breaks at spawn ("Structural failure on linkage", crew killed on the pad). Stack parts: rigid + autostrut Root is fine; side boosters: rigid only.
+- **Proven heavy lifter (Mun Lander 2)**: 3 Kickbacks (sides rigid), 4 AV-R8 on the core's base, 2 inline wheels, Swivel + 4×FL-T400 → ~13 t to LKO with the upper stage full. The fins make the pitch-over controllable.
+- Pad science: a pod with goo/thermo/baro/Science Jr on the pad gives ~18 science, risk-free.
 - Don't make an uncontrollable rocket pitch over with a deliberate CoM offset: the torque grows as the SRBs burn down and flipped Mun Lander 1 (Jeb lost). Heavy SRB stacks (90 t, MoI ~6e6) need real authority (inline reaction wheels, AV-R8 fins).
 - Capsule reentry: nothing heavy/draggy stacked under the pod without a heat shield at the very bottom, and always drogues. Pod + Science Jr flipped nose-first and hit the chute window at 960 m/s (Sounding 3, Bill lost).
 - LT-05 legs: attach at tank height −1.05 (just past the FL-T400 bottom) → feet 25 cm below a Terrier bell.

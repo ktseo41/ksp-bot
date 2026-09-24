@@ -26,6 +26,10 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - **Sounding 3** (Sounding 2 + Science Jr under the pod, no drogues, no heat shield), vertical to 170 km for science to buy flightControl: on the way down the pod + Science Jr flipped nose-first at 7.8 km (960 m/s), the main chute staged at 2.5 km far too fast, and it crashed. **Bill killed. DESIGN ERROR (mine), stands.** Lesson: anything stacked under the pod changes its reentry aero. Keep a heat shield at the bottom and drogues on every capsule.
 - Process change: new designs that change aero or control authority fly in the sandbox first; the career only flies proven designs.
 
+- **Spawn breakups** (Minmus Lander 1 craft relaunched for a Mun orbit): "Structural failure on linkage between Thumper and Thumper" at t=0, repeatedly, even after a KSP restart. Crew killed on the pad (Jeb twice, Bob, Valentina), all **reverted** (the game offered it). Leftover debris was a red herring. Uncrewed probe-core pad tests: **autostrut on the surface-attached side boosters** (any mode) breaks them at spawn; rigid-only or none spawns fine. It had worked twice before by luck. `launch` now also tries to clear landed vessels near the pad.
+- **Pad Lab** (pod + goo/thermo/baro/Science Jr sitting on the pad): 18 science from the LaunchPad biome at no risk. Researched flightControl (AV-R8, inline wheel = only 5 kN·m).
+- **Mun Lander 2** (Mun Lander 1 without ballast; side Kickbacks rigid only; 4 AV-R8 at the core's base; 2 inline wheels + battery in the Swivel stage; 40 parts, 92 t): pad torque ≈ 0, control torque 15 kN·m. Textbook gravity turn (84° at 500 m, 50° at 9 km); the Kickbacks alone raised the apoapsis to 80 km. LKO 75×83 km with Swivel 474 + lander 3874 m/s.
+
 ### Next steps (plan)
 1. Spend science (171.8): flightControl, generalConstruction (struts, radial decouplers 2), fuelSystems (FL-T800), heavyRocketry (Poodle/Skipper/Kickback). R&D is level 1 (≤100 per node).
 2. Upgrades to consider: Astronaut Complex 2 (EVA reports on other bodies, flags), VAB 2 (255 parts), R&D 2.

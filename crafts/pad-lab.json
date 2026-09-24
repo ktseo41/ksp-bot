@@ -1,0 +1,7 @@
+{"name": "Pad Lab", "description": "sits on the pad: LaunchPad-biome science, then recover", "parts": [
+  {"id": "pod", "part": "mk1pod.v2"},
+  {"id": "goo", "part": "GooExperiment", "parent": "pod", "height": 0.15, "angle": 90},
+  {"id": "thermo", "part": "sensorThermometer", "parent": "pod", "height": 0.15, "angle": 270},
+  {"id": "baro", "part": "sensorBarometer", "parent": "pod", "height": 0.15, "angle": 0},
+  {"id": "jr", "part": "science.module", "parent": "pod", "node": "bottom"}
+]}
