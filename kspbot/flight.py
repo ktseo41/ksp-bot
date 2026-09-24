@@ -892,8 +892,11 @@ def reentry(main_alt=4000, main_speed=250):
         say(f"main chutes staged at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
         v.control.activate_next_stage()
     for p in v.parts.parachutes:
-        if not p.deployed:
-            p.deploy()
+        try:
+            if not p.deployed:
+                p.deploy()
+        except Exception as e:  # a chute part already gone (seen once after staging the mains)
+            say(f"chute deploy skipped: {e}")
     say("chutes deployed")
     while v.situation.name not in ("landed", "splashed"):
         time.sleep(1)
