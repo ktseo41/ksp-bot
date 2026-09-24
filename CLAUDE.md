@@ -5,6 +5,19 @@ KSP 1.12.5 (Steam, Windows) is driven from WSL through **kRPC 0.6.0** plus a sma
 facility upgrades, crew hiring, KSP's flight event log, save autoload. Python side: `kspbot/`
 (`core.py` connection, `flight.py` mission phases, `recorder.py` flight recorder, `cli.py` commands).
 
+## The job (user's original request — this outranks any checklist or handoff note)
+Play the career yourself, from zero: design, build, launch and fly everything, reach Minmus, then keep
+going farther step by step (Minmus round trip → Mun → Duna and beyond). The system exists only to make
+that possible — keep it as small as the missions need.
+
+**Operating mode: autonomous and continuous.**
+- A finished mission is not a stopping point: log it, pick the next goal, keep flying in the same turn.
+- A failed mission (lost craft, dead crew) is not a stopping point either: read the recorder, find the
+  cause, write it in `LOG.md`, fix the design or code, fly again. Don't ask the user what to do next.
+- Questions to the user are only for pre-agreed settings or real blockers you cannot resolve
+  (game won't start, career financially stuck with no way out). Not for routine mission decisions.
+- Revert/quickload only when our tooling caused the failure (see rules below). Pilot or design errors stand.
+
 ## Rules of play (career save `kspbot`, Normal difficulty)
 - **No revert / quickload in the career.** Failures stand. Only exception: a failure caused by a bug in
   this system — then say so in `LOG.md`. Test new flight code in the sandbox save `kspbot-sandbox`
