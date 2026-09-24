@@ -354,13 +354,23 @@ def _inc_short(orbit, min_inc):
     return max(0.0, min_inc - min(i, 180 - i))
 
 
+def _moon_penalty(patch, target):
+    """Cost for a path around target that runs into one of target's moons (Duna 1 was headed through Ike;
+    avoiding it inside Duna's SOI took 48 m/s)."""
+    moon = patch.next_orbit
+    if moon is None or moon.body.name == target.name or moon.body.name in _ancestors(target):
+        return 0.0
+    return 1000.0 + (moon.body.sphere_of_influence - moon.periapsis) / 1000.0
+
+
 def _node_cost(node, target, pe_alt, min_inc=None):
     time.sleep(0.04)  # let KSP recompute patches
     if node.orbit.body.name == target.name:  # already inside the target SOI: just shape the periapsis
-        return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0 + _inc_short(node.orbit, min_inc)
+        return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0 + _inc_short(node.orbit, min_inc) \
+            + _moon_penalty(node.orbit, target)
     enc = _encounter(node.orbit, target)
     if enc:
-        return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc)
+        return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc) + _moon_penalty(enc[1], target)
     o = _patch_around(node.orbit, target.orbit.body.name)
     if o is None:
         return 1e9
@@ -432,8 +442,11 @@ def transfer_to(target_name, pe_alt):
     return True
 
 
-def planet_window(target_name, origin=None):
-    """UT of the next Hohmann window from origin (default: the planet we orbit) to another planet."""
+def planet_window(target_name, origin=None, lookback_days=40):
+    """UT of the Hohmann window from origin (default: the planet we orbit) to another planet: the departure t at
+    which the target, at arrival t + T, sits 180 deg from the origin's position at t. Uses the real (eccentric)
+    orbits; a linear phase extrapolation 200 days out once missed the Duna window by ~15 days.
+    Returns the nearest window from lookback_days ago on (it may be in the past)."""
     target = sc().bodies[target_name]
     if origin is None:
         try:
@@ -443,19 +456,42 @@ def planet_window(target_name, origin=None):
     home = origin
     sun = home.orbit.body
     mu = sun.gravitational_parameter
-    r1, r2 = home.orbit.semi_major_axis, target.orbit.semi_major_axis
-    t_trans = math.pi * math.sqrt(((r1 + r2) / 2) ** 3 / mu)
-    n1, n2 = math.sqrt(mu / r1 ** 3), math.sqrt(mu / r2 ** 3)
-    need = (math.pi - n2 * t_trans) % (2 * math.pi)
     frame = sun.non_rotating_reference_frame
-    ph, pt = home.position(frame), target.position(frame)
-    h = _norm(_cross(ph, home.velocity(frame)))
-    phase = math.atan2(_dot(h, _cross(ph, pt)), _dot(ph, pt)) % (2 * math.pi)
-    # the phase changes at n2 - n1
-    wait = ((need - phase) % (2 * math.pi)) / (n2 - n1) if n2 > n1 else ((phase - need) % (2 * math.pi)) / (n1 - n2)
-    say(f"{home.name}->{target_name}: phase {math.degrees(phase):.1f} deg, need {math.degrees(need):.1f}, "
-        f"window in {wait / 21600:.1f} days (UT {ut() + wait:.0f}), flight {t_trans / 21600:.0f} days")
-    return ut() + wait
+    h = _norm(_cross(home.position(frame), home.velocity(frame)))
+
+    def f(t):
+        """Angle (rad, -pi..pi) the target leads the home planet by, at arrival, minus 180 deg."""
+        ph = home.orbit.position_at(t, frame)
+        r1 = math.sqrt(_dot(ph, ph))
+        T = math.pi * math.sqrt(((r1 + target.orbit.semi_major_axis) / 2) ** 3 / mu)
+        for _ in range(2):
+            pt = target.orbit.position_at(t + T, frame)
+            r2 = math.sqrt(_dot(pt, pt))
+            T = math.pi * math.sqrt(((r1 + r2) / 2) ** 3 / mu)
+        ang = math.atan2(_dot(h, _cross(ph, pt)), _dot(ph, pt))
+        return (ang - math.pi + math.pi) % (2 * math.pi) - math.pi, T
+
+    now = ut()
+    day = 21600.0
+    syn = 1 / abs(1 / home.orbit.period - 1 / target.orbit.period)
+    t, (prev, _) = now - lookback_days * day, f(now - lookback_days * day)
+    while t < now + syn + 2 * day:
+        t2 = t + day
+        cur, _ = f(t2)
+        if prev * cur <= 0 and abs(prev - cur) < 1.0:  # a real zero, not the +-pi wrap
+            lo, hi = t, t2
+            for _ in range(40):
+                mid = (lo + hi) / 2
+                if f(mid)[0] * prev <= 0:
+                    hi = mid
+                else:
+                    lo = mid
+            t_win, T = lo, f(lo)[1]
+            when = f"in {(t_win - now) / day:.1f} days" if t_win >= now else f"{(now - t_win) / day:.1f} days AGO"
+            say(f"{home.name}->{target_name}: window {when} (UT {t_win:.0f}), flight {T / day:.0f} days")
+            return t_win
+        t, prev = t2, cur
+    raise RuntimeError("no window found")
 
 
 def transfer_planet(target_name, pe_alt, samples=48):
@@ -491,6 +527,9 @@ def transfer_planet(target_name, pe_alt, samples=48):
         say("no usable ejection found; node left for inspection")
         return False
     execute_node(node)
+    enc = _encounter(v.orbit, target)  # a 1 m/s error in the ejection moved the Duna pass by ~12,000 km
+    if not enc or abs(enc[0] - pe_alt) > 3000:
+        return correct_course(target_name, pe_alt)
     return True
 
 
@@ -713,8 +752,8 @@ def land_atmo(pe_alt=5000, burn_alt=12000):
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
     ap = v.auto_pilot
-    if v.orbit.periapsis_altitude > body.atmosphere_depth:
-        _deorbit_now(v, pe_alt)
+    if v.orbit.periapsis_altitude > pe_alt + 5000 and fl.mean_altitude > body.atmosphere_depth:
+        _deorbit_now(v, pe_alt)  # a grazing periapsis (Duna 1 captured to 31 km) would skip through the air
     atmo = body.atmosphere_depth
     if fl.mean_altitude > atmo:
         o = v.orbit
@@ -725,17 +764,19 @@ def land_atmo(pe_alt=5000, burn_alt=12000):
     ap.target_direction = (0, -1, 0)
     ap.engaged = True
     say(f"entry: holding retrograde, {fl.speed:.0f} m/s at {fl.mean_altitude:.0f} m")
+    # only chutes that get dropped later (the lander's): the capsule's own chutes are needed at home
+    chutes = [c for c in v.parts.parachutes if c.part.decouple_stage >= 0] or list(v.parts.parachutes)
     armed = False
     while fl.surface_altitude > burn_alt and v.situation.name not in ("landed", "splashed"):
         if not armed and fl.mean_altitude < atmo * 0.6:
-            for c in v.parts.parachutes:
+            for c in chutes:
                 if not c.deployed:
                     c.arm()
             armed = True
-            say(f"chutes armed at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
+            say(f"{len(chutes)} chutes armed at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
         time.sleep(0.2)
     if not armed:
-        for c in v.parts.parachutes:
+        for c in chutes:
             if not c.deployed:
                 c.arm()
     say(f"powered descent from {fl.surface_altitude:.0f} m AGL at {fl.speed:.0f} m/s")
@@ -763,6 +804,9 @@ def liftoff(target_alt=15000, heading=90.0):
     body = v.orbit.body
     _antennas(v, False)
     if body.has_atmosphere:
+        for c in v.parts.parachutes:  # canopies left from the landing
+            if c.deployed:
+                c.cut()
         alt = max(target_alt, body.atmosphere_depth + 10000)
         if not ascent(alt, heading, turn_start=100, turn_end=alt * 0.5):
             return False

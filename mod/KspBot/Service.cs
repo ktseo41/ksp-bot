@@ -260,11 +260,12 @@ namespace KspBot
         public static void FlyVessel(string name)
         {
             if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("already in flight; go to the space center first");
-            var pvs = HighLogic.CurrentGame.flightState.protoVessels;
-            var idx = pvs.FindIndex(pv => pv.vesselName == name);
-            if (idx < 0) throw new ArgumentException("no vessel named " + name);
+            // same as the tracking station's Fly button: the index is into FlightGlobals.Vessels, which can be
+            // ordered differently from flightState.protoVessels (that index once focused an asteroid)
+            var v = FlightGlobals.Vessels.Find(x => x.vesselName == name);
+            if (v == null) throw new ArgumentException("no vessel named " + name);
             GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
-            FlightDriver.StartAndFocusVessel("persistent", idx);
+            FlightDriver.StartAndFocusVessel("persistent", FlightGlobals.Vessels.IndexOf(v));
         }
 
         /// <summary>From the space center: save, go to the main menu and load another save folder
