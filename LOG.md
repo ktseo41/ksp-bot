@@ -30,9 +30,11 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - **Pad Lab** (pod + goo/thermo/baro/Science Jr sitting on the pad): 18 science from the LaunchPad biome at no risk. Researched flightControl (AV-R8, inline wheel = only 5 kN·m).
 - **Mun Lander 2** (Mun Lander 1 without ballast; side Kickbacks rigid only; 4 AV-R8 at the core's base; 2 inline wheels + battery in the Swivel stage; 40 parts, 92 t): pad torque ≈ 0, control torque 15 kN·m. Textbook gravity turn (84° at 500 m, 50° at 9 km); the Kickbacks alone raised the apoapsis to 80 km. LKO 75×83 km with Swivel 474 + lander 3874 m/s.
 
+- Mun Lander 2 landed softly (1.4 m/s) in the Mun Lowlands but **tipped over**: CoM 4.6 m above the feet, legs only 0.65 m out → tips at ~6°. **Reverted** (allowed). Wide lander, tested uncrewed on the pad (probe core + unmanned Mk1): FL-T200 core + 3 radial FL-T400 with 6 LT-05 legs (±50° on each radial tank): 1.74 m out, CoM 1.9 m high → tips at 33° with full tanks.
+- **Mun Lander 3** (Mun Lander 2 lifter + the wide lander, 43 parts, 93 t, Bob): LKO 79×80 km. The user saw it wobble on the way up; data: AoA ±3°, heading 85–95°, rate up to 7.6°/s above 5.7 km (q ~40 kPa) and the recorder didn't flag it → recorder now logs roll/roll rate and alerts on spin and AoA oscillation; ascent autopilot time_to_peak 3→5 s. Transfer, pe 31 km, captured 31 km, **landed upright on the Mun** (Midlands, 6° tilt, all 6 legs down), science (crew 20, goo 40, thermo 32), liftoff to 20 km (1496 m/s left), return 274 m/s → pe 34 km, splashdown, Bob safe. **First crewed Mun landing and return.** After recovery: funds 342.8k, sci 148, rep 105.
+
 ### Next steps (plan)
-1. Spend science (171.8): flightControl, generalConstruction (struts, radial decouplers 2), fuelSystems (FL-T800), heavyRocketry (Poodle/Skipper/Kickback). R&D is level 1 (≤100 per node).
-2. Upgrades to consider: Astronaut Complex 2 (EVA reports on other bodies, flags), VAB 2 (255 parts), R&D 2.
-3. Next destination: Mun landing (land/takeoff ≈ 580 each, capture 310, return 310). Lander needs about 1.9 km/s after LKO plus margin; TWR on the Mun > 2.
-4. Cheap contracts: "Science data from space around Kerbin" is still active (any orbital crew report recovered).
-5. Power: the Mk1 has only 50 EC and no generation. Add a Z-100 battery (and solar panels once researched) on longer missions.
+1. Science 148: R&D level 1 caps nodes at 100. Candidates: fuelSystems (90, FL-T800/Rockomax), electrics (90, solar panels), propulsionSystems, spaceExploration. R&D level 2 (451k) needed for the 160+ nodes.
+2. Funds: take contracts that match proven hardware (Minmus/Mun science, orbit contracts, tourists to orbit).
+3. Next destination: Duna (LKO→Duna ~1.1 km/s transfer at a window, aerobrake/chutes on Duna, return ~1.5 km/s+). Needs bigger lift (Skipper + Rockomax tanks), power (solar), and waiting for a transfer window. Before Duna: tidy up the Mun/Minmus science and fund upgrades.
+4. Verify on the next launch that the new recorder alerts plus the softer autopilot remove the ascent wobble.
