@@ -31,6 +31,15 @@ namespace KspBot
             return Json.Write(o);
         }
 
+        /// <summary>Close popup dialogs (e.g. the expansion ad shown at flight start). Returns how many.</summary>
+        [KRPCProcedure]
+        public static int DismissDialogs()
+        {
+            var dialogs = UnityEngine.Object.FindObjectsOfType<PopupDialog>();
+            foreach (var d in dialogs) d.Dismiss();
+            return dialogs.Length;
+        }
+
         /// <summary>Show a message on the game screen.</summary>
         [KRPCProcedure]
         public static void Message(string text, float seconds)

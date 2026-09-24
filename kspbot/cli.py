@@ -139,6 +139,10 @@ def cmd_build(a):
 def cmd_launch(a):
     sc().launch_vessel("VAB", a.craft, "LaunchPad", a.crew or [])
     time.sleep(5)
+    try:
+        bot().dismiss_dialogs()
+    except Exception:
+        pass  # older mod build
     cmd_vessel(a)
 
 

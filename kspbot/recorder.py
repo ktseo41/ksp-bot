@@ -110,7 +110,8 @@ class Recorder:
                 rate = math.degrees(math.sqrt(sum(x * x for x in av)))
                 q = fl.dynamic_pressure
                 aoa = sfl.angle_of_attack if q > 1000 else 0.0
-                if (rate > 30 or abs(aoa) > 25) and not tumbling:
+                limit = 30 if q > 1000 else 60  # autopilot slews fast in vacuum
+                if (rate > limit or abs(aoa) > 25) and not tumbling:
                     tumbling = True
                     self.event("attitude", f"loss of control? rate={rate:.0f} deg/s aoa={aoa:.0f} q={q:.0f}")
                 elif rate < 10 and abs(aoa) < 10:
