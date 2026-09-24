@@ -16,11 +16,12 @@ that possible — keep it as small as the missions need.
   cause, write it in `LOG.md`, fix the design or code, fly again. Don't ask the user what to do next.
 - Questions to the user are only for pre-agreed settings or real blockers you cannot resolve
   (game won't start, career financially stuck with no way out). Not for routine mission decisions.
-- Revert/quickload only when our tooling caused the failure (see rules below). Pilot or design errors stand.
+- Reverting is allowed whenever the game offers it (see rules below); after that, keep going.
 
 ## Rules of play (career save `kspbot`, Normal difficulty)
-- **No revert / quickload in the career.** Failures stand. Only exception: a failure caused by a bug in
-  this system — then say so in `LOG.md`. Test new flight code in the sandbox save `kspbot-sandbox`
+- **Revert: allowed when the game offers it** (Revert to Launch / VAB, `revert_to_launch()`); log each
+  revert and its reason in `LOG.md`. **Quickload** only when our tooling caused the failure. If the revert
+  window is gone, the loss stands. Test new flight code in the sandbox save `kspbot-sandbox`
   (`tools/install.sh kspbot-sandbox:sandbox`), never in the career.
 - No autopilot mods (MechJeb etc.). Flight logic is ours (`kspbot/flight.py`).
 - Pay for everything the normal way (launch cost, research, upgrades). `sandbox-orbit` is refused in career.
