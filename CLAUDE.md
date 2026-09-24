@@ -26,7 +26,8 @@ that possible — keep it as small as the missions need.
 - No autopilot mods (MechJeb etc.). Flight logic is ours (`kspbot/flight.py`).
 - Pay for everything the normal way (launch cost, research, upgrades). `sandbox-orbit` is refused in career.
 - Keep `LOG.md` (career journal) updated after every mission: what flew, result, money/science, lessons.
-  Read it first when resuming.
+  Read it first when resuming. Also append the launch to `docs/record/career.json` and photograph new crafts
+  (`tools/summary/README.md`): the shareable summary images are regenerated from that record.
 
 ## Start / resume
 ```

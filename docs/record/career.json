@@ -1,0 +1,69 @@
+{
+ "_source": "LOG.md (career journal), career save persistent.sfs, flight recorder. Game: KSP 1.12.5 career 'kspbot', Normal difficulty, all flying by Claude through kRPC + own KspBot mod, no autopilot mods. One real day: 2026-09-24.",
+ "career_now": {"funds": 848942, "science": 5.5, "science_earned_total": 750.5, "reputation": 181,
+   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 2, "AstronautComplex": 2, "R&D": 2},
+   "funds_start": 25000, "funds_peak": 1299942,
+   "funds_spent_on_facilities": "MC2 75k, TS2 + Pad2, VAB2 225k, AC2, R&D2 451k"},
+ "firsts": [
+   "First crewed Minmus landing and return (Minmus Lander 1, Bill)",
+   "First crewed Mun landing and return (Mun Lander 3, Bob)",
+   "Minmus temperature survey contract (3 sites)",
+   "Two Minmus observational survey contracts (8 sites)",
+   "Minmus biome tour: Midlands, Greater Flats, Lesser Flats, Highlands (+ Great Flats, Lowlands earlier)"
+ ],
+ "career_launches": [
+  {"n":1,"craft":"Hopper 1","goal":"first hop, science","result":"success","note":"16 km hop, first science; funds 25k→110k"},
+  {"n":2,"craft":"Sounding 2","goal":"reach space","result":"success","note":"straight up to 208 km"},
+  {"n":3,"craft":"Orbiter 1","goal":"orbit","result":"reverted","note":"autopilot bug: full thrust nose-down at 33 km, 2.5 km/s in the air"},
+  {"n":4,"craft":"Orbiter 1","goal":"orbit","result":"success","note":"first orbit 71×140 km"},
+  {"n":5,"craft":"Minmus Flyby 1","goal":"Minmus flyby","result":"success","note":"flyby + return, Jeb safe"},
+  {"n":6,"craft":"Minmus Lander 1","goal":"Minmus landing","result":"crew lost","note":"rocket rolled east from t=1 s, sea at 1:02. Jebediah killed (loss stands)"},
+  {"n":7,"craft":"Minmus Lander 1","goal":"Minmus landing","result":"reverted","note":"same roll (SRB thrust 0.4° off axis), crashed"},
+  {"n":8,"craft":"Minmus Lander 1","goal":"Minmus landing","result":"reverted","note":"landed at 15 m/s and tipped over (landing-code bug); Bill killed trying to take off lying down"},
+  {"n":9,"craft":"Minmus Lander 1","goal":"Minmus landing","result":"reverted","note":"blew apart on the pad at t=0, twice"},
+  {"n":10,"craft":"Minmus Lander 1","goal":"Minmus landing","result":"success","note":"FIRST CREWED MINMUS LANDING & RETURN (Bill)"},
+  {"n":11,"craft":"Mun Lander 1","goal":"Mun","result":"crew lost","note":"fake pitch-over with ballast tank → flipped at max-Q. Jebediah killed (loss stands)"},
+  {"n":12,"craft":"Sounding 3","goal":"science for flight control tech","result":"crew lost","note":"pod + Science Jr flipped nose-first, chute at 960 m/s. Bill killed (loss stands)"},
+  {"n":13,"craft":"Minmus Lander 1 (Mun orbit try)","goal":"Mun orbit","result":"reverted","note":"'Structural failure' at t=0 on the pad, 4 times (Jeb ×2, Bob, Valentina) — autostrut on side boosters"},
+  {"n":14,"craft":"Pad Lab","goal":"pad science","result":"success","note":"science without leaving the pad"},
+  {"n":15,"craft":"Mun Lander 2","goal":"Mun landing","result":"reverted","note":"soft touchdown 1.4 m/s … then tipped over (too tall, legs too narrow)"},
+  {"n":16,"craft":"Mun Lander 3","goal":"Mun landing","result":"success","note":"FIRST CREWED MUN LANDING & RETURN (Bob)"},
+  {"n":17,"craft":"Mun Lander 3","goal":"Minmus survey","result":"reverted","note":"navigation bug: aimed at Minmus, got captured by the Mun"},
+  {"n":18,"craft":"Mun Lander 3","goal":"Minmus survey","result":"success","note":"temperature survey contract + Minmus landing (Jeb)"},
+  {"n":19,"craft":"Mun Lander 5","goal":"Minmus biome tour","result":"reverted","note":"EVA on Minmus: lander broke apart as Jeb stepped out, Jeb flung at 1400 m/s"},
+  {"n":20,"craft":"Mun Lander 6","goal":"Minmus surveys + biome tour","result":"success","note":"2 survey contracts, 4 new biomes, 1.28M funds; Jeb safe"}
+ ],
+ "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
+ "kerbals": {
+   "deaths_that_stood": [
+     {"who":"Jebediah Kerman","how":"Minmus Lander 1 rolled into the sea"},
+     {"who":"Jebediah Kerman","how":"Mun Lander 1 flipped at max-Q"},
+     {"who":"Bill Kerman","how":"Sounding 3 hit the ground nose-first"}
+   ],
+   "deaths_undone_by_revert": ["Bill (Minmus Lander 1, tried to take off lying on its side)", "Jeb ×2, Bob, Valentina (pad explosions at t=0)"],
+   "note": "Normal difficulty: lost veterans respawn later, so Jeb and Bill are flying again",
+   "roster": [
+     {"name":"Jebediah","trait":"Pilot","highlights":"Minmus flyby, Minmus survey ×2, biome tour; died twice"},
+     {"name":"Bill","trait":"Engineer","highlights":"first Minmus landing; died once"},
+     {"name":"Bob","trait":"Scientist","highlights":"first Mun landing"},
+     {"name":"Valentina","trait":"Pilot","highlights":"one pad explosion (reverted)"}
+   ]
+ },
+ "research": ["start","basicRocketry","engineering101","generalRocketry","survivability","stability","advRocketry","basicScience","heavyRocketry","generalConstruction","flightControl","fuelSystems","landing","electrics","heavierRocketry","spaceExploration"],
+ "sandbox_test_crafts": [
+   {"craft":"Sandbox Minmus Test / Sandbox Lander Test","purpose":"first landing-code tests on Minmus"},
+   {"craft":"Mun Lander 4","purpose":"EVA hatch tests"},
+   {"craft":"Mun Lander 5 / 5B / 6","purpose":"EVA fling investigation, ascent check"},
+   {"craft":"EVA Test","purpose":"EVA spawn/board"},
+   {"craft":"Mun Lander 7 / ML7 Lander Test","purpose":"legs moved away from the hatch (today)"}
+ ],
+ "bugs_found_and_fixed_fun": [
+   "ascent autopilot flew nose-down at full thrust (Orbiter 1)",
+   "SRB stack 0.4° off axis = 26 kN·m torque vs a 5 kN·m wheel",
+   "autostrut on side boosters → explosion at t=0",
+   "landing loop lagged → 15 m/s touchdown",
+   "kRPC biome lookup wants radians, not degrees → every biome-targeted landing looked at the wrong spot",
+   "Communotron antenna never unfolded → science 'transmitted' silently failed",
+   "survey waypoints accepted mid-flight don't count until a scene reload"
+ ]
+}

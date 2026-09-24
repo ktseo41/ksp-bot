@@ -1,0 +1,413 @@
+{
+ "kerbals": [
+  {
+   "name": "Jebediah Kerman",
+   "type": "Crew",
+   "trait": "Pilot",
+   "state": "Available",
+   "career_log": [
+    "Flight,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Flyby,Minmus",
+    "Escape,Minmus",
+    "Flyby,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Recover",
+    "Recover",
+    "Flight,Kerbin",
+    "Die",
+    "Spawn",
+    "Recover",
+    "Recover",
+    "Flight,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Land,Kerbin",
+    "Flight,Kerbin",
+    "Die",
+    "Spawn",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Flyby,Mun",
+    "Escape,Mun",
+    "Flyby,Kerbin",
+    "Escape,Kerbin",
+    "Flyby,Minmus",
+    "Escape,Minmus",
+    "Orbit,Minmus",
+    "Suborbit,Minmus",
+    "Land,Minmus",
+    "Land,Kerbin",
+    "Recover",
+    "ExitVessel,Kerbin",
+    "BoardVessel,Kerbin",
+    "Recover",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Flyby,Minmus",
+    "Escape,Minmus",
+    "Orbit,Minmus",
+    "Suborbit,Minmus",
+    "Land,Minmus",
+    "Flyby,Kerbin",
+    "Land,Kerbin",
+    "Recover"
+   ]
+  },
+  {
+   "name": "Bill Kerman",
+   "type": "Crew",
+   "trait": "Engineer",
+   "state": "Available",
+   "career_log": [
+    "Recover",
+    "Recover",
+    "Recover",
+    "Flight,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Flyby,Minmus",
+    "Escape,Minmus",
+    "Orbit,Minmus",
+    "Suborbit,Minmus",
+    "Land,Minmus",
+    "Flyby,Kerbin",
+    "Land,Kerbin",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Die",
+    "Spawn"
+   ]
+  },
+  {
+   "name": "Bob Kerman",
+   "type": "Crew",
+   "trait": "Scientist",
+   "state": "Available",
+   "career_log": [
+    "Recover",
+    "Recover",
+    "Recover",
+    "Recover",
+    "Recover",
+    "Flight,Kerbin",
+    "Suborbit,Kerbin",
+    "Orbit,Kerbin",
+    "Flyby,Mun",
+    "Escape,Mun",
+    "Orbit,Mun",
+    "Suborbit,Mun",
+    "Land,Mun",
+    "Flyby,Kerbin",
+    "Land,Kerbin",
+    "Recover"
+   ]
+  },
+  {
+   "name": "Valentina Kerman",
+   "type": "Crew",
+   "trait": "Pilot",
+   "state": "Available",
+   "career_log": [
+    "Land,Kerbin",
+    "Recover"
+   ]
+  },
+  {
+   "name": "Tamrey Kerman",
+   "type": "Unowned",
+   "trait": "Tourist",
+   "state": "Assigned",
+   "career_log": []
+  },
+  {
+   "name": "Tanble Kerman",
+   "type": "Unowned",
+   "trait": "Engineer",
+   "state": "Assigned",
+   "career_log": []
+  }
+ ],
+ "science": [
+  {
+   "id": "crewReport@KerbinFlyingLowShores",
+   "title": "Crew Report while flying over Kerbin's Shores",
+   "sci": 3.5,
+   "cap": 3.5
+  },
+  {
+   "id": "mysteryGoo@KerbinFlyingLow",
+   "title": "Mystery Goo™ Observation while flying at Kerbin",
+   "sci": 7.0,
+   "cap": 9.1
+  },
+  {
+   "id": "recovery@KerbinFlew",
+   "title": "Recovery of a vessel returned from a flight over Kerbin",
+   "sci": 6.0,
+   "cap": 6.0
+  },
+  {
+   "id": "crewReport@KerbinInSpaceLow",
+   "title": "Crew Report while in space near Kerbin",
+   "sci": 5.0,
+   "cap": 5.0
+  },
+  {
+   "id": "temperatureScan@KerbinInSpaceLow",
+   "title": "Temperature Scan while in space near Kerbin",
+   "sci": 8.0,
+   "cap": 8.0
+  },
+  {
+   "id": "mysteryGoo@KerbinInSpaceLow",
+   "title": "Mystery Goo™ Observation while in space near Kerbin",
+   "sci": 12.3,
+   "cap": 13.0
+  },
+  {
+   "id": "recovery@KerbinSubOrbited",
+   "title": "Recovery of a vessel returned from a sub-orbital flight on Kerbin",
+   "sci": 8.0,
+   "cap": 9.6
+  },
+  {
+   "id": "recovery@KerbinOrbited",
+   "title": "Recovery of a vessel returned from orbit around Kerbin",
+   "sci": 10.0,
+   "cap": 12.0
+  },
+  {
+   "id": "crewReport@MinmusInSpaceLow",
+   "title": "Crew Report while in space near Minmus",
+   "sci": 20.0,
+   "cap": 20.0
+  },
+  {
+   "id": "temperatureScan@MinmusInSpaceLow",
+   "title": "Temperature Scan while in space near Minmus",
+   "sci": 32.0,
+   "cap": 32.0
+  },
+  {
+   "id": "mysteryGoo@MinmusInSpaceLow",
+   "title": "Mystery Goo™ Observation while in space near Minmus",
+   "sci": 40.0,
+   "cap": 52.0
+  },
+  {
+   "id": "recovery@MinmusFlewBy",
+   "title": "Recovery of a vessel returned from a flight over Minmus",
+   "sci": 15.0,
+   "cap": 18.0
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedGreatFlats",
+   "title": "Crew Report from Minmus' Great Flats",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedGreatFlats",
+   "title": "Temperature Scan from Minmus' Great Flats",
+   "sci": 40.0,
+   "cap": 40.0
+  },
+  {
+   "id": "mysteryGoo@MinmusSrfLandedGreatFlats",
+   "title": "Mystery Goo™ Observation from Minmus' Great Flats",
+   "sci": 50.0,
+   "cap": 65.0
+  },
+  {
+   "id": "recovery@MinmusSurfaced",
+   "title": "Recovery of a vessel returned from the surface of Minmus",
+   "sci": 44.8,
+   "cap": 45.0
+  },
+  {
+   "id": "barometerScan@KerbinInSpaceLow",
+   "title": "Atmospheric Pressure Scan while in space near Kerbin",
+   "sci": 0.0,
+   "cap": 12.0
+  },
+  {
+   "id": "mobileMaterialsLab@KerbinInSpaceLow",
+   "title": "Materials Study while in space near Kerbin",
+   "sci": 0.0,
+   "cap": 32.0
+  },
+  {
+   "id": "crewReport@KerbinSrfLandedLaunchPad",
+   "title": "Crew Report from LaunchPad",
+   "sci": 1.5,
+   "cap": 1.5
+  },
+  {
+   "id": "temperatureScan@KerbinSrfLandedLaunchPad",
+   "title": "Temperature Scan from LaunchPad",
+   "sci": 2.4,
+   "cap": 2.4
+  },
+  {
+   "id": "barometerScan@KerbinSrfLandedLaunchPad",
+   "title": "Atmospheric Pressure Scan from LaunchPad",
+   "sci": 3.6,
+   "cap": 3.6
+  },
+  {
+   "id": "mysteryGoo@KerbinSrfLandedLaunchPad",
+   "title": "Mystery Goo™ Observation from LaunchPad",
+   "sci": 3.7,
+   "cap": 3.9
+  },
+  {
+   "id": "mobileMaterialsLab@KerbinSrfLandedLaunchPad",
+   "title": "Materials Study from LaunchPad",
+   "sci": 7.5,
+   "cap": 9.6
+  },
+  {
+   "id": "crewReport@MunSrfLandedMidlands",
+   "title": "Crew Report from The Mun's Midlands",
+   "sci": 20.0,
+   "cap": 20.0
+  },
+  {
+   "id": "temperatureScan@MunSrfLandedMidlands",
+   "title": "Temperature Scan from The Mun's Midlands",
+   "sci": 32.0,
+   "cap": 32.0
+  },
+  {
+   "id": "mysteryGoo@MunSrfLandedMidlands",
+   "title": "Mystery Goo™ Observation from The Mun's Midlands",
+   "sci": 40.0,
+   "cap": 52.0
+  },
+  {
+   "id": "recovery@MunSurfaced",
+   "title": "Recovery of a vessel returned from the surface of The Mun",
+   "sci": 30.0,
+   "cap": 36.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedLowlands",
+   "title": "Temperature Scan from Minmus' Lowlands",
+   "sci": 40.0,
+   "cap": 40.0
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedLowlands",
+   "title": "Crew Report from Minmus' Lowlands",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "surfaceSample@KerbinSrfLandedLaunchPad",
+   "title": "Surface Sample from LaunchPad",
+   "sci": 9.0,
+   "cap": 12.0
+  },
+  {
+   "id": "evaReport@KerbinSrfLandedLaunchPad",
+   "title": "EVA Report from LaunchPad",
+   "sci": 2.4,
+   "cap": 2.4
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedMidlands",
+   "title": "Crew Report from Minmus' Midlands",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedMidlands",
+   "title": "Temperature Scan from Minmus' Midlands",
+   "sci": 26.7,
+   "cap": 40.0
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedGreaterFlats",
+   "title": "Crew Report from Minmus' Greater Flats",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedGreaterFlats",
+   "title": "Temperature Scan from Minmus' Greater Flats",
+   "sci": 26.7,
+   "cap": 40.0
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedLesserFlats",
+   "title": "Crew Report from Minmus' Lesser Flats",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedLesserFlats",
+   "title": "Temperature Scan from Minmus' Lesser Flats",
+   "sci": 26.7,
+   "cap": 40.0
+  },
+  {
+   "id": "crewReport@MinmusSrfLandedHighlands",
+   "title": "Crew Report from Minmus' Highlands",
+   "sci": 25.0,
+   "cap": 25.0
+  },
+  {
+   "id": "temperatureScan@MinmusSrfLandedHighlands",
+   "title": "Temperature Scan from Minmus' Highlands",
+   "sci": 26.7,
+   "cap": 40.0
+  }
+ ],
+ "techs": [
+  "start",
+  "basicRocketry",
+  "engineering101",
+  "generalRocketry",
+  "survivability",
+  "stability",
+  "advRocketry",
+  "basicScience",
+  "heavyRocketry",
+  "generalConstruction",
+  "flightControl",
+  "fuelSystems",
+  "landing",
+  "electrics",
+  "heavierRocketry",
+  "spaceExploration"
+ ]
+}
