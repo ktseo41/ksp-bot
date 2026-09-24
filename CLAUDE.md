@@ -64,6 +64,7 @@ Read `docs/design-guide.md` first. Spec = JSON list of parts, first part is the 
 - `node`: parent's stack node (`top`/`bottom`/...); the child uses the opposite node unless `childNode`.
 - no `node` → surface attach at parent-local `height` (m from parent center), `angle` (deg), `symmetry` N,
   optional `radius`. A surface child of a surface part (booster on radial decoupler) goes straight outward.
+- `rigid: true` / `autostrut: "Root"|"Heaviest"|"Grandparent"`: stiffen tall stacks (SRB stacks fall over without them).
 - `stage`: 1 fires at launch, 2 next, ... (contiguous). Decoupler + next engine may share a stage.
   Chutes last. Parts without staging actions ignore `stage`.
 - Part names/nodes/stats: `uv run ksp parts`. Only researched parts are accepted in career.

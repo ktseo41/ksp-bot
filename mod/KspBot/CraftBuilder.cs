@@ -52,10 +52,12 @@ namespace KspBot
         public float height;
         public float angle;
         public float radius;
+        public string autostrut;  // Off (default) / Root / Heaviest / Grandparent
+        public bool rigid;        // rigid attachment
 
         public static PartSpec From(Dictionary<string, object> d)
         {
-            var known = new[] { "id", "part", "parent", "node", "childNode", "stage", "symmetry", "height", "angle", "radius" };
+            var known = new[] { "id", "part", "parent", "node", "childNode", "stage", "symmetry", "height", "angle", "radius", "autostrut", "rigid" };
             var bad = d.Keys.Where(k => !known.Contains(k)).ToList();
             if (bad.Count > 0) throw new ArgumentException("unknown part spec keys: " + string.Join(", ", bad));
             return new PartSpec
@@ -65,6 +67,7 @@ namespace KspBot
                 childNode = CraftSpec.Get<string>(d, "childNode"), stage = CraftSpec.Get<int>(d, "stage"),
                 symmetry = CraftSpec.Get<int>(d, "symmetry"), height = CraftSpec.Get<float>(d, "height"),
                 angle = CraftSpec.Get<float>(d, "angle"), radius = CraftSpec.Get<float>(d, "radius"),
+                autostrut = CraftSpec.Get<string>(d, "autostrut") ?? "Off", rigid = CraftSpec.Get<bool>(d, "rigid"),
             };
         }
     }
@@ -216,11 +219,14 @@ namespace KspBot
                 baseDir.y = 0;
                 baseDir = baseDir.sqrMagnitude > 1e-6f ? baseDir.normalized : Vector3.right;
             }
+            var dirs = Enumerable.Range(0, k)
+                .Select(j => Quaternion.AngleAxis(ps.angle + 360f * j / k, Vector3.up) * baseDir).ToList();
+            // one radius for all symmetry copies: per-direction mesh support differs (Thumper: 1.285 vs 1.372 m),
+            // which offset a 3-booster cluster's thrust and tipped Minmus Lander 1 over at liftoff
+            var r = ps.radius > 0 ? ps.radius : dirs.Max(d => Support(p.ap, d, ps.height));
             var result = new List<Inst>();
-            for (int j = 0; j < k; j++)
+            foreach (var n in dirs)
             {
-                var n = Quaternion.AngleAxis(ps.angle + 360f * j / k, Vector3.up) * baseDir;
-                var r = ps.radius > 0 ? ps.radius : Support(p.ap, n, ps.height);
                 var s = new Vector3(0, ps.height, 0) + n * r;
                 // same rule as the VAB editor: LookRotation(surface normal) * LookRotation(node orientation)
                 var q = Quaternion.LookRotation(n, Vector3.up) * Quaternion.LookRotation(o, Vector3.up);
@@ -317,8 +323,8 @@ namespace KspBot
                 n.AddValue("attRot0", KSPUtil.WriteQuaternion(attRot0));
                 n.AddValue("mir", "1,1,1");
                 n.AddValue("symMethod", "Radial");
-                n.AddValue("autostrutMode", "Off");
-                n.AddValue("rigidAttachment", "False");
+                n.AddValue("autostrutMode", i.spec.autostrut);
+                n.AddValue("rigidAttachment", i.spec.rigid ? "True" : "False");
                 n.AddValue("istg", i.istg);
                 n.AddValue("resPri", 0);
                 n.AddValue("dstg", i.istg);

@@ -12,6 +12,11 @@
 - Radial Thumpers ×4 on radial decouplers around a 1.25 m core destroyed the core at separation (sandbox).
 - Maneuver nodes need **Tracking Station lvl 2** (not only Mission Control lvl 2); `burn_at` falls back
   to manual burns when nodes are locked.
+- **SRB-first stacks need stiffness**: a 45 t 4-Thumper stack under a long upper stack had its thrust ~0.4° off the
+  pod axis, giving 26 kN·m of torque against the Mk1's 5 kN·m wheel. It fell over in 8 s (two crashes, Jeb lost). Put `"rigid": true` and
+  `"autostrut": "Root"` on the stack parts. Measure it on the pad before flying: sum of thruster positions × directions
+  about the CoM (`thruster.thrust_position/direction(v.reference_frame)`) against `v.available_torque`. (Minmus Lander 1)
+- LT-05 legs: attach at tank height −1.05 (just past the FL-T400 bottom) → feet 25 cm below a Terrier bell.
 - Drogues alone do not slow a Mk1 pod below ~110 m/s at 6–9 km (Mk16 test contract window missed).
 
 Numbers are stock KSP 1.12.x values pulled from the KSP wiki/forums (see Sources). `(?)` marks
