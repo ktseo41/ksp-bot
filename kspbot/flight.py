@@ -318,14 +318,26 @@ def _encounter(orbit, body):
     return None
 
 
-def _node_cost(node, target, pe_alt):
+def _inc_short(orbit, min_inc):
+    """Degrees by which the orbit's inclination (prograde or retrograde) falls short of min_inc."""
+    if not min_inc:
+        return 0.0
+    i = math.degrees(orbit.inclination)
+    return max(0.0, min_inc - min(i, 180 - i))
+
+
+def _node_cost(node, target, pe_alt, min_inc=None):
     time.sleep(0.04)  # let KSP recompute patches
     if node.orbit.body.name == target.name:  # already inside the target SOI: just shape the periapsis
-        return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0
+        return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0 + _inc_short(node.orbit, min_inc)
     enc = _encounter(node.orbit, target)
     if enc:
-        return abs(enc[0] - pe_alt) / 1000.0
+        return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc)
     ca = node.orbit.next_closest_approach(target.orbit).distance
+    other = node.orbit.next_orbit
+    if other is not None and other.body.name != node.orbit.body.name:
+        # another moon's SOI comes first (a Mun graze on the way to Minmus): push the path out of it
+        return 2000.0 + (other.body.sphere_of_influence - other.periapsis) / 1000.0 + ca / 1000.0
     return 1000.0 + ca / 1000.0
 
 
@@ -386,18 +398,32 @@ def transfer_to(target_name, pe_alt):
     return True
 
 
-def correct_course(target_name, pe_alt):
-    """Mid-course correction toward target periapsis pe_alt (small burn now + 60 s)."""
+def correct_course(target_name, pe_alt, min_inc=None):
+    """Mid-course correction toward target periapsis pe_alt (small burn now + 120 s); min_inc: also tilt the
+    arrival orbit to at least this inclination (cheap far out, e.g. for survey sites at high latitude)."""
     v = vessel()
     target = sc().bodies[target_name]
     node = v.control.add_node(ut() + 120, 0, 0, 0)
-    tune_node(node, lambda n: _node_cost(n, target, pe_alt),
-              steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
+    cost = lambda n: _node_cost(n, target, pe_alt, min_inc)
+    tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
+    if _encounter(node.orbit, target) is None and v.orbit.body.name != target.name:
+        # far off course (e.g. deflected by a Mun flyby): seed from a coarse prograde x radial grid, then tune
+        say("no encounter nearby; coarse search")
+        best = None
+        for pg in range(-150, 151, 5):
+            for rd in (-40, -20, 0, 20, 40):
+                node.prograde, node.normal, node.radial = pg, 0.0, rd
+                c = cost(node)
+                if best is None or c < best[0]:
+                    best = (c, pg, rd)
+        node.prograde, node.normal, node.radial = best[1], 0.0, best[2]
+        tune_node(node, cost, steps=(("prograde", 2.0), ("normal", 2.0), ("radial", 2.0)))
     enc = _encounter(node.orbit, target)
-    say(f"correction {node.delta_v:.1f} m/s -> pe {enc[0] if enc else None}")
+    inc = math.degrees(enc[1].inclination) if enc else None
+    say(f"correction {node.delta_v:.1f} m/s -> pe {enc[0] if enc else None}, inc {inc}")
     if enc is None and v.orbit.body.name != target.name:
         node.remove()
-        say("no encounter reachable with a small correction; not burning")
+        say("no encounter reachable; not burning")
         return False
     if node.delta_v < 0.3:
         node.remove()

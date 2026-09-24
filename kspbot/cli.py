@@ -241,7 +241,7 @@ PHASES = {
     "circularize": lambda a: flight.circularize(a.at),
     "periapsis": lambda a: flight.change_periapsis(a.alt),
     "transfer": lambda a: flight.transfer_to(a.body, a.pe),
-    "correct": lambda a: flight.correct_course(a.body, a.pe),
+    "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
     "land": lambda a: flight.land(),
@@ -315,6 +315,7 @@ def main(argv=None):
     p = add("correct", PHASES["correct"], help="mid-course correction for periapsis --pe")
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
+    p.add_argument("--inc", type=float, help="minimum arrival inclination (deg)")
     add("soi", PHASES["soi"], help="warp to the next SOI change")
     p = add("capture", PHASES["capture"], help="burn at periapsis into orbit (circular or --apo)")
     p.add_argument("--apo", type=float)
