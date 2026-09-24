@@ -197,6 +197,8 @@ def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape
     ap = v.auto_pilot
     ap.reference_frame = v.surface_reference_frame
     ap.target_pitch_and_heading(90, heading)
+    # softer gains: with AV-R8 fins at q ~40 kPa the default tuning made heading/AoA oscillate ±3° (Mun Lander 3)
+    ap.time_to_peak = (5.0, 5.0, 5.0)
     ap.engaged = True
     v.control.sas = False
     v.control.throttle = 1.0

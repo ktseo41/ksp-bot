@@ -69,7 +69,8 @@ class Recorder:
         stage = v.control.current_stage
         body = v.orbit.body.name
         situation = v.situation.name
-        tumbling = False
+        tumbling = spinning = oscillating = False
+        hist = []
         while not self._stop.is_set():
             try:
                 if sc.active_vessel is None or sc.active_vessel.name != v.name:
@@ -116,11 +117,28 @@ class Recorder:
                     self.event("attitude", f"loss of control? rate={rate:.0f} deg/s aoa={aoa:.0f} q={q:.0f}")
                 elif rate < 10 and abs(aoa) < 10:
                     tumbling = False
+                # roll rate (spin about the vessel axis) and AoA oscillation in the atmosphere
+                axis = v.direction(o.body.non_rotating_reference_frame)
+                roll_rate = math.degrees(sum(a * b for a, b in zip(av, axis)))
+                if abs(roll_rate) > 10 and not spinning:
+                    spinning = True
+                    self.event("attitude", f"rolling {roll_rate:.0f} deg/s")
+                elif abs(roll_rate) < 3:
+                    spinning = False
+                hist.append(aoa)
+                del hist[:-8]
+                flips = sum(1 for a, b in zip(hist, hist[1:]) if a * b < 0 and abs(a - b) > 2)
+                if flips >= 3 and not oscillating:
+                    oscillating = True
+                    self.event("attitude", f"oscillating: AoA {min(hist):.1f}..{max(hist):.1f} deg, rate {rate:.0f} deg/s, q={q:.0f}")
+                elif flips == 0:
+                    oscillating = False
                 self._write({
                     "t": round(time.time(), 1), "ut": round(self._ut, 1), "body": body,
                     "alt": round(fl.mean_altitude), "radar": round(fl.surface_altitude),
                     "spd": round(fl.speed, 1), "vs": round(fl.vertical_speed, 1), "hs": round(fl.horizontal_speed, 1),
-                    "pitch": round(sfl.pitch, 1), "hdg": round(sfl.heading, 1), "aoa": round(aoa, 1),
+                    "pitch": round(sfl.pitch, 1), "hdg": round(sfl.heading, 1), "roll": round(sfl.roll, 1),
+                    "roll_rate": round(roll_rate, 1), "aoa": round(aoa, 1),
                     "rate": round(rate, 1), "q": round(q), "thr": round(v.control.throttle, 2),
                     "stage": stage, "parts": n_parts, "mass": round(v.mass), "thrust": round(v.thrust),
                     "ap": round(o.apoapsis_altitude), "pe": round(o.periapsis_altitude),
