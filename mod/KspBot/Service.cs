@@ -270,6 +270,70 @@ namespace KspBot
             return Json.Write(new Obj { ["hired"] = applicant.name, ["trait"] = applicant.trait, ["cost"] = cost });
         }
 
+        // ---------------- EVA (kRPC has none) ----------------
+        // Science on EVA (EVA report, surface sample) runs through kRPC's experiments on the EVA kerbal vessel.
+
+        static readonly System.Reflection.BindingFlags Any =
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+
+        static KerbalEVA ActiveKerbal()
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var k = v != null && v.isEVA ? v.GetComponentInChildren<KerbalEVA>() : null;
+            return k ?? throw new InvalidOperationException("active vessel is not an EVA kerbal");
+        }
+
+        /// <summary>Send the first crew member of the active vessel out of its hatch. The kerbal becomes the active vessel.</summary>
+        [KRPCProcedure]
+        public static string EvaSpawn()
+        {
+            if (!GameVariables.Instance.UnlockedEVA(ScenarioUpgradeableFacilities.GetFacilityLevel(SpaceCenterFacility.AstronautComplex)))
+                throw new InvalidOperationException("EVA not unlocked (Astronaut Complex)");
+            var v = FlightGlobals.ActiveVessel;
+            var part = v.parts.FirstOrDefault(p => p.protoModuleCrew.Count > 0 && p.airlock != null)
+                       ?? throw new InvalidOperationException("no crewed part with a hatch");
+            var crew = part.protoModuleCrew[0];
+            var k = FlightEVA.fetch.spawnEVA(crew, part, part.airlock, true)
+                    ?? throw new InvalidOperationException("EVA failed (hatch obstructed?)");
+            return Json.Write(new Obj { ["kerbal"] = crew.name, ["from"] = part.partInfo.title });
+        }
+
+        /// <summary>State of the active EVA kerbal: FSM state, ground contact, the hatch it can board (if any), flags left.</summary>
+        [KRPCProcedure]
+        public static string EvaState()
+        {
+            var k = ActiveKerbal();
+            var airlock = typeof(KerbalEVA).GetField("currentAirlockPart", Any)?.GetValue(k) as Part;
+            return Json.Write(new Obj
+            {
+                ["state"] = k.fsm.currentStateName,
+                ["ground"] = k.part.GroundContact,
+                ["situation"] = k.vessel.situation.ToString(),
+                ["airlock"] = airlock != null ? airlock.partInfo.title : null,
+                ["flags"] = k.flagItems,
+            });
+        }
+
+        /// <summary>Plant a flag (kerbal must stand on the ground).</summary>
+        [KRPCProcedure]
+        public static void EvaPlantFlag()
+        {
+            var k = ActiveKerbal();
+            var can = (bool)typeof(KerbalEVA).GetMethod("CanPlantFlag", Any).Invoke(k, null);
+            if (!can) throw new InvalidOperationException("cannot plant a flag now (not on the ground, no flags, or locked)");
+            k.PlantFlag();
+        }
+
+        /// <summary>Board the hatch the kerbal is at (same rule as the in-game Board action: must be in the hatch's trigger).</summary>
+        [KRPCProcedure]
+        public static void EvaBoard()
+        {
+            var k = ActiveKerbal();
+            var airlock = typeof(KerbalEVA).GetField("currentAirlockPart", Any)?.GetValue(k) as Part
+                          ?? throw new InvalidOperationException("not at a hatch");
+            k.BoardPart(airlock);
+        }
+
         // ---------------- Craft building ----------------
 
         /// <summary>

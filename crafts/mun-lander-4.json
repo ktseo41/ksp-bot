@@ -1,0 +1,233 @@
+{
+ "name": "Mun Lander 4",
+ "description": "Mun Lander 2 lifter; wide lander: FL-T200 core + 3 radial FL-T400, 6 LT-05 legs (tip angle 33 deg full), Terrier",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "mk1pod.v2",
+   "rigid": true
+  },
+  {
+   "id": "main",
+   "part": "parachuteSingle",
+   "parent": "pod",
+   "node": "top",
+   "stage": 6
+  },
+  {
+   "id": "drogue",
+   "part": "radialDrogue",
+   "parent": "pod",
+   "symmetry": 2,
+   "height": 0.1,
+   "stage": 5
+  },
+  {
+   "id": "goo",
+   "part": "GooExperiment",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 225
+  },
+  {
+   "id": "thermo",
+   "part": "sensorThermometer",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 315
+  },
+  {
+   "id": "battery",
+   "part": "batteryPack",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 0
+  },
+  {
+   "id": "shield",
+   "part": "HeatShield1",
+   "parent": "pod",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "dec3",
+   "part": "Decoupler.1",
+   "parent": "shield",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "c",
+   "part": "fuelTankSmall",
+   "parent": "dec3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rt",
+   "part": "fuelTank",
+   "parent": "c",
+   "symmetry": 3,
+   "angle": 0,
+   "rigid": true
+  },
+  {
+   "id": "legsA",
+   "part": "miniLandingLeg",
+   "parent": "rt",
+   "height": -0.9,
+   "angle": 50
+  },
+  {
+   "id": "legsB",
+   "part": "miniLandingLeg",
+   "parent": "rt",
+   "height": -0.9,
+   "angle": -50
+  },
+  {
+   "id": "antenna",
+   "part": "longAntenna",
+   "parent": "c",
+   "angle": 60,
+   "height": 0.0
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "c",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "dec2",
+   "part": "Decoupler.1",
+   "parent": "terrier",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw1",
+   "part": "sasModule",
+   "parent": "dec2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw2",
+   "part": "sasModule",
+   "parent": "rw1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m1",
+   "part": "fuelTank",
+   "parent": "rw2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat2",
+   "part": "batteryPack",
+   "parent": "m1",
+   "height": 0.5,
+   "angle": 0
+  },
+  {
+   "id": "m2",
+   "part": "fuelTank",
+   "parent": "m1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m3",
+   "part": "fuelTank",
+   "parent": "m2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m4",
+   "part": "fuelTank",
+   "parent": "m3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "swivel",
+   "part": "liquidEngine2.v2",
+   "parent": "m4",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "basicFin",
+   "parent": "m4",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -0.6
+  },
+  {
+   "id": "dec1",
+   "part": "Decoupler.1",
+   "parent": "swivel",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "core",
+   "part": "MassiveBooster",
+   "parent": "dec1",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "r8",
+   "part": "R8winglet",
+   "parent": "core",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -3.2
+  },
+  {
+   "id": "side",
+   "part": "MassiveBooster",
+   "parent": "core",
+   "symmetry": 2,
+   "stage": 1,
+   "rigid": true,
+   "angle": 90
+  },
+  {
+   "id": "cones",
+   "part": "noseCone",
+   "parent": "side",
+   "node": "top",
+   "childNode": "bottom01"
+  }
+ ]
+}

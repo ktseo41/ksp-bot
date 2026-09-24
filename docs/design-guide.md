@@ -22,6 +22,7 @@
 - Don't make an uncontrollable rocket pitch over with a deliberate CoM offset: the torque grows as the SRBs burn down and flipped Mun Lander 1 (Jeb lost). Heavy SRB stacks (90 t, MoI ~6e6) need real authority (inline reaction wheels, AV-R8 fins).
 - Capsule reentry: nothing heavy/draggy stacked under the pod without a heat shield at the very bottom, and always drogues. Pod + Science Jr flipped nose-first and hit the chute window at 960 m/s (Sounding 3, Bill lost).
 - LT-05 legs: attach at tank height −1.05 (just past the FL-T400 bottom) → feet 25 cm below a Terrier bell.
+- **EVA (KspBot `eva out|report|board`)**: the Mk1 pod hatch faces builder `angle: 90`. Any radial part there (or parts on all four sides) → "All hatches are obstructed". After exiting, the kerbal hangs at the hatch ("Ladder (Idle)", inside the airlock trigger), so EVA report and surface sample work from there and boarding back is legitimate right away. EVA data goes into the pod on boarding. Flags need ground contact (and a way back to the hatch), so not done yet. Surface samples need R&D level 2. (sandbox, Mun Lander 4)
 - Drogues alone do not slow a Mk1 pod below ~110 m/s at 6–9 km (Mk16 test contract window missed).
 
 Numbers are stock KSP 1.12.x values pulled from the KSP wiki/forums (see Sources). `(?)` marks

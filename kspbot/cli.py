@@ -91,8 +91,11 @@ def cmd_upgrade(a):
 
 
 def _contracts(kind):
-    # kRPC's active_contracts list can miss freshly accepted contracts; filter all_contracts by state
-    return [c for c in sc().contract_manager.all_contracts if c.state.name == kind]
+    # kRPC's active_contracts list can miss freshly accepted contracts; filter all_contracts by state.
+    # all_contracts can also keep a just-completed contract as "active": drop anything in completed_contracts.
+    cm = sc().contract_manager
+    done = {c._object_id for c in cm.completed_contracts}
+    return [c for c in cm.all_contracts if c.state.name == kind and c._object_id not in done]
 
 
 def cmd_contracts(a):
@@ -232,6 +235,33 @@ def cmd_sandbox_orbit(a):
     cmd_vessel(a)
 
 
+def cmd_eva(a):
+    """out | state | report | flag | board (the first crew member; science via kRPC on the EVA kerbal)."""
+    b = bot()
+    if a.action == "out":
+        print(b.eva_spawn())
+    elif a.action == "state":
+        print(b.eva_state())
+    elif a.action == "flag":
+        b.eva_plant_flag()
+        time.sleep(8)
+        b.dismiss_dialogs()  # the flag naming/plaque dialog
+        print(b.eva_state())
+    elif a.action == "board":
+        b.eva_board()
+        time.sleep(2)
+        cmd_vessel(a)
+    elif a.action == "report":
+        from . import flight
+        for e in flight.vessel().parts.experiments:
+            if e.available and not e.has_data:
+                e.run()
+        time.sleep(1.5)
+        for e in flight.vessel().parts.experiments:
+            if e.has_data:
+                print(e.title, e.science_subject.title, sum(d.science_value for d in e.data))
+
+
 def cmd_wait(a):
     print(wait_ready())
 
@@ -293,6 +323,8 @@ def main(argv=None):
     p.add_argument("--transmit", action="store_true")
     p = add("warp", cmd_warp, help="warp to UT or +seconds")
     p.add_argument("ut")
+    p = add("eva", cmd_eva, help="EVA: out | state | report | flag | board")
+    p.add_argument("action", choices=["out", "state", "report", "flag", "board"])
     add("wait", cmd_wait, help="wait until KSP is up with a save loaded")
     p = add("sandbox-orbit", cmd_sandbox_orbit, help="TEST ONLY: teleport to a circular orbit (sandbox saves)")
     p.add_argument("body")

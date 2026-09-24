@@ -643,6 +643,9 @@ def do_science(transmit=False):
     v = vessel()
     out = []
     for e in v.parts.experiments:
+        if e.has_data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
+            e.reset()  # worthless old data (e.g. a repeated orbit crew report) would block the new situation
+            time.sleep(0.3)
         if e.inoperable or e.has_data or not e.available:
             continue
         try:
