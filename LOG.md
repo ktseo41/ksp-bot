@@ -394,10 +394,49 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   false); an EVA kerbal's "Take Data" has a GUI range of 1.5 m only (the call itself has no range check): measure
   hatch-to-part distances before relying on it.
 
+## 2026-09-26 — Survey 1 (Bob): orbit-only science at Kerbin/Mun/Minmus, +1601 sci
+- Idea: the save had almost no in-space subjects (Mun/Minmus EVA per biome, magnetometer 45 x body multiplier,
+  high-space sets); one crewed orbiter can take them all without landing. crafts/survey-1.json = Eve 1 stack with
+  pod side parts only at 225/270/315/0 (hatch clear; storage unit at 315, -0.15), 3 Science Jrs, magnetometer boom
+  on the Terrier tank. Pad EVA test: out fine, but Bob floated off the pod and fell to the pad (Ragdoll, alive):
+  **reverted to launch** (game-offered) to get him back in. LKO fine, Poodle ~1050 + Terrier 3623.
+- Mun: transfer 865 (expected 857) -> pe -5.6 km after the burn, arrival retrograde equatorial. Aim-point seed v1
+  (straight line b/t) from Kerbin orbit gave inc 167 only: outside the SOI a burn doesn't move the aim point by
+  dv x t. v2: least-norm burn from a numerical Jacobian of KSP's own predicted impact vector (3 trial nodes,
+  re-linearised once), 36 aim angles judged by the real patch: 116 m/s -> inc 98 (a normal burn near the node line
+  right after TLI has little leverage; accepted: dv budget ~3800 vs ~1200 needed). Kerbin high: all 7 subjects incl.
+  magnetometer 67.5. Mun high + low, capture 279 (expected 279) -> 14 x 17 km.
+- **Magnetometer takes ~7 s to report**: `do_science` collected after 1.5 s and the next call reset the half-done
+  experiment as "worthless" -> lost the Mun low reading once; now waits (<= 20 s) until every started experiment
+  has data. Re-ran: 135.
+- Mun biome tour (new scratch script: predict the next entry into a missing biome from the ground track, warp to
+  the middle of that pass, EVA, report, board): **all 17 Mun biomes** now have low-orbit EVA reports. The printed
+  report titles lagged the real subjects (a save showed PolarLowlands/NorthwestCrater stored under other titles);
+  a duplicate made the pod refuse the kerbal's data -> KSP's "Cannot store experiments / Board anyway" popup
+  (KerbalEVA.checkExperiments) and `eva board` silently did nothing: dumped the duplicate, boarded, dismissed.
+- **Mun -> Minmus**: `transfer Minmus` from Mun orbit reached transfer_planet (generalised to moons), but (1)
+  planet_window's 40-day lookback picked a window 5 synodic periods old (Mun->Minmus every 7.4 d; lookback now
+  <= 0.15 synodic), (2) from a POLAR Mun orbit the needed escape direction (along the Mun's velocity) was 76 deg
+  out of our plane: it lines up twice per Mun orbit (1.8, 5.0, 8.2, 11.4, 14.6 d) and the window came at 14.8 d,
+  (3) transfer_planet matches the velocity at the SOI edge, which for a small SOI isn't v_inf (Mun: 2mu/r_SOI =
+  53,600 m2/s2 ~ v_inf^2): its plan went to ap 31,773 km, inc 23 -> not burned. Raised the orbit to 400 km (117 +
+  90 m/s) so the 14.2-day wait warped fast, then a scratch closest-approach tune from a 159 m/s seed: 161 m/s ->
+  Minmus pe 21.5 km, inc 80 (Kerbin orbit inc 22, arrival v_inf 233 -> capture 165 instead of ~100).
+- Minmus: high magnetometer 112.5 + EVA 20; inc-to-90 trim (22.6 m/s) skipped, 80 deg reached the Poles; capture
+  165 -> 21 x 22 km; low magnetometer 180; biome tour: all 8 missing biomes (Midlands already done).
+- Return: gate REFUSED 365 m/s (expected 163): same plane geometry (Minmus' velocity 58 deg out of the polar plane).
+  Waited 8.2 d for the alignment - in the 22 km orbit that cost **36 real minutes** of warp (raise the orbit
+  first next time) - then 160 m/s -> Kerbin pe 36 km (+6 km after every moon return burn, 3rd time) -> 1.8 m/s trim
+  -> 30 km, reentry, landed in the Highlands. **Science 11 -> 1613.** Storage unit held 44 items.
+- R&D upgraded to level 3 (1.69M; nodes > 500 sci), researched fieldScience, advScienceTech (ISRU, drills,
+  gravimeter), largeVolumeContainment (3.75 m), commandModules (Mk1-3 pod), largeElectrics. Funds 1.26M, sci 3.
+- Lessons: polar orbits around a moon lock the escape direction: plan departures by plane alignment (twice per
+  moon orbit) or leave from an equatorial orbit; before a long wait, raise the orbit for fast warp.
+
 ### Next steps (plan)
-State (2026-09-26, after MS2): UT ~17,731,500, funds 2.99M, sci 10, rep 381. Eve 1 (Jeb, ~1017 sci aboard,
-3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna, ~2800 m/s, window UT
-22,895,340. Bob, Bill, Mitbro available. Active contract: Minmus temperature survey (500 m sites; let it lapse).
+State (2026-09-26, after Survey 1): UT ~18,714,000, funds 1.26M, sci 3, rep 383, R&D 3. Eve 1 (Jeb, ~1017 sci
+aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna, ~2800 m/s, window UT
+22,895,340. Bob, Bill, Mitbro available. Minmus temperature survey contract (500 m sites): let it lapse.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. **Eve 1 return** (window UT 27,264,701, flight 171 d): departure from an elliptical polar orbit (see the Eve 1
    entry): rotate the orbit at the apoapsis so the pe lies under the needed asymptote, eject at pe, broken-plane
