@@ -330,6 +330,7 @@ PHASES = {
     "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
+    "depart": lambda a: flight.depart_planet(a.body, a.pe, a.at, a.max_arrival, a.horizon),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
     "wait-plane": lambda a: flight.wait_plane(a.inc, a.lan),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed, a.keep_until),
@@ -446,6 +447,13 @@ def main(argv=None):
     p.add_argument("--lan", type=float, required=True)
     p = add("return", PHASES["return"], help="leave a moon for the parent with periapsis --pe")
     p.add_argument("--pe", type=float, default=30000)
+    p = add("depart", PHASES["depart"], help="from an eccentric orbit around a planet, leave for another planet: "
+                                            "run 1 plans/burns the plane tilt at the apoapsis, run 2 (--at UT) the periapsis ejection")
+    p.add_argument("body")
+    p.add_argument("--pe", type=float, default=30000, help="target periapsis for the later mid-course correction")
+    p.add_argument("--at", type=float, help="UT of the departure periapsis pass (printed by run 1)")
+    p.add_argument("--max-arrival", type=float, help="cap on the arrival v_inf (m/s) when choosing the departure")
+    p.add_argument("--horizon", type=float, default=800.0, help="how many days ahead to consider departures")
     p = add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, drogues, main chutes, land")
     p.add_argument("--main-alt", type=float, default=4000)
     p.add_argument("--main-speed", type=float, default=250)
@@ -476,7 +484,7 @@ def main(argv=None):
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 
-    for name in ("transfer", "correct", "match-orbit", "return"):
+    for name in ("transfer", "correct", "match-orbit", "return", "depart"):
         sub.choices[name].add_argument("--plan", action="store_true",
                                        help="stop at the first tuned node (left in place); burn it with `ksp node`")
 

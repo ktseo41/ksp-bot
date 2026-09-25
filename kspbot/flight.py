@@ -7,6 +7,7 @@ import math
 import re
 import time
 
+from . import kepler
 from .core import say, sc
 
 G0 = 9.80665
@@ -856,28 +857,8 @@ def transfer_planet(target_name, pe_alt, samples=48):
         return False
     t0 = ut() + 300
     node = v.control.add_node(t0, dv, 0, 0)
-
-    def vinf_cost(n):
-        time.sleep(0.04)  # let KSP recompute patches
-        ex = _exit_velocity(n, home, frame)
-        return math.dist(ex[0], vinf_cost.req) if ex else 1e6
-    vinf_cost.req = vi_req
-    seed = None
-    for i in range(samples):
-        node.ut = t0 + i * P / samples
-        c = vinf_cost(node)
-        if seed is None or c < seed[0]:
-            seed = (c, node.ut)
-    node.ut = seed[1]
-    say(f"best seed v_inf error {seed[0]:.0f} m/s at +{seed[1] - ut():.0f}s; tuning")
-    c = tune_node(node, vinf_cost, steps=(("prograde", 10.0), ("ut", 30.0), ("normal", 5.0)))
-    # second pass from the real hand-over point (the SOI edge is 84 Mm from Kerbin, and ~1-2 days later)
-    ex = _exit_velocity(node, home, frame)
-    p = plan(ex[1], ex[2], t_arr - ex[1]) if ex else None
-    if p:
-        vinf_cost.req = p[0]
-        c = tune_node(node, vinf_cost, steps=(("prograde", 2.0), ("ut", 10.0), ("normal", 2.0)))
-    say(f"ejection tuned: v_inf error {c:.1f} m/s, {node.delta_v:.0f} m/s")
+    c = _match_exit(node, home, frame, lambda t1, p1, T: (plan(t1, p1, T) or (None,))[0], t_arr,
+                    [t0 + i * P / samples for i in range(samples)], req0=vi_req)
     if c > 20:
         say("cannot match the required departure velocity; node left for inspection")
         return False
@@ -913,6 +894,359 @@ def transfer_planet(target_name, pe_alt, samples=48):
     enc = _encounter(v.orbit, target)  # a 1 m/s error in the ejection moved the Duna pass by ~12,000 km
     if not enc or abs(enc[0] - pe_alt) > 3000:
         return correct_course(target_name, pe_alt)
+    return True
+
+
+def _match_exit(node, home, frame, plan, t_arr, seed_uts, req0=None,
+                coarse=(("prograde", 10.0), ("ut", 30.0), ("normal", 5.0))):
+    """Tune node (prograde, ut, normal) until the velocity with which KSP's own patch leaves home's SOI matches the
+    Lambert requirement plan(t1, p1, T) -> v_inf vector (None if unsolvable). First pass against the requirement
+    from home's centre (req0, or plan at the node time), seeded at the best of seed_uts; second pass from the real
+    hand-over point and time: the SOI edge is 84 Mm from Kerbin / 85 Mm from Eve, 1-2 days later, and the speed
+    there exceeds v_inf by 2 mu / r_SOI (9 % at Eve) - the second pass absorbs both. Returns the error left (m/s)."""
+    def cost(n):
+        time.sleep(0.04)  # let KSP recompute patches
+        ex = _exit_velocity(n, home, frame)
+        return math.dist(ex[0], cost.req) if ex else 1e6
+    cost.req = req0 if req0 is not None else plan(node.ut, home.orbit.position_at(node.ut, frame), t_arr - node.ut)
+    if cost.req is None:
+        return 1e6
+    seed = None
+    for t in seed_uts:
+        node.ut = t
+        c = cost(node)
+        if seed is None or c < seed[0]:
+            seed = (c, t)
+    node.ut = seed[1]
+    say(f"best seed v_inf error {seed[0]:.0f} m/s at +{seed[1] - ut():.0f}s; tuning")
+    c = tune_node(node, cost, steps=coarse)
+    ex = _exit_velocity(node, home, frame)
+    req = plan(ex[1], ex[2], t_arr - ex[1]) if ex else None
+    if req is not None:
+        cost.req = req
+        c = tune_node(node, cost, steps=(("prograde", 2.0), ("ut", 10.0), ("normal", 2.0)))
+    say(f"ejection tuned: v_inf error {c:.1f} m/s, {node.delta_v:.0f} m/s")
+    return c
+
+
+# ---------------------------------------------------------------- departure from an eccentric / inclined orbit
+
+def _hyperbola_through(mu, r, u):
+    """Velocity at position r of the escape hyperbola whose v_inf vector is u, the short way round (the body is not
+    passed between r and the asymptote): (velocity, eccentricity, periapsis radius, true anomaly at r), or None if
+    r and u are (anti)parallel. The plane is (r, u); the energy fixes a = -mu/u^2; e follows from
+    r = p / (1 + e cos(nu_inf - theta)) with theta the angle from r to u and nu_inf = acos(-1/e)."""
+    R, um = math.sqrt(_dot(r, r)), math.sqrt(_dot(u, u))
+    rh, uh = _norm(r), _norm(u)
+    th = math.acos(max(-1.0, min(1.0, _dot(rh, uh))))
+    if th < 1e-4 or th > math.pi - 1e-4:
+        return None
+    W = _norm(_cross(rh, uh))
+    a = -mu / um ** 2
+
+    def radius(e):
+        return -a * (e * e - 1) / (1 + e * math.cos(math.acos(-1 / e) - th))
+    lo, hi = 1.0 + 1e-9, 1.0 + 1e-6
+    while radius(hi) < R:
+        hi = 1 + (hi - 1) * 2
+        if hi > 1e6:
+            return None
+    for _ in range(100):
+        mid = (lo + hi) / 2
+        if radius(mid) < R:
+            lo = mid
+        else:
+            hi = mid
+    e = (lo + hi) / 2
+    p = -a * (e * e - 1)
+    nu = math.acos(-1 / e) - th
+    k = math.sqrt(mu / p)
+    Q = _cross(W, rh)
+    vr, vt = k * e * math.sin(nu), k * (1 + e * math.cos(nu))
+    return tuple(vr * x + vt * y for x, y in zip(rh, Q)), e, p / (1 + e), nu
+
+
+def _kepler_of(o, mu=None, name=""):
+    """kepler.Orbit from a kRPC Orbit (elements only, so the offline tests can build the same thing from numbers)."""
+    return kepler.Orbit(mu if mu is not None else o.body.gravitational_parameter, o.semi_major_axis, o.eccentricity,
+                 o.inclination, o.longitude_of_ascending_node, o.argument_of_periapsis, o.mean_anomaly_at_epoch,
+                 o.epoch, name)
+
+
+def plan_departure(ship, home, target, mu_sun, soi, t_from, t_to, t_hohmann=None, refine=4, max_dv=2500.0):
+    """Pure planner (kepler.Orbit inputs, no kRPC) for leaving a highly eccentric orbit around home for target.
+    A prograde burn at the periapsis is the cheap escape (Oberth), but its asymptote is bound to a cone of
+    acos(1/e_hyp) (~25 deg) about the apoapsis direction, fixed in space (turning the apsis line costs ~v_pe/2 per
+    radian anywhere on the orbit); the orbital plane can be turned about the apsis line for almost nothing at the
+    apoapsis (Eve 1: 90 m/s there). So for each periapsis pass in [t_from, t_to] this finds the flight times T at
+    which the Lambert departure v_inf lies exactly on that cone (the hyperbola through our periapsis is tangent
+    there: root of its true anomaly at the burn), tilts the plane onto the asymptote, and refines the requirement to
+    KSP's hand-over at the SOI edge (velocity there, not v_inf; 9 % faster at Eve). Eve 1's Hohmann window had the
+    apoapsis 138 deg from Eve's prograde: unreachable; 8 passes later a 297-day 250 deg arc costs ~340 m/s in all.
+    Returns candidates sorted by dv_tilt + dv_pe, each a dict (times in UT, angles in rad, m/s):
+    t_pe, T, t_arr, tilt (signed, about the periapsis direction), inc/lan of the tilted plane, dv_tilt, tilt_burn
+    (prograde, normal) at the apoapsis, dv_pe, pe_burn (prograde, radial, normal) at the periapsis, v_inf, exit
+    (t, r, v relative to home at the SOI edge), arrival v_inf, helio (kepler.Orbit of the transfer)."""
+    nrm, crs, dt, mag, Orbit = _norm, _cross, _dot, kepler._mag, kepler.Orbit
+    mu = ship.mu
+    P = ship.period
+    r_pe, v_pe_vec = ship.state_at_nu(0)
+    v_pe, v_ap = mag(v_pe_vec), mag(ship.state_at_nu(math.pi)[1])
+    if t_hohmann is None:
+        t_hohmann = math.pi * math.sqrt(((home.a + target.a) / 2) ** 3 / mu_sun)
+
+    def requirement(t_dep, T, delta=(0.0, 0.0, 0.0)):
+        """Lambert v_inf vector (plus the SOI hand-over correction delta) and the arrival v_inf, or None."""
+        r1, r2 = home.position(t_dep), target.position(t_dep + T)
+        v1 = home.velocity(t_dep)
+        sol = _lambert(mu_sun, r1, r2, T, nrm(crs(r1, v1)))
+        if sol is None:
+            return None
+        u = tuple(a - b + d for a, b, d in zip(sol[0], v1, delta))
+        return u, mag(tuple(a - b for a, b in zip(sol[1], target.velocity(t_dep + T)))), sol
+
+    def geometry(u):
+        """Plane through the periapsis direction and the asymptote (motion from the periapsis towards u), the
+        signed tilt to it about the periapsis direction, our velocity at the periapsis once tilted, the hyperbola."""
+        Wn = crs(ship.P, nrm(u))
+        if mag(Wn) < 1e-9:
+            return None
+        Wn = nrm(Wn)
+        if dt(crs(Wn, ship.P), u) < 0:
+            Wn = tuple(-x for x in Wn)
+        alpha = math.atan2(dt(crs(ship.W, Wn), ship.P), dt(ship.W, Wn))
+        hyp = _hyperbola_through(mu, r_pe, u)
+        if hyp is None:
+            return None
+        return alpha, Wn, tuple(v_pe * x for x in crs(Wn, ship.P)), hyp
+
+    def nu_at_burn(t_pe, T, delta=(0.0, 0.0, 0.0)):
+        req = requirement(t_pe, T, delta)
+        g = geometry(req[0]) if req else None
+        return g[3][3] if g else None
+
+    def solve_T(t_pe, lo, hi, delta=(0.0, 0.0, 0.0)):
+        """Flight time in [lo, hi] at which the burn is tangential (true anomaly on the hyperbola = 0)."""
+        flo, fhi = nu_at_burn(t_pe, lo, delta), nu_at_burn(t_pe, hi, delta)
+        if flo is None or fhi is None or flo * fhi > 0:
+            return None
+        for _ in range(50):
+            mid = (lo + hi) / 2
+            fm = nu_at_burn(t_pe, mid, delta)
+            if fm is None:
+                return None
+            if fm * flo <= 0:
+                hi, fhi = mid, fm
+            else:
+                lo, flo = mid, fm
+        return (lo + hi) / 2
+
+    out = []
+    t_pe = ship.time_of_nu(0, t_from)
+    grid = [t_hohmann * (0.5 + 0.02 * i) for i in range(101)]
+    while t_pe <= t_to:
+        vals = [(T, nu_at_burn(t_pe, T)) if abs(T - t_hohmann) > 0.03 * t_hohmann else (T, None) for T in grid]
+        for (T1, f1), (T2, f2) in zip(vals, vals[1:]):
+            if f1 is None or f2 is None or f1 * f2 > 0 or abs(f1) > 1.0 or abs(f2) > 1.0:
+                continue
+            T = solve_T(t_pe, T1, T2)
+            if T is None:
+                continue
+            # refine to the SOI hand-over: shift the requirement by (needed - predicted) exit velocity, re-solve T
+            delta, res = (0.0, 0.0, 0.0), None
+            for _ in range(refine + 1):
+                T = solve_T(t_pe, T - 0.04 * t_hohmann, T + 0.04 * t_hohmann, delta) or T
+                req = requirement(t_pe, T, delta)
+                g = geometry(req[0]) if req else None
+                if g is None:
+                    break
+                alpha, Wn, v0, (vh, e_h, rp_h, nu_h) = g
+                hyp = Orbit.from_state(mu, r_pe, vh, t_pe)
+                t_x = hyp.time_at_radius(soi, t_pe)
+                if t_x is None:
+                    break
+                rx, vx = hyp.state(t_x)
+                Rx = tuple(a + b for a, b in zip(home.position(t_x), rx))
+                sol = _lambert(mu_sun, Rx, target.position(t_pe + T), t_pe + T - t_x, nrm(crs(Rx, home.velocity(t_x))))
+                if sol is None:
+                    break
+                need = tuple(a - b for a, b in zip(sol[0], home.velocity(t_x)))
+                d = tuple(a - b for a, b in zip(need, vx))
+                res = (req, alpha, Wn, v0, vh, e_h, rp_h, nu_h, t_x, rx, vx, Rx, sol)
+                if mag(d) < 0.05:
+                    break
+                delta = tuple(a + b for a, b in zip(delta, d))
+            if res is None:
+                continue
+            req, alpha, Wn, v0, vh, e_h, rp_h, nu_h, t_x, rx, vx, Rx, sol = res
+            dv_pe_vec = tuple(a - b for a, b in zip(vh, v0))
+            dv_pe = mag(dv_pe_vec)
+            dv_tilt = 2 * v_ap * abs(math.sin(alpha / 2))
+            if dv_pe + dv_tilt > max_dv:
+                continue
+            rh = nrm(r_pe)
+            helio = Orbit.from_state(mu_sun, Rx, tuple(a + b for a, b in zip(home.velocity(t_x), vx)), t_x, "transfer")
+            tilted = Orbit.from_state(mu, r_pe, v0, t_pe)
+            out.append(dict(
+                t_pe=t_pe, T=T, t_arr=t_pe + T, tilt=alpha, inc=tilted.inc, lan=tilted.lan,
+                dv_tilt=dv_tilt, tilt_burn=(v_ap * (math.cos(alpha) - 1), v_ap * math.sin(alpha)),
+                dv_pe=dv_pe, pe_burn=(dt(dv_pe_vec, nrm(v0)), dt(dv_pe_vec, rh), dt(dv_pe_vec, Wn)),
+                v_inf=mag(req[0]), u=req[0], nu_h=nu_h, pe_h=rp_h, exit=(t_x, rx, vx), exit_speed=mag(vx),
+                arrival_v_inf=mag(tuple(a - b for a, b in zip(sol[1], target.velocity(t_pe + T)))),
+                helio=helio, dv=dv_pe + dv_tilt))
+        t_pe += P
+    out.sort(key=lambda c: c["dv"])
+    return out
+
+
+def _describe_candidate(c, now, t_win=None):
+    day = 21600.0
+    when = f"{(c['t_pe'] - now) / day:.0f} d from now" + (f", window {(c['t_pe'] - t_win) / day:+.0f} d" if t_win else "")
+    return (f"pe pass UT {c['t_pe']:.0f} ({when}): flight {c['T'] / day:.0f} d, tilt {math.degrees(c['tilt']):+.1f} deg "
+            f"({c['dv_tilt']:.0f} m/s at the apoapsis) + ejection {c['dv_pe']:.0f} m/s = {c['dv']:.0f} m/s; "
+            f"v_inf {c['v_inf']:.0f}, arrival v_inf {c['arrival_v_inf']:.0f}")
+
+
+def depart_planet(target_name, pe_alt, at=None, max_arrival=None, horizon_days=800.0):
+    """From a highly eccentric and/or inclined orbit around a planet, leave for another planet in two cheap burns:
+    a plane tilt at the apoapsis (Eve 1 moves at 90 m/s there) that puts the periapsis direction and the required
+    departure asymptote into one plane, then a prograde ejection at the periapsis (Oberth, 4.36 km/s). transfer_planet
+    assumes a circular parking orbit and cannot: the asymptote of a periapsis burn is bound to a ~25 deg cone about the
+    apoapsis direction, and that direction is fixed in space (turning the apsis line costs ~v_pe/2 per radian); at the
+    Hohmann window Eve 1's apoapsis pointed 138 deg from Eve's prograde. plan_departure picks the periapsis pass and
+    flight time at which a tangential periapsis burn is exactly what the Lambert transfer needs (Eve 1: 8 passes after
+    the window, a 297-day 250 deg arc, ~340 m/s in all against ~1160 for ejecting from the apoapsis at the window).
+    Run it twice: the first run plans and (after `ksp node`) burns the tilt at the apoapsis before the chosen pass -
+    nodes far ahead are fine, execute_node warps; the second run, with the printed `--at UT`, plans the ejection at
+    that periapsis. Then `correct TARGET --pe` far out as after transfer_planet. --plan stops at each tuned node.
+    at: UT of the departure periapsis pass to use (nearest candidate); max_arrival: cap on the arrival v_inf (reentry
+    heat) when choosing; the default choice is the cheapest within horizon_days."""
+    mag, dt = kepler._mag, _dot
+    v = vessel()
+    target = sc().bodies[target_name]
+    home = v.orbit.body
+    sun = home.orbit.body
+    frame = sun.non_rotating_reference_frame
+    o = v.orbit
+    now = ut()
+    day = 21600.0
+    if o.eccentricity < 0.3:
+        say(f"eccentricity {o.eccentricity:.2f}: a near-circular orbit; use `transfer` (transfer_planet) instead")
+        return False
+    ship, home_k, target_k = _kepler_of(o, name=v.name), _kepler_of(home.orbit, name=home.name), \
+        _kepler_of(target.orbit, name=target_name)
+    # convention checks: the element-based propagation against KSP's own numbers (frame-independent scalars)
+    t_pe_k = ship.time_of_nu(0, now + 60)
+    t_pe_g = o.ut_at_true_anomaly(0)
+    while t_pe_g < now + 60:
+        t_pe_g += o.period
+    if abs(t_pe_k - t_pe_g) > 60:
+        say(f"WARNING: next periapsis by elements {t_pe_k:.0f} vs KSP {t_pe_g:.0f} ({t_pe_k - t_pe_g:+.0f} s): "
+            f"shifting the mean anomaly to KSP's timing")
+        ship.m0 -= ship.n * (t_pe_k - t_pe_g)
+    t_win, T_h = planet_window(target_name, flight_time=True)
+    ph, pt = home.orbit.position_at(t_win, frame), target.orbit.position_at(t_win, frame)
+    ang_g = math.degrees(math.acos(max(-1.0, min(1.0, dt(ph, pt) / (mag(ph) * mag(pt))))))
+    kh, kt = home_k.position(t_win), target_k.position(t_win)
+    ang_k = math.degrees(math.acos(max(-1.0, min(1.0, dt(kh, kt) / (mag(kh) * mag(kt))))))
+    if abs(ang_g - ang_k) > 1.0:
+        say(f"REFUSED: {home.name}-{target_name} angle at the window {ang_k:.1f} (elements) vs {ang_g:.1f} (KSP) deg: "
+            f"the element conventions differ; not planning")
+        return False
+    say(f"planning departures over the next {horizon_days:.0f} days (element check: periapsis {t_pe_k - t_pe_g:+.0f} s, "
+        f"window angle {ang_k - ang_g:+.2f} deg)")
+    cands = plan_departure(ship, home_k, target_k, sun.gravitational_parameter, home.sphere_of_influence,
+                           now + 120, now + horizon_days * day, T_h)
+    if max_arrival:
+        cands = [c for c in cands if c["arrival_v_inf"] <= max_arrival]
+    if not cands:
+        say("no departure found (no flight time puts the Lambert asymptote on the periapsis cone); not planning")
+        return False
+    for c in cands[:5]:
+        say("  " + _describe_candidate(c, now, t_win), screen=False)
+    cand = min(cands, key=lambda c: abs(c["t_pe"] - at)) if at else cands[0]
+    say("chosen: " + _describe_candidate(cand, now, t_win))
+    if at and abs(cand["t_pe"] - at) > o.period / 2:
+        say(f"REFUSED: no candidate near UT {at:.0f} (nearest {cand['t_pe']:.0f}); not planning")
+        return False
+    t_pe, t_arr = cand["t_pe"], cand["t_arr"]
+    mu_s = sun.gravitational_parameter
+
+    def plan(t1, p1, T1):
+        """Lambert requirement in KSP's frame: v_inf vector from p1 at t1 to the target's real position at t_arr."""
+        r2 = target.orbit.position_at(t1 + T1, frame)
+        h = _norm(_cross(p1, _vel_at(home.orbit, t1, frame)))
+        sol = _lambert(mu_s, p1, r2, T1, h)
+        return tuple(a - b for a, b in zip(sol[0], _vel_at(home.orbit, t1, frame))) if sol else None
+
+    rel = math.degrees(_rel_inc(o.inclination, o.longitude_of_ascending_node, cand["inc"], cand["lan"]))
+    if rel > 0.2:
+        # ---- step 1: the tilt at the apoapsis before the departure periapsis (the apsis line is the node line)
+        t_ap = t_pe - o.period / 2
+        if t_ap < now + 120:
+            say(f"REFUSED: the apoapsis before that periapsis is past (UT {t_ap:.0f}); pick a later pass with --at")
+            return False
+        spd = speed_at(o, t_ap)
+        alpha = cand["tilt"]
+        pe_floor = o.periapsis_altitude - 2000
+
+        def cost(n):
+            time.sleep(0.03)
+            low = max(0.0, pe_floor - n.orbit.periapsis_altitude)
+            return math.degrees(_rel_inc(n.orbit.inclination, n.orbit.longitude_of_ascending_node, cand["inc"],
+                                         cand["lan"])) + low / 100
+        best = None
+        for sign in (1, -1):  # KSP's normal sign vs our right-handed elements: let its own patch decide
+            node = v.control.add_node(t_ap, spd * (math.cos(alpha) - 1), sign * spd * math.sin(alpha), 0)
+            c = cost(node)
+            node.remove()
+            if best is None or c < best[0]:
+                best = (c, sign)
+        node = v.control.add_node(t_ap, spd * (math.cos(alpha) - 1), best[1] * spd * math.sin(alpha), 0)
+        c = tune_node(node, cost, steps=(("normal", 1.0), ("prograde", 0.5), ("radial", 0.5)), min_step=0.002)
+        expect = 2 * spd * abs(math.sin(alpha / 2))
+        say(f"tilt {math.degrees(alpha):+.1f} deg at the apoapsis in {(t_ap - now) / day:.1f} d: {node.delta_v:.1f} m/s "
+            f"(expected {expect:.0f}), plane error left {c:.3f} deg")
+        # dry run of the ejection behind it: KSP's chained patch must reach the required exit velocity, else our
+        # conventions are off and the tilt would be wasted (about 100 m/s)
+        probe = v.control.add_node(t_pe, cand["dv_pe"], 0, 0)
+        err = _match_exit(probe, home, frame, plan, t_arr, [t_pe], coarse=(("prograde", 5.0), ("ut", 10.0), ("normal", 2.0)))
+        dv_probe = probe.delta_v
+        probe.remove()
+        say(f"dry run of the ejection after the tilt: v_inf error {err:.1f} m/s with {dv_probe:.0f} m/s "
+            f"(planned {cand['dv_pe']:.0f})")
+        if err > 50 or dv_probe > 1.5 * cand["dv_pe"] + 20:
+            say("REFUSED: the ejection behind this tilt does not reproduce the plan; node left for inspection")
+            raise Refused("departure plan not reproduced by KSP's patch")
+        say(f"after the burn run: ksp depart {target_name} --pe {pe_alt:.0f} --at {t_pe:.0f} --plan")
+        _approve(node, expect)
+        execute_node(node)
+        say(f"tilt done: inc {math.degrees(v.orbit.inclination):.2f} (want {math.degrees(cand['inc']):.2f}), "
+            f"lan {math.degrees(v.orbit.longitude_of_ascending_node):.1f} (want {math.degrees(cand['lan']):.1f}); "
+            f"next: ksp depart {target_name} --pe {pe_alt:.0f} --at {t_pe:.0f} --plan")
+        return True
+
+    # ---- step 2: the ejection at the periapsis
+    if t_pe - now > 1.5 * o.period:
+        say(f"the departure periapsis is {(t_pe - now) / day:.1f} d away: warping to the orbit before it")
+        warp_to(t_pe - o.period)
+    node = v.control.add_node(t_pe, cand["dv_pe"], 0, 0)
+    c = _match_exit(node, home, frame, plan, t_arr, [t_pe + d for d in (-120.0, -60.0, 0.0, 60.0, 120.0)],
+                    coarse=(("prograde", 5.0), ("ut", 10.0), ("normal", 2.0)))
+    if c > 20:
+        say("cannot match the required departure velocity; node left for inspection")
+        return False
+    enc = _encounter(node.orbit, target)
+    if enc:
+        # KSP already sees the encounter: shape its periapsis a little (an aim-point shift of ~1000 km)
+        tune_node(node, lambda n: _node_cost(n, target, pe_alt), steps=(("prograde", 0.5), ("ut", 5.0), ("normal", 0.5), ("radial", 0.3)))
+        enc = _encounter(node.orbit, target)
+    vi = math.sqrt(target.gravitational_parameter / abs(enc[1].semi_major_axis)) if enc else None
+    say(f"ejection {node.delta_v:.0f} m/s (planned {cand['dv_pe']:.0f}) -> encounter pe {enc[0] if enc else None}, "
+        f"arrival v_inf {vi if vi else 'n/a'} (planned {cand['arrival_v_inf']:.0f}); mid-course: `ksp correct "
+        f"{target_name} --pe {pe_alt:.0f}` a few days after leaving the SOI (expect a few m/s)")
+    _approve(node, cand["dv_pe"])
+    execute_node(node)
     return True
 
 
