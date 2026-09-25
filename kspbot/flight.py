@@ -152,10 +152,22 @@ def _tumbling(v, limit_deg=11.0):
 
 
 def _damp(v, ap, timeout=30):
-    """Stop a spin with SAS (the autopilot alone didn't), then hand back to the autopilot."""
-    say("tumbling: damping with SAS")
+    """Stop a spin with SAS (the autopilot alone didn't), then hand back to the autopilot. Without SAS (a
+    scientist or engineer in a Mk1 pod: Bob's return spun on in a loop) hold the current attitude, roll included."""
     ap.engaged = False
     v.control.sas = True
+    time.sleep(0.3)
+    held = None
+    if v.control.sas:
+        say("tumbling: damping with SAS")
+    else:
+        say("tumbling: no SAS, holding the attitude with the autopilot")
+        frame = v.orbit.body.non_rotating_reference_frame
+        held = (ap.reference_frame, ap.target_direction)
+        ap.reference_frame = frame
+        ap.target_direction = v.direction(frame)
+        ap.target_roll = v.flight(frame).roll
+        ap.engaged = True
     t0 = time.time()
     while time.time() - t0 < timeout:
         w = v.angular_velocity(v.orbit.body.non_rotating_reference_frame)
@@ -163,6 +175,9 @@ def _damp(v, ap, timeout=30):
             break
         time.sleep(0.2)
     v.control.sas = False
+    if held:
+        ap.target_roll = float("nan")
+        ap.reference_frame, ap.target_direction = held
     ap.engaged = True
 
 

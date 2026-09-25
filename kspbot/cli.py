@@ -325,6 +325,7 @@ PHASES = {
     "grab": lambda a: _rdv().grab(a.target, a.speed),
     "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
     "release": lambda a: _rdv().release(),
+    "balance-fuel": lambda a: _rdv().balance_fuel(),
 }
 
 
@@ -440,6 +441,7 @@ def main(argv=None):
     p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
     p.add_argument("--frac", type=float, default=1.0)
     add("release", PHASES["release"], help="open the Klaw")
+    add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 
     a = ap.parse_args(argv)
     try:

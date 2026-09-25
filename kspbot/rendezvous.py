@@ -265,7 +265,7 @@ def grab(name, speed=0.3):
     while time.time() - t0 < 600:
         if len(vessel().parts.all) > n0:
             say("grabbed")
-            v.auto_pilot.engaged = False
+            vessel().auto_pilot.engaged = False  # the grab merged us into a new vessel object
             return True
         p, u, d, s = _rel(v, target, frame)
         los = tuple(-x / d for x in p)
@@ -301,7 +301,31 @@ def transfer_fuel(amount_frac=1.0):
                     time.sleep(0.1)
                 moved[res] = moved.get(res, 0) + t.amount
     say(f"moved {moved}")
+    balance_fuel(dst)
     return moved
+
+
+def balance_fuel(parts=None):
+    """Even out the fill level of the tanks: filling Bob's radial tanks one after another (180/30/3) put the
+    centre of mass 0.36 m off the thrust axis, and his return burn spun the lander up."""
+    v = vessel()
+    RT = sc().ResourceTransfer
+    parts = parts or [p for p in v.parts.all if p.resources.has_resource("LiquidFuel")]
+    for res in ("LiquidFuel", "Oxidizer"):
+        frac = sum(p.resources.amount(res) for p in parts) / max(sum(p.resources.max(res) for p in parts), 1e-9)
+        over = [[p, p.resources.amount(res) - frac * p.resources.max(res)] for p in parts]
+        src = [x for x in over if x[1] > 0.05]
+        for d, need in [(p, -e) for p, e in over if e < -0.05]:
+            for x in src:
+                amt = min(need, x[1])
+                if amt < 0.05:
+                    continue
+                t = RT.start(x[0], d, res, amt)
+                while not t.complete:
+                    time.sleep(0.1)
+                x[1] -= t.amount
+                need -= t.amount
+    say("tanks " + ", ".join(f"{p.resources.amount('LiquidFuel'):.0f}/{p.resources.max('LiquidFuel'):.0f}" for p in parts))
 
 
 def release():
