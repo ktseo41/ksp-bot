@@ -110,7 +110,17 @@ def execute_node(node=None, tol=0.2):
         time.sleep(0.05)
     v.control.throttle = 1.0
     no_thrust = None
+    t_end = time.time() + 3 * bt + 60
     while True:
+        if time.time() > t_end:
+            say("burn is taking far too long: stopping")
+            break
+        if _tumbling(v):  # Mun Tanker 1 spun up to 60 deg/s at a burn start and the loop never ended
+            v.control.throttle = 0.0
+            _damp(v, ap)
+            _wait_pointing(ap, timeout=30)
+            t_end += 60
+            v.control.throttle = 0.1
         auto_stage(v)
         if v.available_thrust <= 0:  # out of fuel with nothing left to stage: stop instead of waiting forever
             no_thrust = no_thrust or time.time()
@@ -134,6 +144,26 @@ def execute_node(node=None, tol=0.2):
     ap.engaged = False
     say(f"burn done, residual {left:.1f} m/s")
     return left
+
+
+def _tumbling(v, limit_deg=11.0):
+    w = v.angular_velocity(v.orbit.body.non_rotating_reference_frame)
+    return math.degrees(math.sqrt(_dot(w, w))) > limit_deg
+
+
+def _damp(v, ap, timeout=30):
+    """Stop a spin with SAS (the autopilot alone didn't), then hand back to the autopilot."""
+    say("tumbling: damping with SAS")
+    ap.engaged = False
+    v.control.sas = True
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        w = v.angular_velocity(v.orbit.body.non_rotating_reference_frame)
+        if math.sqrt(_dot(w, w)) < 0.01:
+            break
+        time.sleep(0.2)
+    v.control.sas = False
+    ap.engaged = True
 
 
 def _wait_pointing(ap, timeout=90):
