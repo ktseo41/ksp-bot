@@ -2,6 +2,7 @@
 
 Conventions: altitudes in meters above sea level, speeds in m/s, the active vessel is flown.
 """
+import functools
 import math
 import re
 import time
@@ -9,6 +10,15 @@ import time
 from .core import say, sc
 
 G0 = 9.80665
+PLAN_ONLY = False  # cli --plan: planners stop at their first tuned node (left in place) instead of burning it
+
+
+class Refused(Exception):
+    """A planned burn failed its sanity check; the node is left for inspection."""
+
+
+class Planned(Exception):
+    """--plan: the node is planned and left; burn it with `ksp node` after checking the numbers."""
 
 
 # ---------------------------------------------------------------- small helpers
@@ -35,9 +45,20 @@ def _cross(a, b):
 
 
 def warp_to(t, lead=0.0):
-    """Time-warp until UT t - lead (no-op if already there)."""
-    if t - lead > ut() + 1:
-        sc().warp_to(t - lead)
+    """Time-warp until UT t - lead (no-op if already there). Inside an atmosphere only physics warp works (x4):
+    a 17-minute wait for a periapsis burn there went unnoticed, so say what it costs in real time."""
+    dt = t - lead - ut()
+    if dt <= 1:
+        return
+    try:
+        v = vessel()
+        b = v.orbit.body
+        if dt > 120 and b.has_atmosphere and v.flight().mean_altitude < b.atmosphere_depth \
+                and v.situation.name not in ("landed", "splashed", "pre_launch"):
+            say(f"waiting {dt:.0f} s inside the atmosphere: no rails warp, ~{dt / 4 / 60:.0f}-{dt / 60:.0f} real min")
+    except Exception:
+        pass
+    sc().warp_to(t - lead)
 
 
 def _stage_parts(v, stage):
@@ -145,6 +166,51 @@ def execute_node(node=None, tol=0.2):
     ap.engaged = False
     say(f"burn done, residual {left:.1f} m/s")
     return left
+
+
+def _describe(node):
+    """What the node leads to: the orbit after it and the next patches (body, pe, inc, v_inf)."""
+    o = node.orbit
+    out = [f"{node.delta_v:.1f} m/s in {node.ut - ut():.0f}s ->"]
+    for _ in range(3):
+        inc = math.degrees(o.inclination)
+        s = f"{o.body.name} pe {o.periapsis_altitude / 1000:.1f} km"
+        if o.eccentricity < 1:
+            s += f" ap {o.apoapsis_altitude / 1000:.1f} km"
+        else:
+            s += f" v_inf {math.sqrt(o.body.gravitational_parameter / abs(o.semi_major_axis)):.0f}"
+        s += f" inc {inc:.1f}" + (" RETROGRADE" if inc > 90 else "")
+        out.append(s)
+        o = o.next_orbit
+        if o is None:
+            break
+    return out[0] + " " + " / ".join(out[1:])
+
+
+def _approve(node, expect, pe_alt=None, allow_flip=False):
+    """Sanity gate for a planner's tuned node, before execute_node: the Δv must be near the analytic estimate
+    (Keo Relay 2's tuner chose 1602 m/s for a 523 m/s job), the orbit must not reverse (that same burn flipped it
+    retrograde), and the periapsis must not drop into the air unless pe_alt asks for it. --plan stops here."""
+    v = vessel()
+    o0, o = v.orbit, node.orbit
+    say(f"plan: {_describe(node)} (expected ~{abs(expect):.0f} m/s)", screen=False)
+    why = None
+    if node.delta_v > 1.5 * abs(expect) + 20:
+        why = f"{node.delta_v:.0f} m/s is far above the expected {abs(expect):.0f}"
+    elif o.body.name == o0.body.name:
+        b = o.body
+        rel = math.degrees(_rel_inc(o0.inclination, o0.longitude_of_ascending_node,
+                                    o.inclination, o.longitude_of_ascending_node))
+        if rel > 90 and not allow_flip:
+            why = f"the orbit would reverse direction (relative inclination {rel:.0f} deg)"
+        elif b.has_atmosphere and o0.periapsis_altitude >= b.atmosphere_depth > o.periapsis_altitude \
+                and not (pe_alt is not None and pe_alt < b.atmosphere_depth):
+            why = f"the periapsis would drop into the atmosphere ({o.periapsis_altitude / 1000:.1f} km)"
+    if why:
+        say(f"REFUSED: {why}; node left for inspection")
+        raise Refused(why)
+    if PLAN_ONLY:
+        raise Planned(_describe(node))
 
 
 def _tumbling(v, limit_deg=11.0):
@@ -560,6 +626,7 @@ def transfer_to(target_name, pe_alt):
         say(f"no encounter found (cost {c:.1f}); node left for inspection")
         return False
     say(f"encounter: {target_name} periapsis {enc[0]:.0f} m, dv {node.delta_v:.0f}")
+    _approve(node, dv)
     execute_node(node)
     # long burns drift; fix the encounter right away while corrections are cheap
     enc = _encounter(v.orbit, target)
@@ -668,6 +735,7 @@ def transfer_planet(target_name, pe_alt, samples=48):
     if vi and vi > 1.25 * abs(vi_hohmann) + 50:
         say(f"arrival v_inf {vi:.0f} >> Hohmann {vi_hohmann:.0f}: off-tangent pass; node left for inspection")
         return False
+    _approve(node, dv)
     execute_node(node)
     enc = _encounter(v.orbit, target)  # a 1 m/s error in the ejection moved the Duna pass by ~12,000 km
     if not enc or abs(enc[0] - pe_alt) > 3000:
@@ -719,6 +787,13 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     if node.delta_v < 0.3:
         node.remove()
         return enc is not None
+    if v.orbit.body.orbit is None and inc_to is None and min_inc is None and node.delta_v < 1.0:
+        # around the Sun a few mm/s of burn error move the pass by 100s of km (Duna 1 chased 0.1 m/s trims for
+        # 48 days): periapsis trims belong inside the target's SOI
+        node.remove()
+        say("far out: a trim under 1 m/s is below the burn accuracy here; do it inside the SOI")
+        return enc is not None
+    _approve(node, node.delta_v, pe_alt if v.orbit.body.name == target_name else None, allow_flip=inc_to is not None)
     execute_node(node, tol=0.05)
     return enc is not None
 
@@ -839,6 +914,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
         node = v.control.add_node(t, -spd * (1 - math.cos(ri)), best[1] * 2 * spd * math.sin(ri / 2), 0)
         tune_node(node, cost, steps=(("normal", 1.0), ("prograde", 0.5), ("radial", 0.5)))
         say(f"plane change {math.degrees(ri):.1f} deg: {node.delta_v:.1f} m/s, left {cost(node):.2f} deg")
+        _approve(node, 2 * spd * math.sin(ri / 2))
         execute_node(node)
 
     # burn 1 at the future apoapsis: the far side (argpe) comes to the periapsis radius
@@ -855,6 +931,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     tune_node(node, cost1, steps=(("prograde", 1.0), ("radial", 1.0)))
     if node.delta_v > 0.5:
         say(f"periapsis side to {rp - R:.0f} m: {node.delta_v:.1f} m/s")
+        _approve(node, dv, rp - R)
         execute_node(node)
     else:
         node.remove()
@@ -876,6 +953,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     node = v.control.add_node(t, dv, 0, 0)
     tune_node(node, cost2, steps=(("prograde", 1.0), ("radial", 1.0), ("ut", 20.0)))
     say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s")
+    _approve(node, dv, rp - R)
     execute_node(node)
 
     if abs(v.orbit.periapsis - rp) > 0.01 * rp:  # Polar Relay 1 came out 13 % low: fix it at the apoapsis
@@ -917,10 +995,84 @@ def return_to_parent(pe_alt=30000):
     tune_node(node, cost, steps=(("prograde", 5.0), ("ut", 30.0)))
     enc = _encounter(node.orbit, parent)
     say(f"return burn {node.delta_v:.0f} m/s -> {parent.name} pe {enc[0] if enc else None}")
+    _approve(node, (v_esc - v_circ) * 1.15)
     execute_node(node)
 
 
 # ---------------------------------------------------------------- landing / takeoff (airless bodies)
+
+def _arm_chutes(v):
+    for c in v.parts.parachutes:
+        try:
+            if not _chute_deployed(c):
+                c.arm()
+        except Exception:
+            pass
+
+
+def _descending(v):
+    o = v.orbit
+    return v.situation.name not in ("landed", "splashed") and \
+        o.periapsis_altitude < (o.body.atmosphere_depth if o.body.has_atmosphere else 0)
+
+
+def _fallback_descent():
+    """Hold retrograde, arm every chute, powered descent to touchdown (what saved Valentina at Duna)."""
+    v = vessel()
+    fl = v.flight(v.orbit.body.reference_frame)
+    ap = v.auto_pilot
+    ap.reference_frame = v.surface_velocity_reference_frame
+    ap.target_direction = (0, -1, 0)
+    ap.engaged = True
+    if v.orbit.body.has_atmosphere:
+        _arm_chutes(v)
+    _powered_descent(v, fl, ap)
+
+
+def _fallback_chutes():
+    """Arm every chute (they open when safe), force them open low down, wait for touchdown."""
+    v = vessel()
+    fl = v.flight(v.orbit.body.reference_frame)
+    _arm_chutes(v)
+    while v.situation.name not in ("landed", "splashed"):
+        if fl.surface_altitude < 2500:
+            for c in v.parts.parachutes:
+                try:
+                    c.deploy()
+                except Exception:
+                    pass
+        time.sleep(1)
+    say(f"{v.situation.name}! {v.name}")
+
+
+def _contained(fallback):
+    """A crewed entry or landing must not die on one RPC error (Duna 1's land_atmo stopped at 28 km on a kRPC
+    chute exception; an ad-hoc script saved Valentina). On an exception while coming down: log it and fly the
+    fallback, retried a few times. Still in a safe orbit: re-raise."""
+    def wrap(fn):
+        @functools.wraps(fn)
+        def run(*a, **kw):
+            try:
+                return fn(*a, **kw)
+            except Exception as e:
+                err = e
+            for _ in range(5):
+                try:
+                    coming_down = _descending(vessel())
+                except Exception:
+                    coming_down = False
+                if not coming_down:
+                    raise err
+                say(f"{fn.__name__} failed ({err.__class__.__name__}: {str(err)[:60]}): {fallback.__name__}")
+                try:
+                    return fallback()
+                except Exception as e:
+                    err = e
+                    time.sleep(0.5)
+            raise err
+        return run
+    return wrap
+
 
 def _slope(body, lat, lon, d=150.0):
     """Steepest terrain slope (deg) from (lat, lon) to points d metres N/S/E/W."""
@@ -957,6 +1109,7 @@ def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
     return None
 
 
+@_contained(_fallback_descent)
 def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
     biomes: first wait for a pass over one of these biomes with gentle terrain."""
@@ -1035,6 +1188,7 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
     say(f"landed on {body.name} at {v.flight().latitude:.2f}, {v.flight().longitude:.2f}")
 
 
+@_contained(_fallback_descent)
 def land_atmo(pe_alt=5000, burn_alt=12000):
     """Land on a body with a thin atmosphere (Duna) from a low orbit: deorbit burn to periapsis pe_alt,
     hold surface retrograde through entry, arm every parachute (they open when safe), and fly the powered
@@ -1209,6 +1363,7 @@ def _coast_clear(v, margin=500.0, steps=24):
 
 # ---------------------------------------------------------------- reentry
 
+@_contained(_fallback_chutes)
 def reentry(main_alt=4000, main_speed=250, keep_until=None):
     """Coast to the atmosphere, drop everything except the parachute stages, hold retrograde, arm drogues
     below 20 km, stage the main chutes once below main_alt and slower than main_speed (or at 2.5 km).

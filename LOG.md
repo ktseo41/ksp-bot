@@ -224,12 +224,29 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   the first stage's SRBs on the pad (untested). SRB separation dipped the pitch 29.6 -> 15.6 deg for ~3 s (not yet fixed:
   hold attitude 2-3 s after staging).
 
+## 2026-09-25 — review of the decision process (user request; fable-5 independent diagnosis)
+- Pattern behind incidents 1-9 (HANDOFF of e3b326e): the command's own "done" line was read as mission success
+  (Duna 1's ejection printed an arrival inc 123.6 and was warped past; Keo Relay 2's 1602 m/s was printed 78 min ahead,
+  vs 523 m/s for the same burn on Relay 1); no expected numbers stated before a step, so nothing could look wrong;
+  planners burned their own tuned nodes (the two costliest errors were decided by code); retries without a hypothesis
+  or cap; side work (code, docs) during running phases; 9 of 14 memories were one-incident rules, and the three that
+  said "check state / weigh options" weren't followed. Not mainly long context (the Duna error came 13 min into a
+  fresh session).
+- Applied (user agreed to all): CLAUDE.md "How to decide" checkpoint (expect / cost / options incl. revert / stop
+  rule; compare every phase's result with the expectation). Memories revert-early, weigh-options-before-acting,
+  observe-before-fixing folded into it (decision-checkpoint). Code: `_approve` gate on every planner's tuned node
+  (Δv > 1.5x the analytic estimate + 20, orbit reversal, periapsis into the air -> REFUSED, node left); `--plan` on
+  transfer/correct/match-orbit/return (stop at the node, burn with `ksp node`); `correct` won't trim < 1 m/s around
+  the Sun; `grab --max-contacts 3`; land/land_atmo/reentry fall back to chutes + powered descent on an exception while
+  coming down; warp_to says the real-time cost of a wait inside an atmosphere. Offline-tested with mock orbits
+  (the Keo Relay 2 flip node is refused); first live use comes next.
+
 ### Next steps (plan)
 State (2026-09-25, end of session): KSP at the space center/pad scene, UT ~10,033,640, funds 2.42M, sci 39.5, rep 326.
 Valentina (Duna 1) waits landed on Duna, Midlands 15.71 N 156.21 E, ~2800 m/s left, science aboard.
 Keo Relay 1/2 in keosynchronous orbits (contracts done). Active contracts: Rescue Gwenbro (Kerbin orbit, Mk1 Lander Can
 77.5 x 80.2 km), Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
-0. Follow CLAUDE.md "How to decide" (user: the decision process itself must change, not per-situation patches).
+0. Follow CLAUDE.md "How to decide" (written after the review above).
 1. **Klaw diagnosis** (the blocker for rescues and salvage): the extended KspBot `GrappleDebug` (committed, builds; needs
    `tools/install.sh kspbot` = KSP restart) now reports otherPart, the hit field, adjusters, rb velocities and rvel, and
    invokes on_contact.OnCheckCondition. Launch Rescue 3 again (`ascent --alt 90000 --twr 1.5` = first test of the SRB

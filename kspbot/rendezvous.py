@@ -311,10 +311,11 @@ def _air_below(v, margin=2000.0):
     return False
 
 
-def grab(name, speed=0.15, face=None):
+def grab(name, speed=0.15, face=None, max_contacts=3):
     """Tag our parts, arm the Klaw, point at the target and drift into it at `speed` m/s.
     The Klaw only catches when a 0.1 m ray from its centre hits the target within 43 deg of square
-    (ModuleGrappleNode.CheckGrappleContact): on a small part (a Thud) aim at a flat face, e.g. face="-z"."""
+    (ModuleGrappleNode.CheckGrappleContact): on a small part (a Thud) aim at a flat face, e.g. face="-z".
+    Stops after max_contacts bounces: repeating the same approach taught nothing new (Salvage 1/2, Rescue 2/3)."""
     v = vessel()
     target = find_target(name)
     sc().target_vessel = target
@@ -338,7 +339,7 @@ def grab(name, speed=0.15, face=None):
             return False
     arm_claw(v)
     if face and any(p.rcs is not None for p in v.parts.all):
-        return _rcs_grab(v, target, frame, face, speed, n0)
+        return _rcs_grab(v, target, frame, face, speed, n0, max_contacts=max_contacts)
     t0 = tlog = time.time()
     contacts, bouncing = 0, False
     while time.time() - t0 < 1800:
@@ -353,6 +354,10 @@ def grab(name, speed=0.15, face=None):
         if d < arm + 3 and closing < -0.05 and not bouncing:  # moving apart right after a touch
             contacts, bouncing = contacts + 1, True
             say(f"contact {contacts}: bounced at {d:.1f} m, {closing:.2f} m/s, {time.time() - t0:.0f} s in")
+            if contacts >= max_contacts:
+                say(f"{contacts} bounces: stopping to diagnose (ksp log)")
+                v.control.throttle = 0.0
+                return False
         elif d > arm + 5:
             bouncing = False
         w = target.angular_velocity(frame)
@@ -416,7 +421,7 @@ def _rcs_axes(v, target, frame, pulse=0.6):
     return signs  # per control: (vessel axis index, sign)
 
 
-def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
+def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800, max_contacts=3):
     """Final approach with RCS: the Klaw stays square to the face (autopilot), RCS alone steers the sideways
     offset to 0 and holds the closing speed, and keeps pushing through the contact."""
     c = v.control
@@ -454,6 +459,9 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
                 contacts, bouncing = contacts + 1, True
                 say(f"contact {contacts}: bounced at {d:.1f} m, {closing:.2f} m/s, off-axis {ll:.2f} m, "
                     f"{time.time() - t0:.0f} s in")
+                if contacts >= max_contacts:
+                    say(f"{contacts} bounces: stopping to diagnose (ksp log)")
+                    return False
             elif d > reach + 4:
                 bouncing = False
             if spin > 3 and d > 6:

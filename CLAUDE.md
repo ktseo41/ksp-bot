@@ -17,6 +17,24 @@ that possible — keep it as small as the missions need.
 - Questions to the user are only for pre-agreed settings or real blockers you cannot resolve
   (game won't start, career financially stuck with no way out). Not for routine mission decisions.
 - Reverting is allowed whenever the game offers it (see rules below); after that, keep going.
+- Autonomous means no questions to the user, not no pauses to think: the checkpoint below always runs.
+
+## How to decide (mandatory checkpoint — user, 2026-09-25 review)
+Run it BEFORE: any burn > 100 m/s or > 20 % of the stage's Δv; any wait > 5 real minutes; any retry of
+something that just failed; any number that differs from what you expected; any recovery/fix command.
+Write ONE progress note (Korean) with these four lines, then act:
+1. **Expect**: the numbers this step should produce (Δv, pe/ap/inc, arrival v_inf, time) and their source
+   (Hohmann estimate, the last similar flight, the Δv table below).
+2. **Cost**: Δv left vs. needed for the rest of the mission; real minutes (rails warp needs vacuum, no thrust).
+3. **Options**: at least two, always including "revert/recover" and "stop and diagnose"; pick one, say why.
+   Can this craft still do its job? If not and the game offers a revert → revert now.
+4. **Stop rule**: the observation that makes you abandon this option (a number; at most 3 attempts).
+AFTER every phase: compare the result with line 1 — orbit numbers, direction, v_inf, Δv left — not with the
+command's own "done". A mismatch opens a new checkpoint; it is not a reason for a quick correction burn.
+Big planned burns (`transfer`, `match-orbit`, `return`, `correct` far out): run with `--plan`, read the
+predicted orbit/encounter against line 1, then `ksp node`. While a phase runs, don't edit flight code or
+write docs: watch its numbers (run it in the background with the full output, never `| tail`).
+A retry must test a stated hypothesis with new information; the same method failing twice → stop, diagnose.
 
 ## Rules of play (career save `kspbot`, Normal difficulty)
 - **Revert: allowed when the game offers it** (Revert to Launch / VAB, `revert_to_launch()`); log each

@@ -334,7 +334,7 @@ PHASES = {
     "survey": lambda a: flight.survey(a.kind, a.dist),
     "rendezvous": lambda a: _rdv().rendezvous(a.target, a.dist),
     "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
-    "grab": lambda a: _rdv().grab(a.target, a.speed, a.face),
+    "grab": lambda a: _rdv().grab(a.target, a.speed, a.face, a.max_contacts),
     "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
     "transfer-crew": lambda a: _rdv().transfer_crew(),
     "release": lambda a: _rdv().release(),
@@ -463,13 +463,19 @@ def main(argv=None):
     p.add_argument("target")
     p.add_argument("--speed", type=float, default=0.15)
     p.add_argument("--face", help='side of the target\'s root part to hit, e.g. "-z" (a flat face)')
+    p.add_argument("--max-contacts", type=int, default=3, help="stop after this many bounces")
     p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
     p.add_argument("--frac", type=float, default=1.0)
     add("transfer-crew", PHASES["transfer-crew"], help="after a grab: move the grabbed vessel's crew into our free seats")
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 
+    for name in ("transfer", "correct", "match-orbit", "return"):
+        sub.choices[name].add_argument("--plan", action="store_true",
+                                       help="stop at the first tuned node (left in place); burn it with `ksp node`")
+
     a = ap.parse_args(argv)
+    flight.PLAN_ONLY = getattr(a, "plan", False)
     try:
         if a.cmd in PHASES or a.cmd in ("stage", "science"):
             from .recorder import Recorder
@@ -478,6 +484,12 @@ def main(argv=None):
                 _orbit_check(rec)
         else:
             r = a.fn(a)
+    except flight.Planned as e:
+        print(f"PLANNED (not burned): {e}\ncheck it against the expected numbers, then `ksp node`")
+        return
+    except flight.Refused as e:
+        print(f"REFUSED: {e}", file=sys.stderr)
+        sys.exit(3)
     except Exception as e:  # show kRPC server errors compactly
         msg = str(e).split("\nServer stack trace")[0]
         print(f"ERROR: {e.__class__.__name__}: {msg}", file=sys.stderr)
