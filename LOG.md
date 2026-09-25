@@ -144,9 +144,13 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Return 406 m/s (inclined 49x93 orbit), splashdown, Jeb home. Sci 8.5, funds 1.70M, UT 4,165,147 (Duna window in ~43.7 days).
 
 
+- **Salvage 3** (uncrewed, for an LKO adapter-recovery contract as a Klaw diagnostic): `circularize` left 62x84 km and the "burn prograde now" periapsis fallback ran 2 min at full thrust: periapsis +9 km, apoapsis hyperbolic. **Reverted to launch** (tooling bug, game-offered). Fix: raise a low periapsis at the apoapsis when it comes first; the burn-now fallback stops if the apoapsis runs away. The user then stopped the salvage effort (recovered on the pad): **rule: no "Recover part" contracts for small/curved parts** (docs/design-guide.md section 0, memory). Contracts left active: Module 761V7 (Minmus Thud), Unit G-P87T (LKO 2.5 m adapter) - far deadlines.
+- KSP restart before Duna: commit 21.4 -> 23.6 GB, nonpaged pool 1.22 -> 1.25 GB, KSP 4.39 -> 3.94 GB, available 3.6 -> 2.3 GB (the restart freed nothing overall). UT 4,165,818, funds 1.73M, sci 8.5, rep 257.6.
+
 ### Next steps (plan)
-0. Module 761V7 contract still open (deadline far): next try Salvage 3 with an FL-R120 (RCS translation only: pitch/yaw/roll off),
-   logging GrappleDebug every tick near contact to see why the ray doesn't capture. Duna 1 prep comes first if time is short.
+0. Salvage stopped (user). Next: **Duna 1** (item 2 below). Uncrewed craft beyond ~15.8 Mm need an antenna (CommNet
+   signal required; OKTO internal 5k vs DSN 50G). Duna 1 is crewed (Valentina) so control is fine; its Communotron 16
+   (5 Gm) can't reach Kerbin from Duna -> keep science aboard, don't rely on --transmit there.
 1. Done this session: Bob rescued (#23/#24), Minmus Science 1 (#25). UT ~3,236,750, funds 1.31M, sci 50. Now at the space center.
    Until the Duna window (~1.87M s ≈ 86 days): e.g. a relay constellation with the new HG-5 (RelayAntenna5) / hex core, the
    "Test LV-N Nerv on an escape trajectory out of the Mun" contract if still offered, more science for specializedConstruction
