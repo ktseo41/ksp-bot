@@ -433,18 +433,60 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Lessons: polar orbits around a moon lock the escape direction: plan departures by plane alignment (twice per
   moon orbit) or leave from an equatorial orbit; before a long wait, raise the orbit for fast warp.
 
+## 2026-09-26 — Rescue 5: three kerbals in one flight (Gwenbro, Daphrick, Jedgard)
+- Found "Gwenbro's Derelict" still orbiting WITH Gwenbro (roster: Assigned) although Rescue 3 had "recovered" her:
+  two vessels carry that name; the empty one is the can Rescue 3 released. Accepted "Rescue Daphrick" (Scientist)
+  and "Rescue Jedgard" (Pilot); all three sat in equatorial LKO 75-88 km.
+- crafts/rescue-5.json: Mk1-3 pod (3 seats, 2.5 m bottom) + Klaw on top, HeatShield2, 3 Mk2-R + 3 drogues; uncrewed:
+  OKTO in a 1.25 m service stack under a C7 2.5->1.25 adapter tank (RCS on it), Terrier; Eve 1 launcher. First
+  build had the pod decoupler in the Terrier's stage (would have dropped the pod at ignition): fixed before launch.
+  LKO 79.6 x 79.9, Poodle 887 (dropped) + Terrier 2158.
+- Grab 1 caught the EMPTY can (kRPC resolved the name to it): released, renamed it "Empty Can (Rescue 3)", flew to
+  the real one. Every grab: first contact, 0 bounces (MODULE-node fix holds). `transfer-crew --to mk1-3pod` x3.
+- `rendezvous` refused twice "orbits too similar to phase: change altitude by >= 5 km": raised to 95 / 110 km
+  circular first. Found: our CLI prints "ERROR: ..." but exits 0, so `a && b && c` chains ran grab/transfer after
+  a refused rendezvous (harmless here). Rendezvous ~110-160 m/s each (phasing orbits 2 x 45-60 m/s).
+- periapsis 30 km, reentry --keep-until 300, splashdown, recovered: both rescue contracts done, funds 1.33 -> 1.44M,
+  rep 407. Crew now: Bob, Gwenbro, Daphrick (scientists), Bill (engineer), Mitbro, Jedgard (pilots); Jeb on Eve 1,
+  Valentina on Duna.
+- Eve 1 return designed offline by fable (merged: kspbot/kepler.py, `depart`, tools/plan_eve_return.py): from the
+  142 x 40,000 km orbit the escape cone is tied to the apoapsis direction (138 deg off Eve's prograde at the Hohmann
+  window); the cheap option is 8 periapsis passes after the window: tilt the plane at the apoapsis (105 m/s, UT
+  28,925,295) and a tangential periapsis burn (215 m/s, UT 29,029,189) -> 298-day arc, arrival v_inf 2142 (entry
+  ~3.9 km/s), ~320 m/s total. Lab mechanics researched (opus): docs/lab/README.md + docs/lab/LabSketch.cs.
+
 ### Next steps (plan)
-State (2026-09-26, after Survey 1): UT ~18,714,000, funds 1.26M, sci 3, rep 383, R&D 3. Eve 1 (Jeb, ~1017 sci
-aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna, ~2800 m/s, window UT
-22,895,340. Bob, Bill, Mitbro available. Minmus temperature survey contract (500 m sites): let it lapse.
+State (2026-09-26, after Rescue 5): KSP at the space center, UT ~18,893,000, funds 1.44M, sci 3, rep 407, R&D 3.
+Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna,
+~2800 m/s, ~378 sci aboard (+ contracts "Explore Duna", "Science data from surface of Duna" complete on recovery).
+Minmus temperature survey contract (500 m sites) will lapse. Everything committed.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
-1. **Eve 1 return** (window UT 27,264,701, flight 171 d): departure from an elliptical polar orbit (see the Eve 1
-   entry): rotate the orbit at the apoapsis so the pe lies under the needed asymptote, eject at pe, broken-plane
-   mid-course change, `reentry`. transfer_planet needs a non-circular path first (design with fable, offline test).
-2. Minmus biome hopper (~1600 sci; materials bay 0/125 in all 9 biomes): ML7-type lander + 5 Science Jr + 5 goo;
-   single-use data stays in its part (Minmus Science 1 lost ~500 via Collect All); orbital EVA reports per biome.
-3. EVA Experiments Kit support in KspBot (kit in the kerbal inventory + `eva science`), ~550 sci in orbits.
-4. Science Lab (advExploration 160 + advElectrics 160) after the hopper; R&D 3 for nodes > 500 sci.
-5. Duna 1 return at its window (see earlier steps: liftoff --alt 60000, transfer Kerbin --pe 30000 --plan, ...).
-6. Small: `contracts` parameter display (kRPC completed flag); accepted contracts once reverted to offered.
-7. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.
+1. **Duna 1 return** at UT 22,895,340 (flight 297 d): liftoff from Duna (thin air; sandbox: ~1450 m/s), then
+   `transfer Kerbin --pe 30000 --plan` (Duna inc 0.06: little plane change), correct, reentry. ~2800 m/s aboard.
+2. **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
+   29029189 ... tilt ... 105 m/s + ejection 215 = 320"; tilt at the apoapsis UT 28,925,295, dry-run v_inf error
+   < ~5 m/s) -> node; then `depart Kerbin --pe 30000 --at 29029189 --plan` (~215 m/s, encounter) -> node; after the
+   SOI exit `correct Kerbin --pe 30000` (a few m/s); reentry at ~3.9 km/s: pod-side goo/thermo/baro hold ~385 sci:
+   before entry measure hatch-to-part distances; if <= 1.5 m, EVA "Take Data" into the pod.
+3. **Lab station** in low Minmus orbit (docs/lab/README.md): KspBot C# LabValue/LabStatus/LabProcess (sketch in
+   docs/lab/LabSketch.cs), MPL + 2 scientists (Gwenbro, Daphrick; Bob), HG-55, ~4000 EC, solar >= 8 EC/s, docking
+   port. Visit every <= 60 Kerbin days (500 sci cap per visit): catch-up, transmit, refill, clean.
+4. Tooling fixes found in the 2026-09-26 Q&A with the user (do before they bite again):
+   a. CLI exits 0 on "ERROR: ..." -> make cli.py exit non-zero on exceptions (chains ran on after a refusal).
+   b. Real-time guard for waits: warp_to should estimate real minutes from the rails-warp cap at the current
+      altitude; long waits in a low orbit (Minmus 22 km: 8.2 d took 36 real minutes) -> raise the orbit first
+      (Mun: 400 km, fast) or at least say it. Lesson is only in LOG so far.
+   c. Moon-to-moon transfers in code: transfer_planet from a moon matches the velocity at the SOI edge, wrong for
+      small SOIs (Mun: 2mu/r_SOI ~ v_inf^2) -> for moons use a closest-approach tune seeded with the analytic
+      ejection (Survey 1's scratch: 161 m/s, worked); from a polar moon orbit wait for the plane alignment (twice
+      per moon orbit) — same for `return` from polar orbits (Minmus: 365 vs 160 m/s).
+   d. Science bookkeeping check in do_science: after each collect, verify the storage count rose by the number of
+      new data; the cause of Minmus Science 1's lost surface materials is still unconfirmed (hypothesis: the
+      printed "100" was orbit data re-listed, the surface runs never happened/stored).
+   e. tools/biometour.py -> a CLI command (`eva-tour`); the report title can lag the real subject.
+   f. Moon return burns end with Kerbin pe +6 km every time (MS2, Survey 1): find the bias (finite burn?).
+   g. aim-point seed + tuner stops short of the wanted inclination (73 of 90 at Eve): weight inc vs pe.
+5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
+   deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
+6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).
+7. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve landing, Moho, Jool.
