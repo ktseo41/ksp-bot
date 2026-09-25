@@ -276,6 +276,11 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   part module, saved from the prefab like the VAB (208 in Rescue 3.craft; pad test: same stage dv/TWR,
   GrappleDebug grappleNode = True on a fresh launch); KspBot `MoveCrew` moves a kerbal by the parts' crew lists
   (not the seat) and fires onCrewTransferred; `transfer-crew --to mk1pod.v2` uses it (untested in flight).
+- (Mun Tanker 1's first-try grab of Bob's lander fits the Klaw finding: the tanker had been unloaded and reloaded
+  while Bob's lander was flown, so its Klaw's OnLoad ran.)
+- Ascent sway (user saw Rescue 4's long stack wobble; fable + opus research): upper 1.25 m stack had no struts ->
+  rescue-4.json upper stack rigid + autostrut Root, design-guide section 0 rule, `ascent` pitch command
+  rate-limited to 1.5 deg/s. Side boosters stay rigid-only (guide: autostrutted side boosters broke on the pad).
 
 ### Next steps (plan)
 State (2026-09-26): KSP at the space center, UT ~10,063,550, funds 2.52M, sci 39.8, rep 340.

@@ -17,6 +17,13 @@
   `"autostrut": "Root"` on the stack parts. Measure it on the pad before flying: sum of thruster positions × directions
   about the CoM (`thruster.thrust_position/direction(v.reference_frame)`) against `v.available_torque`. (Minmus Lander 1)
 - **Never autostrut surface-attached side boosters**: the cluster breaks at spawn ("Structural failure on linkage", crew killed on the pad). Stack parts: rigid + autostrut Root is fine; side boosters: rigid only.
+- **Strut the whole stack, not just the launcher** (Rescue 3/4, 2026-09-26): the 1.25 m upper stack (pod, shield,
+  decoupler, service module, tanks, Terrier: 9 joints) had no rigid/autostrut on a stiff Kickback block; it swayed
+  ±1 deg/s at ~0.3 Hz from the pitch-over (250 m) until past max Q while the autopilot chased the flex (AoA < 1°,
+  harmless but visible). Every stack part gets `rigid` + `autostrut: "Root"` (never "Heaviest": it retargets at each
+  staging). A 1.25 m joint is 1.5x softer than a 2.5 m one (PartJoint: stiffness ∝ node size + 1): prefer one big
+  tank over two small ones, and go to 2.5 m when a 1.25 m stack passes ~12 joints / ~15 m. `ascent` also rate-limits
+  the pitch command to 1.5 deg/s (the pitch program's initial kick started the sway).
 - **Proven heavy lifter (Mun Lander 2)**: 3 Kickbacks (sides rigid), 4 AV-R8 on the core's base, 2 inline wheels, Swivel + 4×FL-T400 → ~13 t to LKO with the upper stage full. The fins make the pitch-over controllable.
 - Pad science: a pod with goo/thermo/baro/Science Jr on the pad gives ~18 science, risk-free.
 - Don't make an uncontrollable rocket pitch over with a deliberate CoM offset: the torque grows as the SRBs burn down and flipped Mun Lander 1 (Jeb lost). Heavy SRB stacks (90 t, MoI ~6e6) need real authority (inline reaction wheels, AV-R8 fins).

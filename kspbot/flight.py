@@ -358,6 +358,7 @@ def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape
         say("liftoff")
         v.control.activate_next_stage()
     state = {"t": time.time()}
+    cmd, t_cmd = 90.0, time.time()
     while True:
         auto_stage(v)
         alt = fl.mean_altitude
@@ -367,7 +368,12 @@ def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape
         if spd > 80 and alt > turn_start:
             vel_pitch = math.degrees(math.atan2(fl.vertical_speed, max(fl.horizontal_speed, 1e-3)))
             pitch = min(max(pitch, vel_pitch - max_aoa), vel_pitch + max_aoa)
-        ap.target_pitch_and_heading(max(pitch, 0), heading)
+        # at most 1.5 deg/s: the sqrt program starts with an infinite slope at turn_start, and that kick set the
+        # tall 1.25 m Rescue 3/4 stacks swaying (+-1 deg/s at 0.3 Hz) from 250 m until past max Q
+        now = time.time()
+        step, t_cmd = 1.5 * (now - t_cmd), now
+        cmd = min(max(pitch, cmd - step), cmd + step)
+        ap.target_pitch_and_heading(max(cmd, 0), heading)
         apo = v.orbit.apoapsis_altitude
         if apo >= target_alt:
             break
