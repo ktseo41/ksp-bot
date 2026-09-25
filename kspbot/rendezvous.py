@@ -6,7 +6,7 @@ The active vessel is the chaser; the target is passive.
 import math
 import time
 
-from .core import say, sc
+from .core import bot, say, sc
 from .flight import _norm, _dot, burn_time, execute_node, tune_node, ut, vessel, warp_to
 
 
@@ -408,7 +408,11 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
     ap.engaged = True
     ap.target_direction = tuple(-x for x in _face_axis(target, face, frame))
     ap.wait()
+    for p in v.parts.all:  # RCS for translation only: attitude is the reaction wheels' job (Salvage 2 spent
+        if p.rcs is not None:  # its monopropellant holding attitude)
+            p.rcs.pitch_enabled = p.rcs.yaw_enabled = p.rcs.roll_enabled = False
     signs = _rcs_axes(v, target, frame)
+    reach = math.sqrt(_dot(_claw(v).position(v.reference_frame), _claw(v).position(v.reference_frame))) + 1.5
     t0 = tlog = time.time()
     try:
         while time.time() - t0 < timeout:
@@ -447,6 +451,11 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
             for (k, sign), name in zip(signs, ("right", "forward", "up")):
                 cmd = err[k] * sign * 8.0
                 setattr(c, name, max(-1.0, min(1.0, cmd if abs(err[k]) > 0.004 else 0.0)))
+            if d < reach + 1.5:  # near contact: what does the Klaw's own capture ray see?
+                try:
+                    say(f"klaw {d:.2f} m: {bot().grapple_debug(target.name)}")
+                except Exception as ex:
+                    say(f"grapple debug failed: {ex}")
             if time.time() - tlog > 15:
                 say(f"rcs grab: {d:.1f} m, along {along:.1f}, off-axis {ll:.2f} m, closing {-_dot(p, u) / d:.2f} m/s, "
                     f"target spin {spin:.1f}, mono {v.resources.amount('MonoPropellant'):.1f}")

@@ -340,7 +340,12 @@ def circularize(at="apoapsis"):
     o = v.orbit
     body = o.body
     if body.has_atmosphere and o.periapsis_altitude < body.atmosphere_depth + 2000:
-        _raise_pe_now(v, body.atmosphere_depth + 8000)
+        if o.apoapsis_altitude > body.atmosphere_depth and o.time_to_apoapsis < o.time_to_periapsis:
+            # the apoapsis comes first: raise the periapsis there (Salvage 3 at 62x84 km burned prograde "now"
+            # for 2 minutes: the periapsis rose 9 km, the apoapsis went hyperbolic)
+            change_periapsis(body.atmosphere_depth + 8000)
+        else:
+            _raise_pe_now(v, body.atmosphere_depth + 8000)
         o = v.orbit
     say(f"orbit {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m")
 
@@ -355,7 +360,11 @@ def _raise_pe_now(v, pe_alt):
     _wait_pointing(ap, timeout=30)
     v.control.throttle = 1.0
     t0 = time.time()
+    ap0 = max(v.orbit.apoapsis_altitude, pe_alt) + 50000
     while v.orbit.periapsis_altitude < pe_alt and time.time() - t0 < 120:
+        if v.orbit.apoapsis_altitude > ap0 or v.orbit.eccentricity > 0.2:
+            say(f"stopping: apoapsis {v.orbit.apoapsis_altitude:.0f} m running away")
+            break
         auto_stage(v)
         if v.available_thrust <= 0:
             break
