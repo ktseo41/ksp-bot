@@ -55,7 +55,8 @@
   {"n":19,"craft":"Mun Lander 5","slug":"mun-lander-5","dest":"minmus","stat":"1400 m/s","crew":"Jeb","goal":"Minmus biome tour","result":"reverted","note":"EVA on Minmus: lander broke apart as Jeb stepped out, Jeb flung at 1400 m/s"},
   {"n":20,"craft":"Mun Lander 6","slug":"mun-lander-6","dest":"minmus","stat":"4 biomes","crew":"Jeb","goal":"Minmus surveys + biome tour","result":"success","note":"2 survey contracts, 4 new biomes, 1.28M funds; Jeb safe"},
   {"n":21,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"400 m/s","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes","result":"reverted","note":"landed at Minmus Poles; EVA flung Jeb off at 400 m/s onto an escape path and tipped the lander (the ML7 layout had worked in the sandbox)"},
-  {"n":22,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"all biomes","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes, no landed EVA","result":"success","note":"polar orbit; landed at Poles, Flats and Slopes, so every Minmus surface biome is now visited; orbital EVA report; science 5.5 -> 247; Jeb safe"}
+  {"n":22,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"all biomes","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes, no landed EVA","result":"success","note":"polar orbit; landed at Poles, Flats and Slopes, so every Minmus surface biome is now visited; orbital EVA report; science 5.5 -> 247; Jeb safe"},
+  {"n":23,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"mun","stat":"891 m/s","crew":"Bob","goal":"Mun biomes (Lowlands, Farside Crater)","result":"stranded","note":"orbit science + orbital EVA report; landed in Lowlands, hopped to Farside Crater; the old liftoff made the hop cost 1434 m/s, leaving 891 m/s, short of the ~970 needed to fly home. Bob waits on the Mun for a Klaw tanker; science 274"}
  ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
@@ -73,7 +74,7 @@
      {"name":"Valentina","trait":"Pilot","highlights":"one pad explosion (reverted)"}
    ]
  },
- "research": ["start","basicRocketry","engineering101","generalRocketry","survivability","stability","advRocketry","basicScience","heavyRocketry","generalConstruction","flightControl","fuelSystems","landing","electrics","heavierRocketry","spaceExploration"],
+ "research": ["start","basicRocketry","engineering101","generalRocketry","survivability","stability","advRocketry","basicScience","heavyRocketry","generalConstruction","flightControl","fuelSystems","landing","electrics","heavierRocketry","spaceExploration","miniaturization","advConstruction","actuators"],
  "sandbox_test_crafts": [
    {"craft":"Sandbox Minmus Test / Sandbox Lander Test","purpose":"first landing-code tests on Minmus",
     "crafts":[{"slug":"sandbox-minmus-test","name":"Sandbox Minmus Test"},{"slug":"sandbox-lander-test","name":"Sandbox Lander Test"}]},

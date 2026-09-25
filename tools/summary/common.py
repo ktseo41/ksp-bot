@@ -160,7 +160,7 @@ def planet(kind, size, dashed=False):
 RES = {'ok': ('check', 'c-ok'), 'rev': ('revert', 'c-rev'), 'dead': ('skull', 'c-dead')}
 
 # career.json uses the save's own result wording; the images use these short codes.
-RESULT_CODE = {'success': 'ok', 'reverted': 'rev', 'crew lost': 'dead'}
+RESULT_CODE = {'success': 'ok', 'reverted': 'rev', 'crew lost': 'dead', 'stranded': 'rev'}  # stranded: no icon of its own yet
 
 # n, craft slug, result, destination, short stat blurb, crew note -- straight from docs/record/career.json
 LAUNCHES = [
