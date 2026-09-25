@@ -329,21 +329,42 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   (old path). Untested live: `node.orbit.time_to_soi_change` on a node patch (falls back to bisection).
 - Eve 1 recovered on the pad (safe state for a session handoff). Eve window UT 11,823,553 (now ~11,790,000).
 
+## 2026-09-26 — Eve 1 (attempt 2, Jeb): at Eve, ~1000 sci aboard, waiting for the return window
+- KSP had quit silently at the first `launch` connection (KSP.log just stops; nothing lost, saved at the space
+  center a minute before). Restarted with tools/install.sh.
+- LKO 79.4 x 79.7, Poodle 1252 + Terrier 4105 (as expected). **Lambert transfer, first live run**: "flight 184 d,
+  v_inf 790, ejection ~1040, Eve -347 Mm out of plane, plane change ~413" = the offline numbers; tuned node
+  1027 m/s, v_inf error 0.0, Kerbin pe 79.6 km, Sun pe radius 9.80 Gm (Eve 9.73-9.93), ap 13.60 Gm -> burned.
+  (_approve prints Sun pe/ap as altitudes above the Sun's 261.6 Mm radius - read them as radius - 262 Mm.)
+- Kerbol "space high": crew 10 + thermo 16 + baro 24 transmitted (sci 45 -> 65), orbital EVA report 16 kept.
+- Mid-course at UT 14,210,478 (planned 14,211,457): `correct Eve --pe 120000 --plan` 371.6 m/s (expected <= 413)
+  -> Eve pe 147 km, v_inf 815 (planned 919), inc 10. Poodle ran out mid-burn, staged to the Terrier: encounter
+  held (pe 146.7 km). Note: correct's `_approve` compared the node with itself (no gate); now the inc-to seed's
+  analytic dv is the expectation.
+- **No link from Eve**: Communotron 16 (500 km) x DSN lvl 2 = ~159 Mm range, Kerbin was 9.5 Gm away -> nothing
+  can be transmitted; everything comes home in the pod. Future interplanetary science craft: a bigger antenna
+  (HG-5 / DTS-M1 ...) or accept recovery-only.
+- Eve SOI: high-space set 1 (crew 25, goo 50, thermo 40, baro 60). Return window Eve->Kerbin is UT 27,264,701
+  (528 d), so a biome tour was worth it: `correct Eve --inc-to 90` found only 0.9 m/s -> inc 11 (the +-6 m/s grid
+  can't turn the aim point); new `_aim_point_seed` (turn the impact vector about the incoming asymptote, 36
+  angles judged by KSP's patch, then tune): seed 73 m/s, tuned 68.5 m/s -> inc 73.1 (tuner stopped short of 90:
+  pe km vs inc/5 weighting), pe 142 km. Capture `--apo 40000000` 127 m/s (expected 127) -> 142 x 40,200 km, 3762 left.
+- Low space at the capture pass: set 2 (goo 70, thermo 56, baro 84) + EVA reports. Tour script (scratchpad): per
+  pe pass warp to 395 km, EVA out, report at every new biome below 400 km, board. 7 passes: **11 of 15 biomes**
+  x 56 (Foothills, Lowlands, Shallows, Explodium Sea, Midlands, Highlands, Poles, Peaks, Impact Ejecta, Crater
+  Lake, Eastern Sea); Olympus, Craters, Akatsuki Lake, Western Sea not crossed (stop rule: 3 dry passes).
+  Aboard: experiments 385 + EVA 616 + 16 = ~1017 sci, recovered only if Jeb gets home.
+- Return plan: from this 142 x 40,000 km polar orbit the ejection asymptote is fixed by the pe; at the apoapsis
+  (slow) rotate the orbit so the pe lies under the required asymptote, then eject at pe (~200 m/s) and a
+  broken-plane mid-course change. transfer_planet assumes a circular parking orbit: needs work before UT 27.2M.
+
 ### Next steps (plan)
-State (2026-09-26): KSP at the space center, UT ~11,790,000, funds 2.84M, sci 45.3, rep 368. Eve 1 built (VAB),
-Jeb assigned at launch. Valentina (Duna 1) waits landed on Duna, ~2800 m/s, window Duna->Kerbin UT 22,895,340.
-Active contracts: Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
+State (2026-09-26, later): UT ~17,393,000, funds 2.95M, sci 84, rep 381. Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s)
+in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) waits landed on Duna, ~2800 m/s, window UT 22,895,340.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
-1. **Eve 1** (Jeb; Eve high/low orbit science + orbital EVA reports, return). Expected numbers:
-   launch `launch "Eve 1" --crew "Jebediah Kerman"`, `ascent --alt 80000`, `circularize` -> LKO ~80 km, Poodle ~1251
-   + Terrier ~4105 m/s. `transfer Eve --pe 120000 --plan` (FIRST LIVE RUN of the Lambert code): expect "Lambert:
-   flight ~184 d, v_inf ~790, ejection ~1040", tuned v_inf error < ~3 m/s, plan pe ~80 km, Sun pe ~9.8 Gm, no
-   encounter by design -> `ksp node`. Do NOT correct right after. At ~UT 14,211,384 (~111 d later):
-   `correct Eve --pe 120000 --plan` expect <= ~413 m/s (first big mid-course plane change) -> node. Eve SOI:
-   `capture --apo <high>` elliptical (~120 m/s; circular would be ~1390), science high (> 400 km) and at the
-   periapsis pass (low): crew report, goo, thermo, baro (two sets on the pod), orbital EVA report per biome
-   (`eva out/report/board`; hatch verified on the pad). Return: `window Kerbin` from Eve, `transfer Kerbin --pe 30000
-   --plan` (broken-plane again: mid-course correction), `reentry`. Budget ~2300 of 5356 m/s.
+1. **Eve 1 return** (window UT 27,264,701, flight 171 d): departure from an elliptical polar orbit (see the Eve 1
+   entry): rotate the orbit at the apoapsis so the pe lies under the needed asymptote, eject at pe, broken-plane
+   mid-course change, `reentry`. transfer_planet needs a non-circular path first (design with fable, offline test).
 2. Minmus biome hopper (~1600 sci; materials bay 0/125 in all 9 biomes): ML7-type lander + 5 Science Jr + 5 goo;
    single-use data stays in its part (Minmus Science 1 lost ~500 via Collect All); orbital EVA reports per biome.
 3. EVA Experiments Kit support in KspBot (kit in the kerbal inventory + `eva science`), ~550 sci in orbits.

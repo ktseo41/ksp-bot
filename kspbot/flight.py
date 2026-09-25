@@ -922,7 +922,12 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     target = sc().bodies[target_name]
     node = v.control.add_node(ut() + 120, 0, 0, 0)
     cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
-    if inc_to is not None:
+    expect = None
+    if inc_to is not None and v.orbit.body.name == target_name and v.orbit.eccentricity > 1:
+        # inside the SOI on the way in: a new arrival plane means turning the aim point (impact vector b) around
+        # the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg, far beyond the +-6 m/s grid below
+        expect = _aim_point_seed(node, target, pe_alt, cost)
+    elif inc_to is not None:
         # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
         # whole target, so scan a fine grid as well
         best = None
@@ -963,9 +968,44 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
         node.remove()
         say("far out: a trim under 1 m/s is below the burn accuracy here; do it inside the SOI")
         return enc is not None
-    _approve(node, node.delta_v, pe_alt if v.orbit.body.name == target_name else None, allow_flip=inc_to is not None)
+    _approve(node, expect or node.delta_v, pe_alt if v.orbit.body.name == target_name else None,
+             allow_flip=inc_to is not None)
     execute_node(node, tol=0.05)
     return enc is not None
+
+
+def _aim_point_seed(node, target, pe_alt, cost):
+    """Seed a node that turns the hyperbola's plane about its incoming asymptote: straight-line approximation
+    (lateral dv = change of the impact vector / time to closest approach), scanned over the new aim angle and
+    judged by KSP's own patch (cost); the tuner finishes it. Returns the seed's dv (the analytic estimate)."""
+    o, t = node.orbit, node.ut
+    frame = target.non_rotating_reference_frame
+    mu = target.gravitational_parameter
+    r, vel = o.position_at(t, frame), _vel_at(o, t, frame)
+    s = _norm(vel)  # far out the velocity is ~ the asymptote (Eve 1: 84 Mm, v 926 vs v_inf 815)
+    b_old = tuple(x - _dot(r, s) * y for x, y in zip(r, s))
+    rp = target.equatorial_radius + pe_alt
+    vinf = math.sqrt(mu / abs(o.semi_major_axis))
+    b = rp * math.sqrt(1 + 2 * mu / (rp * vinf ** 2))
+    t_ca = -_dot(r, s) / math.sqrt(_dot(vel, vel))
+    u1 = _norm(b_old)
+    u2 = _cross(s, u1)
+    # the node's own axes in this frame (KSP's left-handed conventions stay KSP's problem)
+    axes = []
+    for comp in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
+        node.prograde, node.normal, node.radial = comp
+        axes.append(_norm(node.burn_vector(frame)))
+    best = None
+    for k in range(36):
+        phi = math.radians(10 * k)
+        dv = tuple((b * (math.cos(phi) * a + math.sin(phi) * c) - d) / t_ca for a, c, d in zip(u1, u2, b_old))
+        node.prograde, node.normal, node.radial = (_dot(dv, ax) for ax in axes)
+        c = cost(node)
+        if best is None or c < best[0]:
+            best = (c, node.prograde, node.normal, node.radial, math.sqrt(_dot(dv, dv)), 10 * k)
+    node.prograde, node.normal, node.radial = best[1:4]
+    say(f"aim-point seed: {best[4]:.0f} m/s (turn {best[5]} deg), cost {best[0]:.1f}")
+    return best[4]
 
 
 def warp_to_soi():
