@@ -48,14 +48,18 @@ def _stage_parts(v, stage):
 
 def auto_stage(v):
     """Stage when needed: no thrust at all (next engine stage), or dry engines that the next stage drops
-    (spent boosters). Never while landed, never into a parachute-only stage. Returns True if it staged."""
+    (spent boosters). Never while landed, never into a parachute-only stage, never dropping the last engine.
+    Returns True if it staged."""
     cur = v.control.current_stage
     if cur <= 0 or v.situation.name in ("landed", "splashed", "pre_launch"):
         return False
     nxt = _stage_parts(v, cur - 1)
     if nxt and all(p.parachute is not None for p in nxt):
         return False
-    engines = [e for e in v.parts.engines if e.active]
+    all_engines = v.parts.engines
+    if not any(e.part.decouple_stage < cur - 1 for e in all_engines):
+        return False  # would drop the last engine (e.g. lander stage below a return pod)
+    engines = [e for e in all_engines if e.active]
     if v.available_thrust > 0:
         dry = [e for e in engines if not e.has_fuel]
         if not dry or not all(e.part.decouple_stage == cur - 1 for e in dry):
@@ -828,7 +832,7 @@ def liftoff(target_alt=15000, heading=90.0):
     ap.engaged = True
     v.control.throttle = 1.0
     t0 = time.time()
-    while time.time() - t0 < 4 or fl.surface_altitude < 100:
+    while time.time() - t0 < 1.5 or fl.surface_altitude < 40:
         auto_stage(v)
         if time.time() - t0 > 3 and v.available_thrust <= 0:
             v.control.throttle = 0.0
@@ -836,17 +840,29 @@ def liftoff(target_alt=15000, heading=90.0):
             return False
         time.sleep(0.05)
     v.control.legs = False
-    # Fly low and build horizontal speed, climbing as the speed grows (and as the terrain ahead needs), until the
-    # periapsis is safe. The old profile (45/15 deg pitch until the apoapsis reached the target, then circularize)
-    # cost ~850 m/s off the Mun instead of ~600.
+    # Fly low (above the terrain ahead, rising to the target as the speed nears orbital) and build horizontal speed
+    # until the periapsis is safe (or the apoapsis is at the target with little left to circularize there). The old
+    # profile (45/15 deg pitch) cost ~850 m/s off the Mun instead of ~600; a
+    # continuous burn to a circular orbit kept climbing at 80 m/s with pitch clamped at 0 and ended on an escape path.
     R, g, mu = body.equatorial_radius, body.surface_gravity, body.gravitational_parameter
     v_circ = math.sqrt(mu / (R + target_alt))
     hd = math.radians(heading)
-    while v.orbit.periapsis_altitude < target_alt * 0.85:
+    last_check = 0.0
+    while True:
         auto_stage(v)
         if v.available_thrust <= 0:
             say("liftoff: out of thrust")
             break
+        if v.orbit.periapsis_altitude >= target_alt * 0.85:
+            break
+        o = v.orbit
+        if o.apoapsis_altitude >= target_alt and time.time() - last_check > 1.0:
+            # cut only when little is left for the circularization (a steep climb over a crater rim also lifts
+            # the apoapsis, at low speed) and the coast up to the apoapsis clears the terrain
+            last_check = time.time()
+            v_ap = math.sqrt(mu * (2 / o.apoapsis - 1 / o.semi_major_axis))
+            if math.sqrt(mu / o.apoapsis) - v_ap < 0.08 * v_circ and _coast_clear(v, margin=500):
+                break
         lat, lon = math.radians(fl.latitude), math.radians(fl.longitude)
         hs, alt = fl.horizontal_speed, fl.mean_altitude
         ahead = 0.0
@@ -855,18 +871,37 @@ def liftoff(target_alt=15000, heading=90.0):
             la = math.asin(math.sin(lat) * math.cos(d) + math.cos(lat) * math.sin(d) * math.cos(hd))
             lo = lon + math.atan2(math.sin(hd) * math.sin(d) * math.cos(lat), math.cos(d) - math.sin(lat) * math.sin(la))
             ahead = max(ahead, body.surface_height(math.degrees(la), math.degrees(lo)))
-        frac = min(1.0, v.orbit.speed / v_circ) ** 2
-        alt_want = max(ahead + 600, target_alt * frac)
-        vs_want = max(-5.0, min(80.0, (alt_want - alt) / 6))
+        # climb towards the target as the speed nears orbital, but never faster than a ballistic apex at the target
+        # (so the apoapsis stays there and the periapsis rises instead); the terrain ahead overrides both
         a = max(v.available_thrust / v.mass, 1e-3)
         g_eff = g * (R / (R + alt)) ** 2 - hs ** 2 / (R + alt)
-        sin_p = max(0.0, min(0.95, (g_eff + 0.8 * (vs_want - fl.vertical_speed)) / a))
+        dz = target_alt - alt
+        vs_apex = math.copysign(math.sqrt(2 * g_eff * abs(dz)), dz) if g_eff > 0.05 else dz / 10
+        vs_profile = (target_alt * min(1.0, v.orbit.speed / v_circ) - alt) / 8
+        clear = 300 + min(500.0, hs)  # less margin while slow: climbing 800 m straight off the pad wasted ~50 m/s
+        vs_terrain = (max(ahead, body.surface_height(fl.latitude, fl.longitude)) + clear - alt) / 8
+        vs_want = max(-10.0, min(150.0, max(vs_terrain, min(vs_profile, vs_apex))))
+        sin_p = max(-0.3, min(0.9, (g_eff + 0.4 * (vs_want - fl.vertical_speed)) / a))
         ap.target_pitch_and_heading(math.degrees(math.asin(sin_p)), heading)
         time.sleep(0.05)
     v.control.throttle = 0.0
     ap.engaged = False
+    if v.orbit.periapsis_altitude < target_alt * 0.85:
+        circularize()
     say(f"orbit {v.orbit.periapsis_altitude:.0f} x {v.orbit.apoapsis_altitude:.0f} m")
     return v.orbit.periapsis_altitude > 0
+
+
+def _coast_clear(v, margin=500.0, steps=24):
+    """True if the unpowered path from now to the apoapsis stays `margin` m above the terrain."""
+    o, body = v.orbit, v.orbit.body
+    t0, tap = ut(), o.time_to_apoapsis
+    for i in range(1, steps + 1):
+        t = t0 + tap * i / steps
+        lat, lon = _latlon_at(v, t)
+        if o.radius_at(t) - body.equatorial_radius < body.surface_height(lat, lon) + margin:
+            return False
+    return True
 
 
 # ---------------------------------------------------------------- reentry

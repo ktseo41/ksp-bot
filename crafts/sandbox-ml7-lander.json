@@ -1,0 +1,114 @@
+{
+ "name": "ML7 Lander Test",
+ "description": "TEST ONLY (sandbox): Mun Lander 7 without the launch stages, for teleported lander tests",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "mk1pod.v2"
+  },
+  {
+   "id": "main",
+   "part": "parachuteSingle",
+   "parent": "pod",
+   "node": "top",
+   "stage": 4
+  },
+  {
+   "id": "drogue",
+   "part": "radialDrogue",
+   "parent": "pod",
+   "symmetry": 2,
+   "height": 0.1,
+   "stage": 3
+  },
+  {
+   "id": "goo",
+   "part": "GooExperiment",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 225
+  },
+  {
+   "id": "thermo",
+   "part": "sensorThermometer",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 315
+  },
+  {
+   "id": "battery",
+   "part": "batteryPack",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 0
+  },
+  {
+   "id": "shield",
+   "part": "HeatShield1",
+   "parent": "pod",
+   "node": "bottom"
+  },
+  {
+   "id": "dec3",
+   "part": "Decoupler.1",
+   "parent": "shield",
+   "node": "bottom",
+   "stage": 2
+  },
+  {
+   "id": "c",
+   "part": "fuelTankSmall",
+   "parent": "dec3",
+   "node": "bottom"
+  },
+  {
+   "id": "rt",
+   "part": "fuelTank",
+   "parent": "c",
+   "symmetry": 3,
+   "angle": 30
+  },
+  {
+   "id": "legs",
+   "part": "miniLandingLeg",
+   "parent": "rt",
+   "height": -0.9,
+   "angle": 0
+  },
+  {
+   "id": "antenna",
+   "part": "longAntenna",
+   "parent": "c",
+   "angle": 210,
+   "height": 0.0
+  },
+  {
+   "id": "solar",
+   "part": "solarPanels5",
+   "parent": "rt",
+   "angle": 0,
+   "height": 0.6
+  },
+  {
+   "id": "batA",
+   "part": "batteryPack",
+   "parent": "c",
+   "angle": 330,
+   "height": 0.15
+  },
+  {
+   "id": "batB",
+   "part": "batteryPack",
+   "parent": "c",
+   "angle": 330,
+   "height": -0.15
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "c",
+   "node": "bottom",
+   "stage": 1
+  }
+ ]
+}
