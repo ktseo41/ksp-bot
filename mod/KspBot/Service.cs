@@ -40,6 +40,16 @@ namespace KspBot
             return dialogs.Length;
         }
 
+        /// <summary>CommNet "Require Signal for Control" (difficulty option) for the current game; saved at once.</summary>
+        [KRPCProcedure]
+        public static bool SetRequireSignal(bool on)
+        {
+            var p = HighLogic.CurrentGame.Parameters.CustomParams<CommNet.CommNetParams>();
+            p.requireSignalForControl = on;
+            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            return p.requireSignalForControl;
+        }
+
         /// <summary>Show a message on the game screen.</summary>
         [KRPCProcedure]
         public static void Message(string text, float seconds)

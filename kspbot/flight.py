@@ -683,6 +683,105 @@ def capture(target_apo=None):
     say(f"captured: {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m around {o.body.name}")
 
 
+def _plane(inc, lan):
+    """(normal, ascending-node direction) of an orbital plane in a frame of our own (x = reference direction,
+    z = reference normal). KSP's handedness doesn't matter as long as every orbit goes through this."""
+    return ((math.sin(inc) * math.sin(lan), -math.sin(inc) * math.cos(lan), math.cos(inc)),
+            (math.cos(lan), math.sin(lan), 0.0))
+
+
+def _rel_inc(i1, l1, i2, l2):
+    c = math.cos(i1) * math.cos(i2) + math.sin(i1) * math.sin(i2) * math.cos(l1 - l2)
+    return math.acos(max(-1.0, min(1.0, c)))
+
+
+def _ang(a, b):
+    """Smallest difference between two angles (rad), in degrees."""
+    return abs(math.degrees((a - b + math.pi) % (2 * math.pi) - math.pi))
+
+
+def _t_at_arg(o, u):
+    """Next UT (at least 60 s ahead) at which the argument of latitude on orbit o is u."""
+    t = o.ut_at_true_anomaly(u - o.argument_of_periapsis)
+    while t < ut() + 60:
+        t += o.period
+    return t
+
+
+def match_orbit(inc, lan, argpe, sma, ecc):
+    """Reach an orbit given by its elements (deg, m) around the current body, e.g. a contract's "specific orbit":
+    plane change on the node line, then burn at the future apoapsis for the periapsis height, then at the
+    periapsis (placed at argpe) for the apoapsis. Cheap high around a moon (Minmus at 330 km: 67 m/s orbital)."""
+    inc, lan, argpe = math.radians(inc), math.radians(lan), math.radians(argpe)
+    v = vessel()
+    mu = v.orbit.body.gravitational_parameter
+    R = v.orbit.body.equatorial_radius
+    rp, ra = sma * (1 - ecc), sma * (1 + ecc)
+
+    o = v.orbit
+    ri = _rel_inc(o.inclination, o.longitude_of_ascending_node, inc, lan)
+    if math.degrees(ri) > 0.2:
+        n1, a1 = _plane(o.inclination, o.longitude_of_ascending_node)
+        line = _norm(_cross(n1, _plane(inc, lan)[0]))
+        u = math.atan2(_dot(line, _cross(n1, a1)), _dot(line, a1))
+        t = min((_t_at_arg(o, u + k * math.pi) for k in (0, 1)), key=o.orbital_speed_at)  # the slower crossing
+        spd = o.orbital_speed_at(t)
+
+        def cost(n):
+            time.sleep(0.03)
+            return math.degrees(_rel_inc(n.orbit.inclination, n.orbit.longitude_of_ascending_node, inc, lan))
+        best = None
+        for sign in (1, -1):
+            node = v.control.add_node(t, -spd * (1 - math.cos(ri)), sign * 2 * spd * math.sin(ri / 2), 0)
+            c = cost(node)
+            node.remove()
+            if best is None or c < best[0]:
+                best = (c, sign)
+        node = v.control.add_node(t, -spd * (1 - math.cos(ri)), best[1] * 2 * spd * math.sin(ri / 2), 0)
+        tune_node(node, cost, steps=(("normal", 1.0), ("prograde", 0.5), ("radial", 0.5)))
+        say(f"plane change {math.degrees(ri):.1f} deg: {node.delta_v:.1f} m/s, left {cost(node):.2f} deg")
+        execute_node(node)
+
+    # burn 1 at the future apoapsis: the far side (argpe) comes to the periapsis radius
+    o = v.orbit
+    t = _t_at_arg(o, argpe + math.pi)
+    r1 = o.radius_at(t)
+    dv = math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))) - o.orbital_speed_at(t)
+
+    def cost1(n):
+        time.sleep(0.03)
+        no = n.orbit
+        return abs(no.radius_at_true_anomaly(argpe - no.argument_of_periapsis) - rp) / 1000
+    node = v.control.add_node(t, dv, 0, 0)
+    tune_node(node, cost1, steps=(("prograde", 1.0), ("radial", 1.0)))
+    if node.delta_v > 0.5:
+        say(f"periapsis side to {rp - R:.0f} m: {node.delta_v:.1f} m/s")
+        execute_node(node)
+    else:
+        node.remove()
+
+    # burn 2 at argpe: raise the apoapsis
+    o = v.orbit
+    t = _t_at_arg(o, argpe)
+    r2 = o.radius_at(t)
+    dv = math.sqrt(mu * (2 / r2 - 2 / (r2 + ra))) - o.orbital_speed_at(t)
+
+    def cost2(n):
+        time.sleep(0.03)
+        no = n.orbit
+        return (abs(no.periapsis - rp) + abs(no.apoapsis - ra)) / 1000 + 0.2 * _ang(no.argument_of_periapsis, argpe)
+    node = v.control.add_node(t, dv, 0, 0)
+    tune_node(node, cost2, steps=(("prograde", 1.0), ("radial", 1.0), ("ut", 20.0)))
+    say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s")
+    execute_node(node)
+
+    o = v.orbit
+    say(f"orbit pe {o.periapsis_altitude:.0f} (want {rp - R:.0f}) ap {o.apoapsis_altitude:.0f} (want {ra - R:.0f}) "
+        f"inc {math.degrees(o.inclination):.2f} (want {math.degrees(inc):.2f}) "
+        f"lan {math.degrees(o.longitude_of_ascending_node):.1f} (want {math.degrees(lan):.1f}) "
+        f"argpe {math.degrees(o.argument_of_periapsis):.1f} (want {math.degrees(argpe):.1f})")
+
+
 def return_to_parent(pe_alt=30000):
     """From orbit around a moon, burn so the orbit after leaving the SOI has periapsis pe_alt at the parent."""
     v = vessel()

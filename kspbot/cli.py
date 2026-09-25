@@ -320,6 +320,7 @@ PHASES = {
     "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
+    "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
@@ -328,6 +329,7 @@ PHASES = {
     "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
     "grab": lambda a: _rdv().grab(a.target, a.speed),
     "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
+    "transfer-crew": lambda a: _rdv().transfer_crew(),
     "release": lambda a: _rdv().release(),
     "balance-fuel": lambda a: _rdv().balance_fuel(),
 }
@@ -365,7 +367,7 @@ def main(argv=None):
     p.add_argument("spec")
     p = add("launch", cmd_launch, help="roll out a VAB craft to the launch pad (pays its cost)")
     p.add_argument("craft")
-    p.add_argument("--crew", nargs="*")
+    p.add_argument("--crew", nargs="*", help='kerbal names; "none" launches uncrewed (no names = default crew)')
     add("recover", cmd_recover)
     p = add("scene", cmd_scene, help="space_center | tracking_station | editor_vab | flight")
     p.add_argument("name")
@@ -422,6 +424,9 @@ def main(argv=None):
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
+    p = add("match-orbit", PHASES["match-orbit"], help="reach an orbit given by elements (a contract's specific orbit)")
+    for k in ("inc", "lan", "argpe", "sma", "ecc"):
+        p.add_argument("--" + k, type=float, required=True)
     p = add("return", PHASES["return"], help="leave a moon for the parent with periapsis --pe")
     p.add_argument("--pe", type=float, default=30000)
     p = add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, drogues, main chutes, land")
@@ -446,6 +451,7 @@ def main(argv=None):
     p.add_argument("--speed", type=float, default=0.3)
     p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
     p.add_argument("--frac", type=float, default=1.0)
+    add("transfer-crew", PHASES["transfer-crew"], help="after a grab: move the grabbed vessel's crew into our free seats")
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 

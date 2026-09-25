@@ -305,6 +305,28 @@ def transfer_fuel(amount_frac=1.0):
     return moved
 
 
+def transfer_crew():
+    """After a grab: move the grabbed vessel's crew into free seats on ours (tag 'chaser'), like the stock
+    crew-transfer dialog. A rescue contract's 'Save X' completes on the grab itself (onPartCouple)."""
+    v = vessel()
+    seats = [p for p in v.parts.all if p.tag == "chaser" and p.crew_capacity > len(p.crew)]
+    moved = []
+    for p in v.parts.all:
+        if p.tag == "chaser":
+            continue
+        for c in list(p.crew):
+            dst = next((s for s in seats if s.crew_capacity > len(s.crew)), None)
+            if dst is None:
+                say(f"no free seat for {c.name}")
+                break
+            sc().transfer_crew(c, dst)
+            time.sleep(2)  # KSP respawns the crew a frame later
+            moved.append(c.name)
+    say(f"moved {moved}; aboard: " + ", ".join(f"{p.title}: {[c.name for c in p.crew]}"
+                                             for p in vessel().parts.all if p.tag == "chaser" and p.crew_capacity))
+    return bool(moved)
+
+
 def balance_fuel(parts=None):
     """Even out the fill level of the tanks: filling Bob's radial tanks one after another (180/30/3) put the
     centre of mass 0.36 m off the thrust axis, and his return burn spun the lander up."""

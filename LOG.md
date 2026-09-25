@@ -123,7 +123,18 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Return 177 m/s → Kerbin pe 33.7 km, `reentry --main-alt 9000 --main-speed 110` for the Mk16 test contract: the pod only fell below 110 m/s at 3 km, not met again. Splashed down, **Jeb safe**. Recovery: **sci 105 → 670 (+565)**, funds 1.308M (surveys + recovery). `recover` printed before the rewards landed; now it waits for them.
 - Researched precisionEngineering (HG-5 relay, DTS-M1, hex core), advFuelSystems, **nuclearPropulsion (LV-N Nerv)**. Sci 50.
 
+## 2026-09-25 — rescues and the Minmus relay (in progress)
+- Accepted: Rescue Beafrod (Kerbin orbit, Hitchhiker cabin, 81x88 km equatorial), Rescue Haidorf (Minmus orbit, Mk1 crew cabin, 7 km equatorial), Minmus synchronous satellite (inc 20.70, e 0.0613, sma 417,941 m, LAN 317.28, argPe 319.12; needs antenna + power + goo + Science Jr, new probe). Funds 1.48M after advances.
+- Decompiled: a rescue's "Save X" (AcquireCrew) completes on onPartCouple, i.e. the Klaw grab; kRPC `TransferCrew` moves the kerbal into our pod (new `ksp transfer-crew`). Specific-orbit check (VesselUtilities.VesselAtOrbit): PeA/ApA within 5 %, inclination within 4.5 deg, LAN within 18 deg, argPe within 18 deg (e > 0.05). New `ksp match-orbit --inc --lan --argpe --sma --ecc` (plane change on the node line, far-side burn for the periapsis height, apoapsis burn at argPe) - untested.
+- `launch` with no names seats the default crew (Jeb got into the empty rescue pod): `--crew none` launches uncrewed (kRPC ignores unknown names).
+- **Rescue 1** (crafts/rescue-1.json, uncrewed OKTO service module, empty Mk1 pod with Klaw on the nose, radial Mk2-R + drogues, heat shield; Tanker launcher, 21.5k): LKO 77.8x83.5 km (target 72 km; ascent overshoots). `rendezvous` matched the plane (0.10 -> 0.01 deg) and was warping to the intercept burn (UT 3,433,650) when I stopped it for a KSP restart. Crafts/minmus-relay-1.json written (not built).
+- User decisions (relayed): CommNet **Require Signal for Control ON** (new KspBot `SetRequireSignal(bool)`, mod rebuilt; NOT yet called); restart KSP at the space center every few missions (memory: commit 32.7 GB, available 2.2 GB, KSP private 6.63 GB, nonpaged pool 1.78 GB before the restart). The user is rebooting the PC.
+
 ### Next steps (plan)
+0. After the PC reboot: `tools/install.sh kspbot`, `uv run ksp wait`; measure memory (Get-Counter) and report; call
+   `bot().set_require_signal(True)` (KspBot SetRequireSignal) and log it. Then `warp-sc 3433000`, `fly "Rescue 1"`,
+   `rendezvous "Beafrod's Pod"`, photo, `grab`, `transfer-crew`, `release`, deorbit + `reentry`. Then Minmus Relay 1
+   (`match-orbit` with the contract elements above), then the Haidorf rescue (uncrewed; mind CommNet occlusion behind Minmus).
 1. Done this session: Bob rescued (#23/#24), Minmus Science 1 (#25). UT ~3,236,750, funds 1.31M, sci 50. Now at the space center.
    Until the Duna window (~1.87M s ≈ 86 days): e.g. a relay constellation with the new HG-5 (RelayAntenna5) / hex core, the
    "Test LV-N Nerv on an escape trajectory out of the Mun" contract if still offered, more science for specializedConstruction
