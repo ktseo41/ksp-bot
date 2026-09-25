@@ -320,7 +320,17 @@ PHASES = {
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
     "survey": lambda a: flight.survey(a.kind, a.dist),
+    "rendezvous": lambda a: _rdv().rendezvous(a.target, a.dist),
+    "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
+    "grab": lambda a: _rdv().grab(a.target, a.speed),
+    "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
+    "release": lambda a: _rdv().release(),
 }
+
+
+def _rdv():
+    from . import rendezvous
+    return rendezvous
 
 
 def main(argv=None):
@@ -418,6 +428,18 @@ def main(argv=None):
     p.add_argument("--no-science", action="store_true")
     p.add_argument("--heading", type=float, default=90)
     p.add_argument("--pitch", type=float, default=90)
+    p = add("rendezvous", PHASES["rendezvous"], help="match plane, intercept, stop and hold --dist m from the target vessel")
+    p.add_argument("target")
+    p.add_argument("--dist", type=float, default=25.0)
+    p = add("approach", PHASES["approach"], help="close in on a nearby target vessel and hold --dist m")
+    p.add_argument("target")
+    p.add_argument("--dist", type=float, default=25.0)
+    p = add("grab", PHASES["grab"], help="arm the Klaw and drift into the target vessel")
+    p.add_argument("target")
+    p.add_argument("--speed", type=float, default=0.3)
+    p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
+    p.add_argument("--frac", type=float, default=1.0)
+    add("release", PHASES["release"], help="open the Klaw")
 
     a = ap.parse_args(argv)
     try:

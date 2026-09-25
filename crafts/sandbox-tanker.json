@@ -1,0 +1,58 @@
+{
+ "name": "Tanker Test",
+ "description": "TEST ONLY (sandbox): Mun Tanker 1 upper stage",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "probeCoreOcto.v2"
+  },
+  {
+   "id": "claw",
+   "part": "GrapplingDevice",
+   "parent": "pod",
+   "node": "top",
+   "childNode": "top"
+  },
+  {
+   "id": "rw",
+   "part": "sasModule",
+   "parent": "pod",
+   "node": "bottom"
+  },
+  {
+   "id": "t1",
+   "part": "fuelTank",
+   "parent": "rw",
+   "node": "bottom"
+  },
+  {
+   "id": "t2",
+   "part": "fuelTank",
+   "parent": "t1",
+   "node": "bottom"
+  },
+  {
+   "id": "solar",
+   "part": "solarPanels5",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 0,
+   "height": 0.5
+  },
+  {
+   "id": "bat",
+   "part": "batteryPack",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 90,
+   "height": 0.5
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "t2",
+   "node": "bottom",
+   "stage": 1
+  }
+ ]
+}

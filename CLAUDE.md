@@ -21,8 +21,8 @@ that possible — keep it as small as the missions need.
 ## Rules of play (career save `kspbot`, Normal difficulty)
 - **Revert: allowed when the game offers it** (Revert to Launch / VAB, `revert_to_launch()`); log each
   revert and its reason in `LOG.md`. **Quickload** only when our tooling caused the failure. If the revert
-  window is gone, the loss stands. Test new flight code in the sandbox save `kspbot-sandbox`
-  (`tools/install.sh kspbot-sandbox:sandbox`), never in the career.
+  window is gone, the loss stands. **No sandbox** (user, 2026-09-25): new flight code debuts in the career —
+  rehearsing a mission in `kspbot-sandbox` made the career too safe. The sandbox save stays only for photos.
 - No autopilot mods (MechJeb etc.). Flight logic is ours (`kspbot/flight.py`).
 - Pay for everything the normal way (launch cost, research, upgrades). `sandbox-orbit` is refused in career.
 - Keep `LOG.md` (career journal) updated after every mission: what flew, result, money/science, lessons.
