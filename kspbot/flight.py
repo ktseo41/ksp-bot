@@ -3,6 +3,7 @@
 Conventions: altitudes in meters above sea level, speeds in m/s, the active vessel is flown.
 """
 import math
+import re
 import time
 
 from .core import say, sc
@@ -930,13 +931,17 @@ def liftoff(target_alt=15000, heading=90.0):
         if v.orbit.periapsis_altitude >= target_alt * 0.85:
             break
         o = v.orbit
-        if o.apoapsis_altitude >= target_alt and time.time() - last_check > 1.0:
+        if o.eccentricity >= 1 or o.apoapsis_altitude > 1.5 * target_alt:
+            break  # way past the target (Minmus, TWR 18: escaped within seconds); circularize() takes over
+        if o.apoapsis_altitude >= target_alt:
             # cut only when little is left for the circularization (a steep climb over a crater rim also lifts
-            # the apoapsis, at low speed) and the coast up to the apoapsis clears the terrain
-            last_check = time.time()
+            # the apoapsis, at low speed) and the coast up to the apoapsis clears the terrain (the slow check
+            # at most once a second, the cheap one every step)
             v_ap = math.sqrt(mu * (2 / o.apoapsis - 1 / o.semi_major_axis))
-            if math.sqrt(mu / o.apoapsis) - v_ap < 0.08 * v_circ and _coast_clear(v, margin=500):
-                break
+            if math.sqrt(mu / o.apoapsis) - v_ap < 0.08 * v_circ and time.time() - last_check > 1.0:
+                last_check = time.time()
+                if _coast_clear(v, margin=500):
+                    break
         lat, lon = math.radians(fl.latitude), math.radians(fl.longitude)
         hs, alt = fl.horizontal_speed, fl.mean_altitude
         ahead = 0.0
@@ -947,7 +952,11 @@ def liftoff(target_alt=15000, heading=90.0):
             ahead = max(ahead, body.surface_height(math.degrees(la), math.degrees(lo)))
         # climb towards the target as the speed nears orbital, but never faster than a ballistic apex at the target
         # (so the apoapsis stays there and the periapsis rises instead); the terrain ahead overrides both
-        a = max(v.available_thrust / v.mass, 1e-3)
+        # cap the acceleration at 3 g or an orbit in ~30 s: Minmus Science 1 (TWR 18) ran from a 10 km apoapsis
+        # to an escape path between two checks
+        a_full = max(v.available_thrust / v.mass, 1e-3)
+        v.control.throttle = min(1.0, max(3 * g, v_circ / 30) / a_full)
+        a = a_full * v.control.throttle
         g_eff = g * (R / (R + alt)) ** 2 - hs ** 2 / (R + alt)
         dz = target_alt - alt
         vs_apex = math.copysign(math.sqrt(2 * g_eff * abs(dz)), dz) if g_eff > 0.05 else dz / 10
@@ -956,6 +965,10 @@ def liftoff(target_alt=15000, heading=90.0):
         vs_terrain = (max(ahead, body.surface_height(fl.latitude, fl.longitude)) + clear - alt) / 8
         vs_want = max(-10.0, min(150.0, max(vs_terrain, min(vs_profile, vs_apex))))
         sin_p = max(-0.3, min(0.9, (g_eff + 0.4 * (vs_want - fl.vertical_speed)) / a))
+        if o.apoapsis_altitude >= target_alt and vs_terrain < fl.vertical_speed:
+            # the coast already reaches the target: thrust no higher than the horizon. vs_apex alone let Bob's
+            # apoapsis run to 35 km for a 15 km target (g_eff falls as the horizontal speed grows)
+            sin_p = min(sin_p, 0.0)
         ap.target_pitch_and_heading(math.degrees(math.asin(sin_p)), heading)
         time.sleep(0.05)
     v.control.throttle = 0.0
@@ -1059,12 +1072,15 @@ def do_science(transmit=False, min_single=15.0):
     so a low-value situation (LKO, orbit before landing) doesn't spend them."""
     v = vessel()
     out = []
+    ran = set()
     for e in v.parts.experiments:
         if e.has_data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
             e.reset()  # worthless old data (e.g. a repeated orbit crew report) would block the new situation
             time.sleep(0.3)
         if e.inoperable or e.has_data or not e.available:
             continue
+        if e.science_subject.title in ran:
+            continue  # a second copy of the same subject is worth almost nothing (two Science Jrs ran in orbit)
         if not e.rerunnable:
             sub = e.science_subject
             left = sub.science_cap - sub.science
@@ -1073,6 +1089,7 @@ def do_science(transmit=False, min_single=15.0):
                 continue
         try:
             e.run()
+            ran.add(e.science_subject.title)
         except Exception as ex:
             out.append((e.title, f"error {ex}"))
     time.sleep(1.5)
@@ -1094,9 +1111,31 @@ def do_science(transmit=False, min_single=15.0):
             ec = v.resources.amount("ElectricCharge")
             if transmit and e.rerunnable and ec > 120 and e.data and any(d.transmit_value > 0 for d in e.data):
                 e.transmit()
+    if not transmit:
+        _collect(v)
     for row in out:
         print(row)
     return out
+
+
+def _collect(v):
+    """Move all data into an Experiment Storage Unit (ScienceBox on the pod's side): the lander's experiments are
+    dropped before reentry, and the rerunnable ones (crew report, thermometer, barometer) are free for the next
+    biome without transmitting (transmitting pays only a fraction). The "Collect All" event is inactive in flight;
+    its action works. A container refuses a second copy of a subject: that copy stays in its experiment."""
+    for p in v.parts.all:
+        if p.name != "ScienceBox":
+            continue
+        for m in p.modules:
+            if m.name == "ModuleScienceContainer":
+                m.set_action("Collect All", True)
+                time.sleep(1.0)
+                for e in v.parts.experiments:
+                    if e.has_data and e.rerunnable:
+                        e.reset()  # a refused duplicate would block this experiment at the next biome
+                say(f"data collected into {p.title}")
+                return True
+    return False
 
 
 # ---------------------------------------------------------------- early career
@@ -1213,14 +1252,20 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=5.0):
     say(f"{len(wps)} {keyword} waypoints on {body.name}: " + ", ".join(f"{w.name} ({w.latitude:.1f}, {w.longitude:.1f})" for w in wps))
     R = body.equatorial_radius
     todo = [(w, w.name, w.latitude, w.longitude) for w in wps]
-    track = _track(v)
+    caps = {}  # "Take a crew report in spaceflight below 6,000 meters near Sector L-TJ"
+    for w in wps:
+        for prm in w.contract.parameters:
+            m = re.search(r"below ([\d,]+) meters near (.+)$", prm.title)
+            if m:
+                caps[m.group(2).strip()] = float(m.group(1).replace(",", ""))
     while todo:
+        track = _track(v)
         # earliest pass (local minimum of the ground distance) within max_dist of any remaining site
         t0 = ut()
         end = t0 + horizon_orbits * v.orbit.period
         best = None
         prev = {}
-        t = t0 + 30
+        t = t0 + (v.orbit.period / 2 + 90 if caps else 30)  # a dip is planned half an orbit ahead
         while t < end and best is None:
             lat, lon = track(t)
             for site in todo:
@@ -1235,6 +1280,14 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=5.0):
             return False
         t, site, d = best
         say(f"next: {site[1]} at UT {t:.0f} (in {t - ut():.0f} s), predicted {d:.0f} m")
+        cap, pe0 = caps.get(site[1]), v.orbit.periapsis_altitude
+        dipped = False
+        if cap and v.orbit.radius_at(t) - R > cap - 300:
+            t_dip = _dip(v, t, cap, site)
+            if t_dip is None:
+                todo.remove(site)
+                continue
+            t, dipped = t_dip, True
         warp_to(t, lead=15)
         while ut() < t - 0.3:
             time.sleep(0.1)
@@ -1250,4 +1303,82 @@ def survey(keyword="temperature", max_dist=8000.0, horizon_orbits=40, step=5.0):
                 break
         todo.remove(site)
         time.sleep(1)
+        if dipped:  # back up to the old periapsis at the next apoapsis
+            burn_at(ut() + v.orbit.time_to_apoapsis, prograde=_dv_pe(v.orbit, pe0))
+            say(f"orbit {v.orbit.periapsis_altitude:.0f} x {v.orbit.apoapsis_altitude:.0f} m")
     return True
+
+
+def _dv_pe(o, pe_alt):
+    """Prograde dv at the apoapsis that moves the periapsis to pe_alt."""
+    mu, ra = o.body.gravitational_parameter, o.apoapsis
+    rp = o.body.equatorial_radius + pe_alt
+    return math.sqrt(mu * (2 / ra - 2 / (ra + rp))) - math.sqrt(mu * (2 / ra - 1 / o.semi_major_axis))
+
+
+def _orbit_latlon(o, t):
+    """Sub-orbit latitude/longitude at UT t on orbit o (any patch, e.g. a node's), body rotation included."""
+    body = o.body
+    frame = body.non_rotating_reference_frame
+    p = sc().transform_position(o.position_at(t, frame), frame, body.reference_frame)
+    return (body.latitude_at_position(p, body.reference_frame),
+            body.longitude_at_position(p, body.reference_frame) - math.degrees(body.rotational_speed) * (t - ut()))
+
+
+def _clearance(o, t0, t1, n=120):
+    """Lowest height above the terrain on orbit o between UT t0 and t1."""
+    body = o.body
+    worst = 1e9
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n
+        lat, lon = _orbit_latlon(o, t)
+        worst = min(worst, o.radius_at(t) - body.equatorial_radius - body.surface_height(lat, lon))
+    return worst
+
+
+def _dip(v, t_pass, cap, site):
+    """Survey sites with an altitude cap ("below 5,100 meters near ..."): half an orbit before the pass, lower
+    the periapsis over the site to 1000..300 m under the cap, the lowest that keeps the low arc 800 m above the
+    terrain; a quarter orbit before, turn the plane so the periapsis passes right over the site (the trigger
+    range for low bands is 7.75 km, and passes 6.5-12 km off didn't count). Returns the new pass time or None."""
+    o, body = v.orbit, v.orbit.body
+    R = body.equatorial_radius
+    site_h = body.surface_height(site[2], site[3])
+    n1 = v.control.add_node(t_pass - o.period / 2, 0, 0, 0)
+    for pe_alt in (cap - 1000, cap - 800, cap - 600, cap - 450, cap - 300):
+        pe_alt = max(pe_alt, site_h + 1200)
+
+        def cost1(n):
+            time.sleep(0.03)
+            return abs(n.orbit.periapsis_altitude - pe_alt)
+        tune_node(n1, cost1, steps=(("prograde", 1.0),))
+        n2 = v.control.add_node(t_pass - o.period / 4, 0, 0, 0)
+
+        def cost2(n):
+            time.sleep(0.03)
+            no = n.orbit
+            t_pe = no.ut_at_true_anomaly(0.0)
+            while t_pe < n.ut:
+                t_pe += no.period
+            lat, lon = _orbit_latlon(no, t_pe)
+            return _ground_dist_r(R, lat, lon, site[2], site[3]) / 1000 + abs(no.periapsis_altitude - pe_alt) / 200
+        tune_node(n2, cost2, steps=(("normal", 2.0), ("prograde", 0.5), ("radial", 0.5)))
+        no = n2.orbit
+        worst = min(_clearance(n1.orbit, n1.ut, n2.ut, 30), _clearance(no, n2.ut, n2.ut + no.period))
+        if worst >= 800:
+            break
+        n2.remove()
+        say(f"{site[1]}: a {pe_alt:.0f} m pass clears the terrain by only {worst:.0f} m")
+    else:
+        say(f"{site[1]}: skipped")
+        n1.remove()
+        return None
+    t_pe = no.ut_at_true_anomaly(0.0)
+    while t_pe < n2.ut:
+        t_pe += no.period
+    lat, lon = _orbit_latlon(no, t_pe)
+    say(f"{site[1]}: dip to pe {no.periapsis_altitude:.0f} m, {_ground_dist_r(R, lat, lon, site[2], site[3]):.0f} m "
+        f"off the site ({n1.delta_v:.1f} + {n2.delta_v:.1f} m/s, terrain clearance {worst:.0f} m)")
+    execute_node(n1)
+    execute_node(n2)
+    return ut() + v.orbit.time_to_periapsis

@@ -176,8 +176,12 @@ def cmd_recover(a):
     v = sc().active_vessel
     before = status()
     v.recover()
-    time.sleep(4)
-    after = status()
+    for _ in range(20):  # the recovery rewards land a few seconds after the space center loads
+        time.sleep(1)
+        after = status()
+        if after.get("scene") == "SPACECENTER" and (after.get("funds") != before.get("funds")
+                                                    or after.get("science") != before.get("science")):
+            break
     print(f"recovered; funds {before.get('funds', 0):.0f} -> {after.get('funds', 0):.0f}, "
           f"science {before.get('science', 0):.1f} -> {after.get('science', 0):.1f}")
 
@@ -245,7 +249,7 @@ def cmd_stage(a):
 
 
 def cmd_science(a):
-    flight.do_science(transmit=a.transmit)
+    flight.do_science(transmit=a.transmit, min_single=a.min_single)
 
 
 def cmd_warp(a):
@@ -377,6 +381,8 @@ def main(argv=None):
     add("stage", cmd_stage)
     p = add("science", cmd_science, help="run all fresh experiments")
     p.add_argument("--transmit", action="store_true")
+    p.add_argument("--min-single", type=float, default=15.0,
+                   help="run goo/materials bay only if the subject has this much science left")
     p = add("warp", cmd_warp, help="warp to UT or +seconds")
     p.add_argument("ut")
     p = add("eva", cmd_eva, help="EVA: out | state | report | flag | board")
