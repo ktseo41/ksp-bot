@@ -302,7 +302,11 @@ def cmd_eva(a):
         cmd_vessel(a)
     elif a.action == "report":
         from . import flight
-        for e in flight.vessel().parts.experiments:
+        v = flight.vessel()
+        if v.type.name != "eva":
+            # MS2: after a failed `eva out` this ran every experiment of the ship (5 Science Jrs, 6 goo) in space
+            raise SystemExit(f"active vessel {v.name} is not an EVA kerbal: not running anything")
+        for e in v.parts.experiments:
             if e.available and not e.has_data:
                 e.run()
         time.sleep(1.5)
@@ -323,7 +327,7 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
-    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits)),
+    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
@@ -430,6 +434,7 @@ def main(argv=None):
     p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
     p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")
     p.add_argument("--orbits", type=int, default=8, help="how many orbits ahead to search for a --biome site")
+    p.add_argument("--at", type=float, nargs=2, metavar=("LAT", "LON"), help="land near this point (a waypoint)")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)

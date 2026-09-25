@@ -1,0 +1,309 @@
+{
+ "name": "Minmus Science 2",
+ "description": "Eve 1 launcher + Duna 1 lander (legs) + 5 SC-9001 Science Jr stacked under the pod decoupler, 6 goo (2 on the pod, 2 each on sj2/sj4), barometer, thermometer, Experiment Storage Unit on the pod side (hatch at 90 kept clear). Minmus biome science: materials per biome, collected into the box.",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "mk1pod.v2"
+  },
+  {
+   "id": "main",
+   "part": "parachuteSingle",
+   "parent": "pod",
+   "node": "top",
+   "stage": 7
+  },
+  {
+   "id": "drogue",
+   "part": "radialDrogue",
+   "parent": "pod",
+   "symmetry": 2,
+   "height": 0.1,
+   "stage": 6
+  },
+  {
+   "id": "goo",
+   "part": "GooExperiment",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 225
+  },
+  {
+   "id": "thermo",
+   "part": "sensorThermometer",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 315
+  },
+  {
+   "id": "battery",
+   "part": "batteryPack",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 0
+  },
+  {
+   "id": "goo2",
+   "part": "GooExperiment",
+   "parent": "pod",
+   "height": -0.15,
+   "angle": 225
+  },
+  {
+   "id": "baro",
+   "part": "sensorBarometer",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 270
+  },
+  {
+   "id": "box",
+   "part": "ScienceBox",
+   "parent": "pod",
+   "height": 0.15,
+   "angle": 135
+  },
+  {
+   "id": "shield",
+   "part": "HeatShield1",
+   "parent": "pod",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "dec3",
+   "part": "Decoupler.1",
+   "parent": "shield",
+   "node": "bottom",
+   "stage": 5,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "sj1",
+   "part": "science.module",
+   "parent": "dec3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "sj2",
+   "part": "science.module",
+   "parent": "sj1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "sj3",
+   "part": "science.module",
+   "parent": "sj2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "sj4",
+   "part": "science.module",
+   "parent": "sj3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "sj5",
+   "part": "science.module",
+   "parent": "sj4",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "gooA",
+   "part": "GooExperiment",
+   "parent": "sj2",
+   "symmetry": 2,
+   "angle": 0,
+   "height": 0.0
+  },
+  {
+   "id": "gooB",
+   "part": "GooExperiment",
+   "parent": "sj4",
+   "symmetry": 2,
+   "angle": 90,
+   "height": 0.0
+  },
+  {
+   "id": "c",
+   "part": "fuelTankSmall",
+   "parent": "sj5",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rt",
+   "part": "fuelTank",
+   "parent": "c",
+   "symmetry": 3,
+   "angle": 30
+  },
+  {
+   "id": "legs",
+   "part": "miniLandingLeg",
+   "parent": "rt",
+   "height": -0.9,
+   "angle": 0
+  },
+  {
+   "id": "antenna",
+   "part": "longAntenna",
+   "parent": "c",
+   "angle": 210,
+   "height": 0.0
+  },
+  {
+   "id": "solar",
+   "part": "solarPanels5",
+   "parent": "rt",
+   "angle": 20,
+   "height": 0.75
+  },
+  {
+   "id": "batA",
+   "part": "batteryPack",
+   "parent": "c",
+   "angle": 330,
+   "height": 0.15
+  },
+  {
+   "id": "batB",
+   "part": "batteryPack",
+   "parent": "c",
+   "angle": 330,
+   "height": -0.15
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "c",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decC",
+   "part": "Decoupler.1",
+   "parent": "terrier",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rwT",
+   "part": "sasModule",
+   "parent": "decC",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adT",
+   "part": "largeAdapter",
+   "parent": "rwT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "tT",
+   "part": "Rockomax16.BW",
+   "parent": "adT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "poodle",
+   "part": "liquidEngine2-2.v2",
+   "parent": "tT",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decB",
+   "part": "Decoupler.2",
+   "parent": "poodle",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t2",
+   "part": "Rockomax32.BW",
+   "parent": "decB",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "skipper",
+   "part": "engineLargeSkipper.v2",
+   "parent": "t2",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decA",
+   "part": "Decoupler.2",
+   "parent": "skipper",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1a",
+   "part": "Rockomax32.BW",
+   "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1b",
+   "part": "Rockomax32.BW",
+   "parent": "t1a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mainsail",
+   "part": "liquidEngineMainsail.v2",
+   "parent": "t1b",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "R8winglet",
+   "parent": "t1b",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -2.5
+  }
+ ]
+}

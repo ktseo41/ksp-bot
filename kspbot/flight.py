@@ -1184,32 +1184,35 @@ def return_to_parent(pe_alt=30000):
     r = v.orbit.semi_major_axis
     v_circ = math.sqrt(mu / r)
     v_esc = math.sqrt(2 * mu / r)
-    # rough: a bit more than escape; the tuner fixes timing and magnitude
-    period = v.orbit.period
-    best = None
-    for i in range(24):
-        t = ut() + 120 + period * i / 24
-        node = v.control.add_node(t, (v_esc - v_circ) * 1.15, 0, 0)
-        time.sleep(0.05)
-        enc = _encounter(node.orbit, parent)
-        pe = enc[0] if enc else float("inf")
-        node.remove()
-        if best is None or pe < best[0]:
-            best = (pe, t)
-    node = v.control.add_node(best[1], (v_esc - v_circ) * 1.15, 0, 0)
-
-    def cost(n):
-        time.sleep(0.04)
-        enc = _encounter(n.orbit, parent)
-        return abs(enc[0] - pe_alt) / 1000.0 if enc else 1e6
-    tune_node(node, cost, steps=(("prograde", 5.0), ("ut", 30.0)))
-    enc = _encounter(node.orbit, parent)
-    say(f"return burn {node.delta_v:.0f} m/s -> {parent.name} pe {enc[0] if enc else None}")
     # expected: the v_inf that drops the parent periapsis from the moon's orbit to pe_alt (Hohmann), from here;
     # (v_esc - v_circ) alone read 40 m/s for Rescue 4's 224 m/s Minmus return and the gate refused it
     mu_p, r_m, r_p = parent.gravitational_parameter, moon.orbit.semi_major_axis, parent.equatorial_radius + pe_alt
     v_inf = math.sqrt(mu_p / r_m) - math.sqrt(mu_p * 2 * r_p / (r_m * (r_m + r_p)))
-    _approve(node, math.sqrt(v_inf ** 2 + v_esc ** 2) - v_circ)
+    expect = math.sqrt(v_inf ** 2 + v_esc ** 2) - v_circ
+
+    def cost(n):
+        """Periapsis error (km); a retrograde arrival is the other, dearer root (MS2: v_inf 313 instead of 229,
+        229 m/s instead of 163, and a hotter entry against the atmosphere's rotation)."""
+        time.sleep(0.04)
+        enc = _encounter(n.orbit, parent)
+        if not enc:
+            return 1e6
+        return abs(enc[0] - pe_alt) / 1000.0 + (1e4 if enc[1].inclination > math.pi / 2 else 0.0)
+    # seed with the expected size (a barely-escaping seed picked its burn time almost at random)
+    period = v.orbit.period
+    node = v.control.add_node(ut() + 120, expect, 0, 0)
+    best = None
+    for i in range(48):
+        node.ut = ut() + 120 + period * i / 48
+        c = cost(node)
+        if best is None or c < best[0]:
+            best = (c, node.ut)
+    node.ut = best[1]
+    tune_node(node, cost, steps=(("prograde", 5.0), ("ut", 30.0)))
+    enc = _encounter(node.orbit, parent)
+    say(f"return burn {node.delta_v:.0f} m/s -> {parent.name} pe {enc[0] if enc else None}, "
+        f"inc {math.degrees(enc[1].inclination) if enc else None}")
+    _approve(node, expect)
     execute_node(node)
 
 
@@ -1323,11 +1326,46 @@ def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
     return None
 
 
+def find_point(lat, lon, tol_km=2.0, orbits=20, step=5.0):
+    """Earliest UT when the ground track passes within tol_km of (lat, lon) (e.g. a contract waypoint); the
+    closest pass if none is that close."""
+    v = vessel()
+    body = v.orbit.body
+    track = _track(v)
+    R = body.equatorial_radius
+
+    def dist(p):
+        a, b = math.radians(p[0]), math.radians(lat)
+        c = math.sin(a) * math.sin(b) + math.cos(a) * math.cos(b) * math.cos(math.radians(p[1] - lon))
+        return R * math.acos(max(-1.0, min(1.0, c))) / 1000.0
+    t0 = ut()
+    best = None
+    t = t0 + 120
+    while t < t0 + orbits * v.orbit.period:
+        d = dist(track(t))
+        if best is None or d < best[0]:
+            best = (d, t)
+        if d < tol_km:
+            # refine to the closest point of this pass
+            while dist(track(t + 1)) < d:
+                t += 1
+                d = dist(track(t))
+            best = (d, t)
+            break
+        t += step
+    say(f"closest pass {best[0]:.1f} km from ({lat:.2f}, {lon:.2f}) in {best[1] - t0:.0f} s "
+        f"(biome {_biome(body, *track(best[1]))}, slope {_slope(body, *track(best[1])):.1f} deg)")
+    return best[1]
+
+
 @_contained(_fallback_descent)
-def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8, at=None):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
-    biomes: first wait for a pass over one of these biomes with gentle terrain."""
-    if biomes:
+    biomes: first wait for a pass over one of these biomes with gentle terrain; at: (lat, lon) to land near."""
+    t = None
+    if at:
+        t = find_point(at[0], at[1], orbits=max(orbits, 20))
+    elif biomes:
         t = find_site(biomes, max_slope, orbits=orbits)
         if t is None:
             say(f"no site under {max_slope} deg in {biomes} within {orbits} orbits")
@@ -1336,7 +1374,7 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
     start = None
-    if biomes:
+    if t is not None:
         # the braking burn covers ~hs*burn/2 of ground: start it half a burn before the site
         burn = fl.horizontal_speed / (v.available_thrust / v.mass)
         start = t - burn / 2 - 10  # measured: touchdowns landed 1.4-1.7 km (~10 s) past the site

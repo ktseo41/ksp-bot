@@ -358,9 +358,46 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   (slow) rotate the orbit so the pe lies under the required asymptote, then eject at pe (~200 m/s) and a
   broken-plane mid-course change. transfer_planet assumes a circular parking orbit: needs work before UT 27.2M.
 
+## 2026-09-26 — Minmus Science 2 (Bob): 5 biomes of surface science, +1166 sci
+- Why: the save had no `mobileMaterialsLab@MinmusSrfLanded*` at all (Minmus Science 1's surface materials never
+  arrived). Decompiled ModuleScienceContainer/Experiment: Collect All handles goo and materials identically (goo
+  from that flight was credited), so the mechanism is fine; MS1's printed "materials 100" at each biome was the
+  orbit duplicate (InSpaceLow value) still held, not surface data. This time: check the storage unit's
+  "Review Stored Data (N)" after every biome.
+- crafts/minmus-science-2.json: Eve 1 launcher + Duna 1 lander with legs + 5 Science Jrs stacked under the pod
+  decoupler, 6 goo, baro, thermo, Experiment Storage Unit at 135 deg. 85.9 t, 56.5k. LKO 79.3 x 79.5, Poodle 1010
+  (expected ~1130), lander 3296. Jeb was on Eve 1: the launch with his name hung (exit 124), relaunched with Bob.
+- Accepted "temperature surveys of Minmus near Zone 5LC3PS" (4 surface sites) before reading the rule: GROUND
+  band trigger range = MinimumTriggerRange = **500 m** (SurveyWaypointParameter.TriggerRange); our landings land
+  within ~2 km. Left unflown (money isn't the bottleneck). New `land --at LAT LON` (find_point: first pass within
+  2 km of a point) exists but wasn't flown.
+- Transfer 936 (expected 921), encounter off after the burn again (ap 57,553 vs 59,298 km planned, like Rescue 4),
+  3 m/s fixed pe; inside the SOI `correct --inc-to 90` (aim-point seed) 23 m/s -> inc 91. Capture 207 m/s
+  (expected 207) -> 12 x 16 km polar, lander 3135.
+- **`eva out` failed twice ("hatch obstructed?", spawnEVA null)**: the only side part new vs Eve 1 is the storage
+  unit at 135 deg (45 deg from the hatch). And **`eva report` then ran every experiment on the ship** (it didn't
+  check for an EVA kerbal): 5 Science Jrs + 6 goo spent in high space. Recovery: the stock "Reset" event (active
+  for a deployed, non-rerunnable, resettable experiment whose data hasn't been collected; decompiled) cleared them
+  all, operable again; kept one goo's 25. `eva report` now refuses unless the active vessel is an EVA kerbal.
+- Landings (`land --biome ...`, liftoff --heading 0 back to a polar orbit between): Lowlands 250 m/s, Poles
+  (83 N, tilt 10 deg) 515, Flats 537, Highlands 520, Lesser Flats 521 per liftoff + landing; each: materials 125,
+  goo 50 (11.5 where done), baro 60, thermo 13; storage 4 -> 9 -> 14 -> 19 -> 24 -> 29. Slopes left (no Science
+  Jr / fuel for a sixth).
+- Return: `return --plan` 229 m/s with a RETROGRADE Kerbin arrival (inc 133) vs expected 163: the seed was
+  (v_esc - v_circ) x 1.15 = 70 m/s so its burn time was random, and the cost didn't tell the roots apart. Fix:
+  seed at the expected size, retrograde arrival costs 1e4. Replan: 164 m/s, inc 32. Kerbin pe 36 -> 2 m/s trim ->
+  30 km, reentry: storage unit skin 1774 K (limit 2900; the other side parts ~460 K), splashdown, Bob safe.
+  **Science 84 -> 1250.** Researched advExploration (lab), advElectrics, electronics (HG-55, magnetometer),
+  specializedConstruction (docking), scienceTech (ATM analyzer), advLanding -> 10 left.
+- Eve 1 note (for its return): its goo/thermo/baro data (385) sit in pod-side parts; MS1/MS2's pod-side parts
+  survived Minmus-speed entries (skin ~460 K). The Mk1 pod's container can't Collect All (canTransferInVessel
+  false); an EVA kerbal's "Take Data" has a GUI range of 1.5 m only (the call itself has no range check): measure
+  hatch-to-part distances before relying on it.
+
 ### Next steps (plan)
-State (2026-09-26, later): UT ~17,393,000, funds 2.95M, sci 84, rep 381. Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s)
-in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) waits landed on Duna, ~2800 m/s, window UT 22,895,340.
+State (2026-09-26, after MS2): UT ~17,731,500, funds 2.99M, sci 10, rep 381. Eve 1 (Jeb, ~1017 sci aboard,
+3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna, ~2800 m/s, window UT
+22,895,340. Bob, Bill, Mitbro available. Active contract: Minmus temperature survey (500 m sites; let it lapse).
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. **Eve 1 return** (window UT 27,264,701, flight 171 d): departure from an elliptical polar orbit (see the Eve 1
    entry): rotate the orbit at the apoapsis so the pe lies under the needed asymptote, eject at pe, broken-plane
