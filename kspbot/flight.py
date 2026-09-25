@@ -1007,7 +1007,11 @@ def return_to_parent(pe_alt=30000):
     tune_node(node, cost, steps=(("prograde", 5.0), ("ut", 30.0)))
     enc = _encounter(node.orbit, parent)
     say(f"return burn {node.delta_v:.0f} m/s -> {parent.name} pe {enc[0] if enc else None}")
-    _approve(node, (v_esc - v_circ) * 1.15)
+    # expected: the v_inf that drops the parent periapsis from the moon's orbit to pe_alt (Hohmann), from here;
+    # (v_esc - v_circ) alone read 40 m/s for Rescue 4's 224 m/s Minmus return and the gate refused it
+    mu_p, r_m, r_p = parent.gravitational_parameter, moon.orbit.semi_major_axis, parent.equatorial_radius + pe_alt
+    v_inf = math.sqrt(mu_p / r_m) - math.sqrt(mu_p * 2 * r_p / (r_m * (r_m + r_p)))
+    _approve(node, math.sqrt(v_inf ** 2 + v_esc ** 2) - v_circ)
     execute_node(node)
 
 

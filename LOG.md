@@ -282,16 +282,33 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   rescue-4.json upper stack rigid + autostrut Root, design-guide section 0 rule, `ascent` pitch command
   rate-limited to 1.5 deg/s. Side boosters stay rigid-only (guide: autostrutted side boosters broke on the pad).
 
+## 2026-09-26 — Rescue 4: Mitbro from Minmus orbit (first flight with MODULE-node crafts)
+- crafts/rescue-4.json = Rescue 3 + Communotron 16-S (OKTO's internal antenna can't reach Minmus). Launch before the
+  sway fix (the user saw the stack wobble; see above). LKO 78.7 x 80.5, 622 + 2623 m/s left. Contracts stayed active.
+- `transfer Minmus --pe 190000 --plan`: 930 m/s (expected 921), Minmus pe 504 km, arrival inc 95 -> `ksp node`.
+  The burn staged the Swivel mid-way and lost the encounter (ap 54,967 vs 56,849 km planned); correction 27 m/s
+  right away -> pe 190 km. Mid-course `correct --inc-to 21.5`: best 3.2 m/s -> inc 47.6 (grid didn't reach 21.5).
+- Minmus: pe 156 km, v_inf 278; capture 218 m/s (expected 216) -> 156 x 158 km. Rendezvous: plane 57.3 deg 90.7 m/s
+  (expected ~85), intercept 9.9 + 23.0 m/s correction (gate allowed: <= 35), held 52 m; 175 m/s total, 1893 left.
+- **Grab: first contact, no reload, no NRE** (grappleNode = True on the freshly launched craft): the MODULE-node fix
+  works. `transfer-crew` (KspBot MoveCrew, first use) moved Mitbro Crew Cabin -> Mk1 pod; the save shows
+  AcquireCrew Complete (our onCrewTransferred event reached the contract).
+- Return: the gate REFUSED `return --plan` (224 m/s vs "expected 40"): the estimate was wrong, not the burn —
+  (v_esc - v_circ) ignored the v_inf needed to drop the Kerbin periapsis. Now: Hohmann v_inf from the moon's orbit
+  to pe_alt + escape from here (174 m/s; 224 includes the 21.5 deg plane). Burned: Kerbin pe 33.3 km (kept),
+  reentry --keep-until 300 (drogues 20 km 1090 m/s, mains 4 km 203 m/s), landed in the grasslands at night,
+  recovered. **Rescue Mitbro done**: funds 2.84M, sci 45.3, rep 368.
+
 ### Next steps (plan)
-State (2026-09-26): KSP at the space center, UT ~10,063,550, funds 2.52M, sci 39.8, rep 340.
+State (2026-09-26): KSP at the space center, UT ~10,899,500, funds 2.84M, sci 45.3, rep 368.
 Valentina (Duna 1) waits landed on Duna, Midlands 15.71 N 156.21 E, ~2800 m/s left, science aboard.
 Active contracts: Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
 0. Follow CLAUDE.md "How to decide": state expected numbers incl. real time (phasing waits!) before each phase.
 1. After every `launch` + `accept`: check `contracts` in flight (accepted contracts reverted to offered once more,
    cause unknown). Crafts must be rebuilt (`ksp build`) to get MODULE nodes; old .craft files have none.
-2. Klaw works now: candidate "Rescue Mitbro from orbit of Minmus" (167k) with an RCS Klaw craft (Rescue 3 + Minmus
-   dv, crewed or with an antenna: CommNet); first flight use of `transfer-crew` (MoveCrew). Unit G-P87T (LKO adapter)
-   is recoverable with the same craft type if it isn't a small curved part.
+2. Klaw + MoveCrew proven (Rescue 4). Rescue contracts are routine now: crafts/rescue-4.json (struts added after
+   the flight: first launch of the strutted version should show no sway; check the recorder's rate).
+   Unit G-P87T (LKO adapter) is recoverable with the same craft type if it isn't a small curved part.
 3. **Duna 1 return**: window UT 22,895,340 (Duna->Kerbin, flight 297 d). Warp at the space center (`warp-sc` ~3 h early),
    `fly "Duna 1"`, `liftoff --alt 60000` (check heading vs the ~16 deg prograde plane), `transfer Kerbin --pe 30000
    --plan` then `node`, `soi`, `correct Kerbin --pe 30000` (inside Kerbin's SOI), `reentry`. Recovery completes
