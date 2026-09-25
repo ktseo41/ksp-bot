@@ -95,6 +95,8 @@ def execute_node(node=None, tol=0.2):
     v = vessel()
     node = node or v.control.nodes[0]
     dv = node.delta_v
+    if v.available_thrust <= 0:  # a spent stage still attached (Mun Tanker 1: burn time read 0 s, burn started late)
+        auto_stage(v)
     bt = burn_time(v, dv)
     ap = v.auto_pilot
     ap.reference_frame = node.reference_frame
@@ -290,7 +292,30 @@ def circularize(at="apoapsis"):
     v_circ = math.sqrt(mu / r)
     burn_at(t, prograde=v_circ - v_now)
     o = v.orbit
+    body = o.body
+    if body.has_atmosphere and o.periapsis_altitude < body.atmosphere_depth + 2000:
+        _raise_pe_now(v, body.atmosphere_depth + 8000)
+        o = v.orbit
     say(f"orbit {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m")
+
+
+def _raise_pe_now(v, pe_alt):
+    """Burn prograde right now until the periapsis is above pe_alt (a circularization that left it in the air)."""
+    say(f"periapsis {v.orbit.periapsis_altitude:.0f} m is in the atmosphere: burning prograde now")
+    ap = v.auto_pilot
+    ap.reference_frame = v.orbital_reference_frame
+    ap.target_direction = (0, 1, 0)
+    ap.engaged = True
+    _wait_pointing(ap, timeout=30)
+    v.control.throttle = 1.0
+    t0 = time.time()
+    while v.orbit.periapsis_altitude < pe_alt and time.time() - t0 < 120:
+        auto_stage(v)
+        if v.available_thrust <= 0:
+            break
+        time.sleep(0.05)
+    v.control.throttle = 0.0
+    ap.engaged = False
 
 
 def change_periapsis(new_pe_alt):
@@ -423,6 +448,10 @@ def transfer_to(target_name, pe_alt):
     """From a near-circular parking orbit, plan and burn a Hohmann transfer to a moon of the current body,
     tuned so the moon periapsis is ~pe_alt. Then use capture()."""
     v = vessel()
+    o = v.orbit
+    if o.body.has_atmosphere and o.periapsis_altitude < o.body.atmosphere_depth:
+        say(f"periapsis {o.periapsis_altitude:.0f} m is inside the atmosphere: fix the orbit first")
+        return False
     target = sc().bodies[target_name]
     if target.orbit.body.name != v.orbit.body.name:
         return transfer_planet(target_name, pe_alt)
