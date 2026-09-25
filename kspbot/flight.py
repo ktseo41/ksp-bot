@@ -679,7 +679,10 @@ def planet_window(target_name, origin=None, lookback_days=40, flight_time=False)
     now = ut()
     day = 21600.0
     syn = 1 / abs(1 / home.orbit.period - 1 / target.orbit.period)
-    t, (prev, _) = now - lookback_days * day, f(now - lookback_days * day)
+    # a few days late is fine between planets (synodic ~ years); Mun -> Minmus windows come every 7.4 days, and a
+    # 40-day lookback returned one five periods old (Survey 1)
+    back = min(lookback_days * day, 0.15 * syn)
+    t, (prev, _) = now - back, f(now - back)
     while t < now + syn + 2 * day:
         t2 = t + day
         cur, _ = f(t2)
@@ -923,9 +926,11 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     node = v.control.add_node(ut() + 120, 0, 0, 0)
     cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
     expect = None
-    if inc_to is not None and v.orbit.body.name == target_name and v.orbit.eccentricity > 1:
-        # inside the SOI on the way in: a new arrival plane means turning the aim point (impact vector b) around
-        # the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg, far beyond the +-6 m/s grid below
+    if inc_to is not None and (v.orbit.eccentricity > 1 if v.orbit.body.name == target_name
+                               else _encounter(v.orbit, target) is not None):
+        # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the aim
+        # point (impact vector b) around the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg inside the
+        # SOI, far beyond the +-6 m/s grid below
         expect = _aim_point_seed(node, target, pe_alt, cost)
     elif inc_to is not None:
         # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
@@ -974,35 +979,86 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     return enc is not None
 
 
-def _aim_point_seed(node, target, pe_alt, cost):
-    """Seed a node that turns the hyperbola's plane about its incoming asymptote: straight-line approximation
-    (lateral dv = change of the impact vector / time to closest approach), scanned over the new aim angle and
-    judged by KSP's own patch (cost); the tuner finishes it. Returns the seed's dv (the analytic estimate)."""
-    o, t = node.orbit, node.ut
+def _impact(node, target):
+    """(impact vector b, asymptote direction s, v_inf) of the node's predicted hyperbola at target, in the target's
+    non-rotating frame, read off KSP's patch (inside the SOI: the node's own orbit)."""
+    o = node.orbit
+    t_ref = node.ut
+    while o.body.name != target.name:
+        if o.next_orbit is None:
+            return None
+        t_ref = ut() + o.time_to_soi_change + 60
+        o = o.next_orbit
     frame = target.non_rotating_reference_frame
-    mu = target.gravitational_parameter
-    r, vel = o.position_at(t, frame), _vel_at(o, t, frame)
+    r, vel = o.position_at(t_ref, frame), _vel_at(o, t_ref, frame)
     s = _norm(vel)  # far out the velocity is ~ the asymptote (Eve 1: 84 Mm, v 926 vs v_inf 815)
-    b_old = tuple(x - _dot(r, s) * y for x, y in zip(r, s))
+    return tuple(x - _dot(r, s) * y for x, y in zip(r, s)), s, math.sqrt(target.gravitational_parameter
+                                                                         / abs(o.semi_major_axis))
+
+
+def _solve_dv(node, target, b_want, h=0.5):
+    """Least-norm (prograde, normal, radial) that moves the impact vector to b_want, from a numerical Jacobian of
+    KSP's own patch prediction around the node's current components (straight-line b/t was far off from Kerbin
+    orbit: Survey 1's Mun seed went to inc 167 instead of 90)."""
+    base = (node.prograde, node.normal, node.radial)
+    time.sleep(0.04)
+    b0, sd, _ = _impact(node, target)
+    flat = lambda v: tuple(x - _dot(v, sd) * y for x, y in zip(v, sd))  # only the plane across the asymptote
+    cols = []
+    for k in range(3):
+        c = list(base)
+        c[k] += h
+        node.prograde, node.normal, node.radial = c
+        time.sleep(0.04)
+        bk = _impact(node, target)
+        cols.append(flat(tuple((x - y) / h for x, y in zip(bk[0], b0))) if bk else (0.0, 0.0, 0.0))
+    node.prograde, node.normal, node.radial = base
+    d = flat(tuple(x - y for x, y in zip(b_want, b0)))
+    # x = J^T (J J^T)^-1 d with J = [cols]; J J^T is rank 2 (nothing along the asymptote): regularise
+    JJt = [[sum(cols[k][i] * cols[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+    eps = 1e-9 * sum(JJt[i][i] for i in range(3))
+    for i in range(3):
+        JJt[i][i] += eps
+    y = _solve3(JJt, d)
+    return tuple(base[k] + _dot(cols[k], y) for k in range(3))
+
+
+def _solve3(A, b):
+    """Gaussian elimination for a 3x3 system."""
+    M = [list(A[i]) + [b[i]] for i in range(3)]
+    for i in range(3):
+        p = max(range(i, 3), key=lambda r: abs(M[r][i]))
+        M[i], M[p] = M[p], M[i]
+        for r in range(3):
+            if r != i and M[i][i] != 0:
+                f = M[r][i] / M[i][i]
+                M[r] = [x - f * y for x, y in zip(M[r], M[i])]
+    return [M[i][3] / M[i][i] if M[i][i] else 0.0 for i in range(3)]
+
+
+def _aim_point_seed(node, target, pe_alt, cost):
+    """Seed a node that turns the hyperbola's plane about its incoming asymptote: for each new aim angle (10 deg
+    steps) solve for the burn with a numerical Jacobian of the predicted impact vector (twice: re-linearised),
+    judged by KSP's own patch (cost); the tuner finishes it. Returns the seed's dv (the estimate)."""
+    b_old, s, vinf = _impact(node, target)
+    mu = target.gravitational_parameter
     rp = target.equatorial_radius + pe_alt
-    vinf = math.sqrt(mu / abs(o.semi_major_axis))
     b = rp * math.sqrt(1 + 2 * mu / (rp * vinf ** 2))
-    t_ca = -_dot(r, s) / math.sqrt(_dot(vel, vel))
     u1 = _norm(b_old)
     u2 = _cross(s, u1)
-    # the node's own axes in this frame (KSP's left-handed conventions stay KSP's problem)
-    axes = []
-    for comp in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
-        node.prograde, node.normal, node.radial = comp
-        axes.append(_norm(node.burn_vector(frame)))
     best = None
     for k in range(36):
         phi = math.radians(10 * k)
-        dv = tuple((b * (math.cos(phi) * a + math.sin(phi) * c) - d) / t_ca for a, c, d in zip(u1, u2, b_old))
-        node.prograde, node.normal, node.radial = (_dot(dv, ax) for ax in axes)
+        want = tuple(b * (math.cos(phi) * x + math.sin(phi) * y) for x, y in zip(u1, u2))
+        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+        try:
+            for _ in range(2):
+                node.prograde, node.normal, node.radial = _solve_dv(node, target, want)
+        except (TypeError, ZeroDivisionError):
+            continue  # a trial burn lost the encounter
         c = cost(node)
         if best is None or c < best[0]:
-            best = (c, node.prograde, node.normal, node.radial, math.sqrt(_dot(dv, dv)), 10 * k)
+            best = (c, node.prograde, node.normal, node.radial, node.delta_v, 10 * k)
     node.prograde, node.normal, node.radial = best[1:4]
     say(f"aim-point seed: {best[4]:.0f} m/s (turn {best[5]} deg), cost {best[0]:.1f}")
     return best[4]
@@ -1747,8 +1803,9 @@ def do_science(transmit=False, min_single=15.0):
     v = vessel()
     out = []
     ran = set()
+    started = []
     for e in v.parts.experiments:
-        if e.has_data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
+        if e.has_data and e.data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
             e.reset()  # worthless old data (e.g. a repeated orbit crew report) would block the new situation
             time.sleep(0.3)
         if e.inoperable or e.has_data or not e.available:
@@ -1764,9 +1821,15 @@ def do_science(transmit=False, min_single=15.0):
         try:
             e.run()
             ran.add(e.science_subject.title)
+            started.append(e)
         except Exception as ex:
             out.append((e.title, f"error {ex}"))
-    time.sleep(1.5)
+    # the magnetometer boom takes ~7 s to report: collecting after 1.5 s missed it, and the next run reset the
+    # half-done experiment as "worthless" (Survey 1 lost the Mun low-orbit magnetometer that way)
+    for _ in range(40):
+        time.sleep(0.5)
+        if all(e.has_data and e.data for e in started):
+            break
     if transmit:
         _antennas(v, True)
         # no link (Kerbin below the horizon): warp until it rises, up to ~7 h
