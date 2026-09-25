@@ -544,11 +544,11 @@ def transfer_to(target_name, pe_alt):
     return True
 
 
-def planet_window(target_name, origin=None, lookback_days=40):
+def planet_window(target_name, origin=None, lookback_days=40, flight_time=False):
     """UT of the Hohmann window from origin (default: the planet we orbit) to another planet: the departure t at
     which the target, at arrival t + T, sits 180 deg from the origin's position at t. Uses the real (eccentric)
     orbits; a linear phase extrapolation 200 days out once missed the Duna window by ~15 days.
-    Returns the nearest window from lookback_days ago on (it may be in the past)."""
+    Returns the nearest window from lookback_days ago on (it may be in the past); flight_time: (UT, T)."""
     target = sc().bodies[target_name]
     if origin is None:
         try:
@@ -591,7 +591,7 @@ def planet_window(target_name, origin=None, lookback_days=40):
             t_win, T = lo, f(lo)[1]
             when = f"in {(t_win - now) / day:.1f} days" if t_win >= now else f"{(now - t_win) / day:.1f} days AGO"
             say(f"{home.name}->{target_name}: window {when} (UT {t_win:.0f}), flight {T / day:.0f} days")
-            return t_win
+            return (t_win, T) if flight_time else t_win
         t, prev = t2, cur
     raise RuntimeError("no window found")
 
@@ -602,18 +602,28 @@ def transfer_planet(target_name, pe_alt, samples=48):
     v = vessel()
     target = sc().bodies[target_name]
     home = v.orbit.body
-    t_win = planet_window(target_name)
+    t_win, T = planet_window(target_name, flight_time=True)
     P = v.orbit.period
     if t_win - ut() > P:
         warp_to(t_win - P / 2)
     mu_s = home.orbit.body.gravitational_parameter
-    r1, r2 = home.orbit.semi_major_axis, target.orbit.semi_major_axis
+    # the target's radius AT ARRIVAL, not its semi-major axis: Duna 1 aimed at Duna's mean radius (20.7 Gm) while
+    # Duna was near periapsis (19.7 Gm); the tuner then twisted the ejection to still hit it -> v_inf 1364, not ~930
+    sun_frame = home.orbit.body.non_rotating_reference_frame
+    r1 = math.dist(home.orbit.position_at(t_win, sun_frame), (0, 0, 0))
+    r2 = math.dist(target.orbit.position_at(t_win + T, sun_frame), (0, 0, 0))
     v_inf = abs(math.sqrt(mu_s / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1))
     mu, r0 = home.gravitational_parameter, v.orbit.semi_major_axis
     dv = math.sqrt(v_inf ** 2 + 2 * mu / r0) - math.sqrt(mu / r0)
     t0 = ut() + 300
     node = v.control.add_node(t0, dv, 0, 0)
-    cost = lambda n: _node_cost(n, target, pe_alt)
+    mu_t = target.gravitational_parameter
+
+    def cost(n):
+        """Periapsis error (km) + arrival v_inf / 10: an off-tangent pass costs capture fuel, not just time."""
+        c = _node_cost(n, target, pe_alt)
+        enc = _encounter(n.orbit, target)
+        return c + math.sqrt(mu_t / abs(enc[1].semi_major_axis)) / 10.0 if enc else c
     best = None
     for i in range(samples):
         node.ut = t0 + i * P / samples
@@ -624,9 +634,15 @@ def transfer_planet(target_name, pe_alt, samples=48):
     say(f"ejection {dv:.0f} m/s (v_inf {v_inf:.0f}), best seed cost {best[0]:.0f} at +{best[1] - ut():.0f}s; tuning")
     c = tune_node(node, cost, steps=(("prograde", 10.0), ("ut", 30.0), ("normal", 10.0), ("radial", 5.0)))
     enc = _encounter(node.orbit, target)
-    say(f"cost {c:.1f}, encounter {enc[0] if enc else None}, dv {node.delta_v:.0f}")
+    vi = math.sqrt(mu_t / abs(enc[1].semi_major_axis)) if enc else None
+    say(f"cost {c:.1f}, encounter {enc[0] if enc else None}, arrival v_inf {vi}, dv {node.delta_v:.0f}")
     if not enc and c > 1000.0 + target.sphere_of_influence / 1000.0 + 5e5:  # >500,000 km off: don't burn
         say("no usable ejection found; node left for inspection")
+        return False
+    v_target = math.sqrt(mu_s * (2 / r2 - 1 / target.orbit.semi_major_axis))
+    vi_hohmann = v_target - math.sqrt(mu_s * 2 * r1 / (r2 * (r1 + r2)))
+    if vi and vi > 1.25 * abs(vi_hohmann) + 50:
+        say(f"arrival v_inf {vi:.0f} >> Hohmann {vi_hohmann:.0f}: off-tangent pass; node left for inspection")
         return False
     execute_node(node)
     enc = _encounter(v.orbit, target)  # a 1 m/s error in the ejection moved the Duna pass by ~12,000 km
@@ -645,13 +661,16 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     node = v.control.add_node(ut() + 120, 0, 0, 0)
     cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
     if inc_to is not None:
+        # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
+        # whole target, so scan a fine grid as well
         best = None
-        for nm in [x * 0.5 for x in range(-12, 13)]:
-            for rd in [x * 0.5 for x in range(-12, 13)]:
-                node.prograde, node.normal, node.radial = 0.0, nm, rd
-                c = cost(node)
-                if best is None or c < best[0]:
-                    best = (c, nm, rd)
+        for g in (0.5, 0.05):
+            for nm in [x * g for x in range(-12, 13)]:
+                for rd in [x * g for x in range(-12, 13)]:
+                    node.prograde, node.normal, node.radial = 0.0, nm, rd
+                    c = cost(node)
+                    if best is None or c < best[0]:
+                        best = (c, nm, rd)
         node.prograde, node.normal, node.radial = 0.0, best[1], best[2]
     tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
     if _encounter(node.orbit, target) is None and v.orbit.body.name != target.name:
@@ -987,17 +1006,26 @@ def land_atmo(pe_alt=5000, burn_alt=12000):
     while fl.surface_altitude > burn_alt and v.situation.name not in ("landed", "splashed"):
         if not armed and fl.mean_altitude < atmo * 0.6:
             for c in chutes:
-                if not c.deployed:
+                if not _chute_deployed(c):
                     c.arm()
             armed = True
             say(f"{len(chutes)} chutes armed at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
         time.sleep(0.2)
     if not armed:
         for c in chutes:
-            if not c.deployed:
+            if not _chute_deployed(c):
                 c.arm()
     say(f"powered descent from {fl.surface_altitude:.0f} m AGL at {fl.speed:.0f} m/s")
     _powered_descent(v, fl, ap)
+
+
+def _chute_deployed(c, default=False):
+    """kRPC's Parachute.deployed throws a NullReferenceException for chutes that were staged in vacuum (Duna 1's
+    Mk2-Rs shared the lander engine's stage and went active with it at capture): land_atmo died at 28 km."""
+    try:
+        return c.deployed
+    except Exception:
+        return default
 
 
 def _deorbit_now(v, pe_alt):
@@ -1022,8 +1050,11 @@ def liftoff(target_alt=15000, heading=90.0):
     _antennas(v, False)
     if body.has_atmosphere:
         for c in v.parts.parachutes:  # canopies left from the landing
-            if c.deployed:
-                c.cut()
+            if _chute_deployed(c, True):
+                try:
+                    c.cut()
+                except Exception as e:
+                    say(f"chute cut skipped: {e}")
         alt = max(target_alt, body.atmosphere_depth + 10000)
         if not ascent(alt, heading, turn_start=100, turn_end=alt * 0.5):
             return False
