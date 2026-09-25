@@ -301,6 +301,16 @@ def _cross_any(a):
     return c if _dot(c, c) > 0.01 else _cross(a, (1.0, 0.0, 0.0))
 
 
+def _air_below(v, margin=2000.0):
+    """Periapsis in (or near) the atmosphere: stop manoeuvring and fix the orbit first."""
+    b = v.orbit.body
+    pe = v.orbit.periapsis_altitude
+    if b.has_atmosphere and pe < b.atmosphere_depth + margin:
+        say(f"periapsis {pe / 1000:.1f} km, near {b.name}'s air: stopping (raise it at the apoapsis first)")
+        return True
+    return False
+
+
 def grab(name, speed=0.15, face=None):
     """Tag our parts, arm the Klaw, point at the target and drift into it at `speed` m/s.
     The Klaw only catches when a 0.1 m ray from its centre hits the target within 43 deg of square
@@ -330,12 +340,21 @@ def grab(name, speed=0.15, face=None):
     if face and any(p.rcs is not None for p in v.parts.all):
         return _rcs_grab(v, target, frame, face, speed, n0)
     t0 = tlog = time.time()
+    contacts, bouncing = 0, False
     while time.time() - t0 < 1800:
         if len(vessel().parts.all) > n0:
-            say("grabbed")
+            say(f"grabbed after {contacts} bounce(s), {time.time() - t0:.0f} s")
             vessel().auto_pilot.engaged = False  # the grab merged us into a new vessel object
             return True
+        if _air_below(v):
+            return False
         p, u, d, s = _rel(v, target, frame)
+        closing = -_dot(p, u) / d
+        if d < arm + 3 and closing < -0.05 and not bouncing:  # moving apart right after a touch
+            contacts, bouncing = contacts + 1, True
+            say(f"contact {contacts}: bounced at {d:.1f} m, {closing:.2f} m/s, {time.time() - t0:.0f} s in")
+        elif d > arm + 5:
+            bouncing = False
         w = target.angular_velocity(frame)
         if math.degrees(math.sqrt(_dot(w, w))) > 3 and d > safe:
             # a spinning target can't be grabbed (Module 761V7 turned at 160 deg/s after our bumps); stock KSP
@@ -365,7 +384,7 @@ def grab(name, speed=0.15, face=None):
         err = tuple(a_ - b for a_, b in zip(want, u))
         e = math.sqrt(_dot(err, err))
         if time.time() - tlog > 20:
-            say(f"grab: {d:.1f} m, closing {-_dot(p, u) / d:.2f} m/s, velocity error {e:.3f} m/s")
+            say(f"grab: {d:.1f} m, closing {closing:.2f} m/s, velocity error {e:.3f} m/s, {time.time() - t0:.0f} s")
             tlog = time.time()
         # Outside the turning circle the velocity is trimmed to 0.03 m/s (Salvage 1 with 0.08 m/s drifted metres
         # past a Thud for 10 min); inside it only small pushes near the current facing are allowed.
@@ -414,11 +433,14 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
     signs = _rcs_axes(v, target, frame)
     reach = math.sqrt(_dot(_claw(v).position(v.reference_frame), _claw(v).position(v.reference_frame))) + 1.5
     t0 = tlog = time.time()
+    contacts, bouncing = 0, False
     try:
         while time.time() - t0 < timeout:
             if len(vessel().parts.all) > n0:
-                say("grabbed")
+                say(f"grabbed after {contacts} bounce(s), {time.time() - t0:.0f} s")
                 return True
+            if _air_below(v):
+                return False
             a = _face_axis(target, face, frame)
             ap.target_direction = tuple(-x for x in a)
             p, u, d, s = _rel(v, target, frame)
@@ -427,6 +449,13 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
             along = _dot(p, a)
             lat = tuple(x - along * y for x, y in zip(p, a))
             ll = math.sqrt(_dot(lat, lat))
+            closing = -_dot(p, u) / d
+            if d < reach + 1.5 and closing < -0.05 and not bouncing:  # moving apart right after a touch
+                contacts, bouncing = contacts + 1, True
+                say(f"contact {contacts}: bounced at {d:.1f} m, {closing:.2f} m/s, off-axis {ll:.2f} m, "
+                    f"{time.time() - t0:.0f} s in")
+            elif d > reach + 4:
+                bouncing = False
             if spin > 3 and d > 6:
                 say(f"target spinning {spin:.0f} deg/s: rails warp to stop it")
                 for x in ("right", "forward", "up"):
@@ -453,7 +482,7 @@ def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
                 setattr(c, name, max(-1.0, min(1.0, cmd if abs(err[k]) > 0.004 else 0.0)))
             if d < reach + 1.5:  # near contact: what does the Klaw's own capture ray see?
                 try:
-                    say(f"klaw {d:.2f} m: {bot().grapple_debug(target.name)}")
+                    say(f"klaw {d:.2f} m: {bot().grapple_debug(target.name)}", screen=False)
                 except Exception as ex:
                     say(f"grapple debug failed: {ex}")
             if time.time() - tlog > 15:

@@ -47,11 +47,20 @@ def wait_ready(timeout=300):
     raise TimeoutError("KSP not ready")
 
 
-def say(msg, seconds=5.0):
-    """Print and show the message on the game screen (so a human watching can follow)."""
+def say(msg, seconds=5.0, screen=True):
+    """Print and show the message on the game screen (so a human watching can follow); screen=False for
+    diagnostics (a Klaw debug dump covered the whole view). On screen it is cut to one line."""
     print(msg, flush=True)
+    from . import recorder
+    if recorder.current is not None:  # the decisions of a phase (grab attempts, retries) belong in the flight log
+        try:
+            recorder.current.event("say", msg, echo=False)
+        except Exception:
+            pass
+    if not screen:
+        return
     try:
-        bot().message(msg, seconds)
+        bot().message(msg if len(msg) <= 100 else msg[:97] + "...", seconds)
     except Exception:
         pass
 

@@ -247,10 +247,30 @@ def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
 
 # ---------------------------------------------------------------- launch
 
-def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape=0.5, max_aoa=15.0):
+def _limit_srbs(v, twr):
+    """On the pad: thrust-limit the first stage's solid boosters (they can't throttle) for a liftoff TWR of twr.
+    The Kickback launcher lifted off at TWR 2.0 and reached 6 g: max Q 51 kPa at 9 km, ~440 m/s of drag to 40 km
+    (community guidance: liftoff TWR 1.3-1.7; MechJeb's acceleration limit default 40 m/s^2)."""
+    body = v.orbit.body
+    engines = [e for e in v.parts.engines if e.part.stage == v.control.current_stage - 1]
+    solid = [e for e in engines if "SolidFuel" in e.propellant_names]
+    if not solid:
+        return
+    t_solid = sum(e.max_thrust_at(1.0) for e in solid)
+    t_other = sum(e.max_thrust_at(1.0) for e in engines if e not in solid)
+    lim = max(0.3, min(1.0, (twr * v.mass * body.surface_gravity - t_other) / t_solid))
+    for e in solid:
+        e.thrust_limit = lim
+    say(f"liftoff TWR {(t_solid + t_other) / (v.mass * body.surface_gravity):.2f} -> {twr:.2f}: "
+        f"{len(solid)} SRBs limited to {lim * 100:.0f}%")
+
+
+def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape=0.5, max_aoa=15.0, twr=None):
     """Launch from Kerbin (or any atmospheric body) to an apoapsis of target_alt, coast out of the
-    atmosphere keeping the apoapsis up. Then call circularize()."""
+    atmosphere keeping the apoapsis up. Then call circularize(). twr: liftoff TWR for solid first stages."""
     v = vessel()
+    if twr and v.situation.name == "pre_launch":
+        _limit_srbs(v, twr)
     body = v.orbit.body
     atmo = body.atmosphere_depth if body.has_atmosphere else 0
     fl = v.flight(body.reference_frame)

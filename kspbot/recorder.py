@@ -17,6 +17,9 @@ from .core import ROOT
 FLIGHT_DIR = os.path.join(ROOT, "runs", "flights")
 
 
+current = None  # the recorder of the running phase: say() messages go into its log too
+
+
 class Recorder:
     def __init__(self, label, period=1.0):
         self.label = label
@@ -27,10 +30,14 @@ class Recorder:
         self.events = []
 
     def __enter__(self):
+        global current
         self._thread.start()
+        current = self
         return self
 
     def __exit__(self, *exc):
+        global current
+        current = None
         self._stop.set()
         self._thread.join(timeout=5)
 
@@ -38,11 +45,13 @@ class Recorder:
         with open(self.path, "a") as f:
             f.write(json.dumps(rec) + "\n")
 
-    def event(self, kind, msg, **extra):
-        rec = {"t": round(time.time(), 1), "ut": round(self._ut, 1), "event": kind, "msg": msg, **extra}
+    def event(self, kind, msg, echo=True, **extra):
+        rec = {"t": round(time.time(), 1), "ut": round(getattr(self, "_ut", 0.0), 1), "event": kind, "msg": msg, **extra}
         self.events.append(rec)
-        self._write(rec)
-        print(f"!! [{kind}] {msg}", flush=True)
+        if self.path:
+            self._write(rec)
+        if echo:
+            print(f"!! [{kind}] {msg}", flush=True)
 
     def _run(self):
         try:

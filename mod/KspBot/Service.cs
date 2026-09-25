@@ -103,6 +103,35 @@ namespace KspBot
                 o["targetColliders"] = string.Join("; ", tv.parts.SelectMany(p => p.GetComponentsInChildren<Collider>(true))
                     .Select(c => $"{c.name} layer {c.gameObject.layer} ({LayerMask.LayerToName(c.gameObject.layer)}) trigger {c.isTrigger} enabled {c.enabled} {c.GetType().Name}"));
             o["mask"] = LayerUtil.DefaultEquivalent;
+            // The pieces of ModuleGrappleNode.on_contact's condition (Rescue 3: ray at 0.010 m, dot 1.000, still Ready)
+            var t = typeof(ModuleGrappleNode);
+            try
+            {
+                var other = t.GetField("otherPart", Any)?.GetValue(g) as Part;
+                o["otherPart"] = other == null ? "null" : $"{other.partInfo.title} on {other.vessel.vesselName}";
+                if (t.GetField("hit", Any)?.GetValue(g) is RaycastHit fh)
+                    o["hitField"] = $"{fh.distance:F3} m, point-node {(nt.position - fh.point).magnitude:F3} m";
+                var adj = t.GetField("adjusterCache", Any)?.GetValue(g) as System.Collections.IList;
+                o["adjusters"] = adj?.Count;
+                o["adjusterBlocks"] = t.GetMethod("IsAdjusterBlockingGrappleGrab", Any)?.Invoke(g, null);
+                o["klawRb"] = g.part.rb == null ? "null" : g.part.rb.velocity.ToString("F3");
+                o["packed"] = g.part.packed;
+                if (other != null)
+                {
+                    o["otherRb"] = other.Rigidbody == null ? "null" : other.Rigidbody.velocity.ToString("F3");
+                    if (g.part.rb != null && other.Rigidbody != null)
+                        o["rvel"] = (g.part.rb.velocity - other.Rigidbody.velocity).magnitude;
+                }
+                var fsm = t.GetField("fsm", Any)?.GetValue(g) as KerbalFSM;
+                var ev = t.GetField("on_contact", Any)?.GetValue(g) as KFSMEvent;
+                if (ev != null && fsm != null)
+                {
+                    o["contactInState"] = fsm.CurrentState?.StateEvents?.Contains(ev);
+                    try { o["contactCondition"] = ev.OnCheckCondition?.Invoke(fsm.CurrentState); }
+                    catch (Exception ex) { o["contactCondition"] = "threw " + ex.GetType().Name + ": " + ex.Message; }
+                }
+            }
+            catch (Exception ex) { o["condError"] = ex.GetType().Name + ": " + ex.Message; }
             return Json.Write(o);
         }
 

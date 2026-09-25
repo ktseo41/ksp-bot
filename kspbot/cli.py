@@ -316,7 +316,7 @@ def cmd_wait(a):
 
 
 PHASES = {
-    "ascent": lambda a: flight.ascent(a.alt, a.heading),
+    "ascent": lambda a: flight.ascent(a.alt, a.heading, twr=a.twr),
     "circularize": lambda a: flight.circularize(a.at),
     "periapsis": lambda a: flight.change_periapsis(a.alt),
     "transfer": lambda a: flight.transfer_to(a.body, a.pe),
@@ -408,6 +408,7 @@ def main(argv=None):
     p = add("ascent", PHASES["ascent"], help="launch to apoapsis --alt")
     p.add_argument("--alt", type=float, default=80000)
     p.add_argument("--heading", type=float, default=90)
+    p.add_argument("--twr", type=float, help="liftoff TWR: thrust-limit the first stage's SRBs (e.g. 1.5)")
     p = add("circularize", PHASES["circularize"])
     p.add_argument("--at", default="apoapsis", choices=["apoapsis", "periapsis"])
     p = add("periapsis", PHASES["periapsis"], help="burn at apoapsis to set periapsis --alt")
@@ -472,8 +473,9 @@ def main(argv=None):
     try:
         if a.cmd in PHASES or a.cmd in ("stage", "science"):
             from .recorder import Recorder
-            with Recorder(a.cmd):
+            with Recorder(a.cmd) as rec:
                 r = a.fn(a)
+                _orbit_check(rec)
         else:
             r = a.fn(a)
     except Exception as e:  # show kRPC server errors compactly
@@ -482,6 +484,20 @@ def main(argv=None):
         sys.exit(1)
     if r is False:
         sys.exit(2)
+
+
+def _orbit_check(rec):
+    """After every flight phase: an orbiting craft whose periapsis dips into the air is decaying. Rescue 3's
+    Klaw bumps left 64.8 x 80.7 km unnoticed until a pass through the atmosphere."""
+    try:
+        v = flight.vessel()
+        b = v.orbit.body
+        pe = v.orbit.periapsis_altitude
+        if v.situation.name == "orbiting" and b.has_atmosphere and pe < b.atmosphere_depth:
+            rec.event("orbit", f"periapsis {pe / 1000:.1f} km is inside {b.name}'s atmosphere "
+                               f"({b.atmosphere_depth / 1000:.0f} km): raise it at the apoapsis")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

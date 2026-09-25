@@ -198,16 +198,48 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   2843 x 2890 km, inc 22.02, LAN 177.82. Contract done once SAS stopped a 1 deg/s spin ("stability for ten seconds").
   Funds 2.36M, sci 39.5, rep 326.5.
 
+## 2026-09-25 — Rescue Gwenbro (Rescue 2 engine-only, Rescue 3 RCS): Klaw still won't capture
+- Accepted "Explore Duna" (Valentina's data should complete it on recovery) and "Rescue Gwenbro from orbit of Kerbin"
+  (a Mk1 Lander Can, 77.5 x 80.2 km equatorial).
+- **Rescue 2** (= Rescue 1, engine-only): rendezvous 8 + 21 + 4 m/s, held 60 m, Swivel dropped; `grab --face +y` bounced
+  at 5.3 m centre distance (0.13 m/s in, 0.17 out), target spun 71 / 27 deg/s (stopped by rails warp), repositioned 3x.
+  User: revert and use RCS -> **reverted to launch**, recovered on the pad.
+- **Rescue 3** (crafts/rescue-3.json: + 4x RV-105, FL-R120): rendezvous held 52 m; RCS face approach off-axis 0.03-0.07 m,
+  0.14 m/s: **2 contacts, both bounced** (-0.37, -0.43 m/s). GrappleDebug at contact: ray from the Klaw node hits the Lander
+  Can at **0.010 m, dot 1.000** for several seconds (capture needs < 0.1 m and dot > 0.733), FSM stays "Ready". So the
+  geometric conditions hold and the capture still doesn't fire. Remaining conditions in ModuleGrappleNode.on_contact
+  (decompiled): FindContactParts' 0.1 m ray finding the part (otherPart != null), IsAdjusterBlockingGrappleGrab(), and
+  |klaw rb velocity - other rb velocity| < captureMaxRvel. Next: extend KspBot GrappleDebug to evaluate exactly those
+  (call FindContactParts, read otherPart / hit / adjusterCache / rb velocities, invoke on_contact.OnCheckCondition) at contact.
+  Rescue 1 did capture once (a swinging, off-axis nose hit), Salvage 1/2 and Rescue 2/3 square contacts never did.
+- **Orbit decayed unnoticed**: the station/bounce manoeuvres left Rescue 3 at 64.8 x 80.7 km (density at 65 km 1.2e-5 kg/m3,
+  q ~30 Pa, apoapsis falling ~0.7 km/min near periapsis). Fixes: `grab` stops when the periapsis is within 2 km of the
+  atmosphere; every flight command ends with an orbit check that logs an `orbit` event if the periapsis is in the air.
+- Recorder: `say()` messages now go into the flight log as `say` events (the user asked whether attempts, reasons and
+  elapsed time were logged: they were only in stdout); `grab` logs "contact N: bounced at d m, v m/s, t s in" and
+  "grabbed after N bounce(s)". Long diagnostics stay off the game screen (`say(..., screen=False)`), screen text <= 100 chars.
+- Ascent review (user asked; grok research into MechJeb2 source + forums): liftoff TWR 2.0 -> 6 g, max Q 51 kPa at 9 km,
+  drag ~440 m/s to 40 km (typical whole-ascent drag 170-340); MechJeb classic ascent: turn start 500 m / 50 m/s, end 60 km,
+  shape 0.4, Limit Q 20 kPa and acceleration 40 m/s2 (off by default, throttle only). New `ascent --twr 1.5` thrust-limits
+  the first stage's SRBs on the pad (untested). SRB separation dipped the pitch 29.6 -> 15.6 deg for ~3 s (not yet fixed:
+  hold attitude 2-3 s after staging).
+
 ### Next steps (plan)
-0. Salvage stopped (user). Next: **Duna 1** (item 2 below). Uncrewed craft beyond ~15.8 Mm need an antenna (CommNet
-   signal required; OKTO internal 5k vs DSN 50G). Duna 1 is crewed (Valentina) so control is fine; its Communotron 16
-   (5 Gm) can't reach Kerbin from Duna -> keep science aboard, don't rely on --transmit there.
-1. Done this session: Bob rescued (#23/#24), Minmus Science 1 (#25). UT ~3,236,750, funds 1.31M, sci 50. Now at the space center.
-   Until the Duna window (~1.87M s ≈ 86 days): e.g. a relay constellation with the new HG-5 (RelayAntenna5) / hex core, the
-   "Test LV-N Nerv on an escape trajectory out of the Mun" contract if still offered, more science for specializedConstruction
-   (docking) → station. Mk16 test contract (6-9 km, <110 m/s) can't be met with the ML7 drogues (pod < 110 m/s only at ~3 km).
-   Photograph key moments as they happen (blog). Liftoff is now throttle-capped with a 1.5× apoapsis stop; watch its first Mun use.
-2. **Duna 1 in the career** (Valentina): window **UT 5,108,742** (flight 295 d). `ksp warp-sc 5098000` at the space center (~3 h early), `launch "Duna 1" --crew "Valentina Kerman"`, `ascent --alt 80000`, `circularize`, `transfer Duna --pe 60000` (auto-corrects after the ejection), `soi`, `correct Duna --pe 60000` (avoids Ike now), `soi`, `capture`, science + orbital EVA report (NO landed EVA in the career), `land`, `science --transmit`, `liftoff`, `window Kerbin` → warp in the tracking station, `fly`, `transfer Kerbin --pe 30000`, `soi`, `correct Kerbin --pe 30000`, `soi`, `correct`, `reentry`. The Duna→Kerbin wait is ~615 days; fly other missions meanwhile.
-3. precisionEngineering + nuclearPropulsion researched → relay constellation (HG-5), Nerv-based craft for later; then docking (specializedConstruction) / RCS (advFlightControl) for a station.
-4. Record (docs/record/career.json) every launch. Summary images: optional (user); img3's grid only fits 20 launches.
-5. Long-term (user): Duna + Ike, refuelling station, relay constellation, Eve, Moho, Jool.
+State (2026-09-25, end of session): KSP at the space center/pad scene, UT ~10,033,640, funds 2.42M, sci 39.5, rep 326.
+Valentina (Duna 1) waits landed on Duna, Midlands 15.71 N 156.21 E, ~2800 m/s left, science aboard.
+Keo Relay 1/2 in keosynchronous orbits (contracts done). Active contracts: Rescue Gwenbro (Kerbin orbit, Mk1 Lander Can
+77.5 x 80.2 km), Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
+0. Follow CLAUDE.md "How to decide" (user: the decision process itself must change, not per-situation patches).
+1. **Klaw diagnosis** (the blocker for rescues and salvage): the extended KspBot `GrappleDebug` (committed, builds; needs
+   `tools/install.sh kspbot` = KSP restart) now reports otherPart, the hit field, adjusters, rb velocities and rvel, and
+   invokes on_contact.OnCheckCondition. Launch Rescue 3 again (`ascent --alt 90000 --twr 1.5` = first test of the SRB
+   thrust limit; compare max Q / drag with the 51 kPa / ~440 m/s baseline in runs/flights/2026-09-25_Rescue_3.jsonl),
+   rendezvous, drop the Swivel, `grab "Gwenbro's Derelict" --face +y` and read the `klaw` say-events at contact
+   (`uv run ksp log`). Fix from what they show. If one grab attempt bounces and the debug shows why, stop and fix before
+   retrying; check the orbit (periapsis) after every manoeuvre near the target.
+2. **Duna 1 return**: window UT 22,895,340 (Duna->Kerbin, flight 297 d). Warp at the space center (`warp-sc` ~3 h early),
+   `fly "Duna 1"`, `liftoff --alt 60000` (check heading vs the ~16 deg prograde plane), `transfer Kerbin --pe 30000`,
+   `soi`, `correct Kerbin --pe 30000` (inside Kerbin's SOI), `reentry`. Recovery completes "Explore Duna".
+   Then update docs/record/career.json #30 (result), writeup (Korean), photos.
+3. Before the Duna window: more contracts/science; ascent attitude hold for 2-3 s after SRB staging (pitch dip 14 deg).
+4. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.
