@@ -86,6 +86,7 @@ namespace KspBot
                 ["node"] = pt.InverseTransformPoint(nt.position).ToString("F3"),
                 ["nodeFwd"] = pt.InverseTransformDirection(nt.forward).ToString("F3"),
                 ["range"] = g.captureRange, ["minDot"] = g.captureMinFwdDot, ["maxRvel"] = g.captureMaxRvel,
+                ["grappleNode"] = typeof(ModuleGrappleNode).GetField("grappleNode", Any)?.GetValue(g) != null,
             };
             RaycastHit h;
             if (Physics.Raycast(nt.position, nt.forward, out h, 50f, LayerUtil.DefaultEquivalent))
@@ -439,6 +440,27 @@ namespace KspBot
         static string Path(Transform t) => t.parent == null ? t.name : Path(t.parent) + "/" + t.name;
 
         // ---------------- Crew ----------------
+
+        /// <summary>Move a kerbal to a free seat in the part named `toPart` (internal name, e.g. mk1pod.v2) on the
+        /// active vessel. kRPC's TransferCrew finds the source through crew.seat, which is null for a kerbal that
+        /// arrived with a grabbed vessel (Gwenbro after the Klaw grab): NRE. This goes by the parts' crew lists.</summary>
+        [KRPCProcedure]
+        public static string MoveCrew(string kerbal, string toPart)
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var from = v.parts.FirstOrDefault(p => p.protoModuleCrew.Any(c => c.name == kerbal))
+                       ?? throw new ArgumentException(kerbal + " is not aboard");
+            var pcm = from.protoModuleCrew.First(c => c.name == kerbal);
+            var to = v.parts.FirstOrDefault(p => p != from && p.partInfo.name == toPart && p.CrewCapacity > p.protoModuleCrew.Count)
+                     ?? throw new ArgumentException("no free seat in a " + toPart);
+            from.RemoveCrewmember(pcm);
+            to.AddCrewmember(pcm);
+            v.CrewListSetDirty();
+            try { v.SpawnCrew(); } catch (Exception) { }
+            GameEvents.onCrewTransferred.Fire(new GameEvents.HostedFromToAction<ProtoCrewMember, Part>(pcm, from, to));
+            GameEvents.onVesselCrewWasModified.Fire(v);
+            return $"{kerbal}: {from.partInfo.title} -> {to.partInfo.title}";
+        }
 
         /// <summary>Hire an applicant from the astronaut complex, paying the hire cost.</summary>
         [KRPCProcedure]

@@ -336,7 +336,7 @@ PHASES = {
     "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
     "grab": lambda a: _rdv().grab(a.target, a.speed, a.face, a.max_contacts),
     "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
-    "transfer-crew": lambda a: _rdv().transfer_crew(),
+    "transfer-crew": lambda a: _rdv().transfer_crew(a.to),
     "release": lambda a: _rdv().release(),
     "balance-fuel": lambda a: _rdv().balance_fuel(),
 }
@@ -466,7 +466,8 @@ def main(argv=None):
     p.add_argument("--max-contacts", type=int, default=3, help="stop after this many bounces")
     p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
     p.add_argument("--frac", type=float, default=1.0)
-    add("transfer-crew", PHASES["transfer-crew"], help="after a grab: move the grabbed vessel's crew into our free seats")
+    p = add("transfer-crew", PHASES["transfer-crew"], help="after a grab: move the grabbed vessel's crew into our free seats")
+    p.add_argument("--to", default="mk1pod.v2", help="internal name of our crew part")
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 

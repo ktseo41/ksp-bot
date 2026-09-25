@@ -36,6 +36,12 @@ def _norm(v):
     return tuple(x / m for x in v) if m > 0 else v
 
 
+def speed_at(o, t):
+    """Orbital speed at UT t by vis-viva. kRPC's Orbit.orbital_speed_at(t) is wrong for future times (asked for
+    +600 s it gave another point's speed): Rescue 3's phasing return burned +172 instead of -66 m/s."""
+    return math.sqrt(o.body.gravitational_parameter * (2 / o.radius_at(t) - 1 / o.semi_major_axis))
+
+
 def _dot(a, b):
     return sum(x * y for x, y in zip(a, b))
 
@@ -895,8 +901,8 @@ def match_orbit(inc, lan, argpe, sma, ecc):
         n1, a1 = _plane(o.inclination, o.longitude_of_ascending_node)
         line = _norm(_cross(n1, _plane(inc, lan)[0]))
         u = math.atan2(_dot(line, _cross(n1, a1)), _dot(line, a1))
-        t = min((_t_at_arg(o, u + k * math.pi) for k in (0, 1)), key=o.orbital_speed_at)  # the slower crossing
-        spd = o.orbital_speed_at(t)
+        t = min((_t_at_arg(o, u + k * math.pi) for k in (0, 1)), key=lambda x: speed_at(o, x))  # the slower crossing
+        spd = speed_at(o, t)
 
         pe_floor = o.periapsis_altitude - 2000  # the tuner's radial freedom once put Polar Relay 1's pe in the air
 
@@ -921,7 +927,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     o = v.orbit
     t = _t_at_arg(o, argpe + math.pi)
     r1 = o.radius_at(t)
-    dv = math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))) - o.orbital_speed_at(t)
+    dv = math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))) - speed_at(o, t)
 
     def cost1(n):
         time.sleep(0.03)
@@ -940,7 +946,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     o = v.orbit
     t = _t_at_arg(o, argpe)
     r2 = o.radius_at(t)
-    dv = math.sqrt(mu * (2 / r2 - 2 / (r2 + ra))) - o.orbital_speed_at(t)
+    dv = math.sqrt(mu * (2 / r2 - 2 / (r2 + ra))) - speed_at(o, t)
 
     def cost2(n):
         time.sleep(0.03)

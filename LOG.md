@@ -241,22 +241,55 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   coming down; warp_to says the real-time cost of a wait inside an atmosphere. Offline-tested with mock orbits
   (the Keo Relay 2 flip node is refused); first live use comes next.
 
+## 2026-09-26 — Rescue Gwenbro done: the Klaw bug was ours (no MODULE nodes in built .craft files)
+- KSP restart for the extended GrappleDebug: commit 25.7 -> 24.9 GB, nonpaged pool 1.52 -> 1.51 GB, available
+  3.2 -> 2.1 GB, KSP 4.75 -> 3.91 GB. **Rescue Gwenbro and Explore Duna were back to "offered"** (autosave backups:
+  already during Rescue 2's flight, despite accept/launch saving first): re-accepted (+55.6k advances), checked they
+  stayed active through a scene switch and in flight. Root cause still unknown.
+- **Rescue 3** again (uncrewed): `ascent --twr 1.5` (first use): max Q 51 -> 36.5 kPa at 9 km, speed at 40 km 1410 vs
+  1424 m/s (no loss), pitch dip after SRB staging 23 -> 17 deg (was 28 -> 15). Circularize 594 m/s -> 89 x 90 km.
+- Rendezvous: `intercept` announced a 96-orbit phasing wait (185,664 s; rails warp is x50 at 90 km = ~1 h real) and
+  simply waited: my checkpoint said "vacuum, warp OK" without computing the wait (user caught it). Stopped it. New
+  `phase_orbit`: raise the apoapsis for N orbits, circularize back, so the target arrives at the departure point
+  (planned 6 orbits, apoapsis 176 km, 2 x 66 m/s). **Its return burn went +172 m/s instead of -66**: kRPC
+  `Orbit.orbital_speed_at(UT)` returns another point's speed for future times (asked +600 s it gave the +0/+1200 s
+  values) -> the eccentric 89 x 482 km orbit made the intercept 129 m/s + a 342 m/s "correction"; 709 m/s used vs
+  ~140 planned (2441 left, enough). Fixes: `flight.speed_at` (vis-viva from radius_at, verified) replaces every
+  orbital_speed_at (match_orbit burns 1/2 and the plane-change crossing too: likely part of Keo Relay 2's 1602 m/s);
+  rendezvous intercept/correction burns go through `_approve` (would have refused 129 vs ~6 and 342 m/s);
+  phase_orbit refuses to continue if the return leaves an eccentric orbit. Held 51.7 m.
+- **Klaw diagnosis**: at contact the capture condition was fully TRUE (ray 0.010 m, dot 1.000, adjusters 0, rvel
+  0.39-0.50 < 1 m/s, on_contact.OnCheckCondition true) yet the FSM stayed Ready. **KSP.log**: every FixedUpdate
+  "[Grapple Module] Grabbing on to Mk1 Lander Can" then `NullReferenceException at ModuleGrappleNode.Grapple`.
+  Decompiled: `grappleNode` (AttachNode) is created only in OnLoad (flight scene); our CraftBuilder wrote no MODULE
+  nodes (0 in Rescue 3.craft), so KSP never called the modules' OnLoad at launch -> null grappleNode -> NRE ->
+  the "bounce". This explains Salvage 1/2 and Rescue 2/3; Rescue 1's single grab came after a KSP restart
+  (vessel reloaded from the save, which has MODULE nodes). Lesson: read KSP.log first when a stock mechanism
+  "doesn't fire" — hours went into geometry/speed before anyone looked.
+- Test: space center -> `fly` (reload) -> **grabbed on the first contact, 0 bounces, no NRE**. `transfer-crew`
+  then threw (kRPC TransferCrew uses crew.seat.part; Gwenbro had no seat object after the merge); a second reload
+  fixed it. Contract "Save Gwenbro" was already Complete in the save (our `contracts` shows kRPC's
+  parameter.completed = false: display bug, not fixed). Released the can, `periapsis --alt 30000` 48 m/s ->
+  30.2 x 89 km, `reentry --keep-until 300`: drogues 20 km, mains 4 km 227 m/s, service module off at 301 m,
+  splashdown, recovered: **Rescue Gwenbro done**, funds 2.52M, rep 340. Photos: docs/media/2026-09-26_rescue-3_*.
+- Root fixes (user asked for the root fix, not the reload workaround): CraftBuilder writes one MODULE node per
+  part module, saved from the prefab like the VAB (208 in Rescue 3.craft; pad test: same stage dv/TWR,
+  GrappleDebug grappleNode = True on a fresh launch); KspBot `MoveCrew` moves a kerbal by the parts' crew lists
+  (not the seat) and fires onCrewTransferred; `transfer-crew --to mk1pod.v2` uses it (untested in flight).
+
 ### Next steps (plan)
-State (2026-09-25, end of session): KSP at the space center/pad scene, UT ~10,033,640, funds 2.42M, sci 39.5, rep 326.
+State (2026-09-26): KSP at the space center, UT ~10,063,550, funds 2.52M, sci 39.8, rep 340.
 Valentina (Duna 1) waits landed on Duna, Midlands 15.71 N 156.21 E, ~2800 m/s left, science aboard.
-Keo Relay 1/2 in keosynchronous orbits (contracts done). Active contracts: Rescue Gwenbro (Kerbin orbit, Mk1 Lander Can
-77.5 x 80.2 km), Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
-0. Follow CLAUDE.md "How to decide" (written after the review above).
-1. **Klaw diagnosis** (the blocker for rescues and salvage): the extended KspBot `GrappleDebug` (committed, builds; needs
-   `tools/install.sh kspbot` = KSP restart) now reports otherPart, the hit field, adjusters, rb velocities and rvel, and
-   invokes on_contact.OnCheckCondition. Launch Rescue 3 again (`ascent --alt 90000 --twr 1.5` = first test of the SRB
-   thrust limit; compare max Q / drag with the 51 kPa / ~440 m/s baseline in runs/flights/2026-09-25_Rescue_3.jsonl),
-   rendezvous, drop the Swivel, `grab "Gwenbro's Derelict" --face +y` and read the `klaw` say-events at contact
-   (`uv run ksp log`). Fix from what they show. If one grab attempt bounces and the debug shows why, stop and fix before
-   retrying; check the orbit (periapsis) after every manoeuvre near the target.
-2. **Duna 1 return**: window UT 22,895,340 (Duna->Kerbin, flight 297 d). Warp at the space center (`warp-sc` ~3 h early),
-   `fly "Duna 1"`, `liftoff --alt 60000` (check heading vs the ~16 deg prograde plane), `transfer Kerbin --pe 30000`,
-   `soi`, `correct Kerbin --pe 30000` (inside Kerbin's SOI), `reentry`. Recovery completes "Explore Duna".
-   Then update docs/record/career.json #30 (result), writeup (Korean), photos.
-3. Before the Duna window: more contracts/science; ascent attitude hold for 2-3 s after SRB staging (pitch dip 14 deg).
-4. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.
+Active contracts: Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
+0. Follow CLAUDE.md "How to decide": state expected numbers incl. real time (phasing waits!) before each phase.
+1. After every `launch` + `accept`: check `contracts` in flight (accepted contracts reverted to offered once more,
+   cause unknown). Crafts must be rebuilt (`ksp build`) to get MODULE nodes; old .craft files have none.
+2. Klaw works now: candidate "Rescue Mitbro from orbit of Minmus" (167k) with an RCS Klaw craft (Rescue 3 + Minmus
+   dv, crewed or with an antenna: CommNet); first flight use of `transfer-crew` (MoveCrew). Unit G-P87T (LKO adapter)
+   is recoverable with the same craft type if it isn't a small curved part.
+3. **Duna 1 return**: window UT 22,895,340 (Duna->Kerbin, flight 297 d). Warp at the space center (`warp-sc` ~3 h early),
+   `fly "Duna 1"`, `liftoff --alt 60000` (check heading vs the ~16 deg prograde plane), `transfer Kerbin --pe 30000
+   --plan` then `node`, `soi`, `correct Kerbin --pe 30000` (inside Kerbin's SOI), `reentry`. Recovery completes
+   "Explore Duna". Then update docs/record/career.json #30 (result), writeup (Korean), photos.
+4. Small: ascent attitude hold 2-3 s after SRB staging; `contracts` parameter display (kRPC completed flag).
+5. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.

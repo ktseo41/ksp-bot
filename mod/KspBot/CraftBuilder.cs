@@ -344,8 +344,24 @@ namespace KspBot
                     n.AddValue("attN", i.myNode + "," + i.parent.Ref + "_" + NodePos(i.ap, i.myNode));
                 foreach (var c in i.children.Where(c => !c.surface))
                     n.AddValue("attN", c.parentNode + "," + c.Ref + "_" + NodePos(i.ap, c.parentNode));
+                AddModules(n, i.ap);
             }
             return root;
+        }
+
+        /// One MODULE node per part module, saved from the prefab like the VAB does. Without them KSP skips the
+        /// modules' OnLoad at launch: ModuleGrappleNode builds its grapple AttachNode only there, so every Klaw we
+        /// built threw a NullReferenceException in Grapple() on contact and bounced (Salvage 1/2, Rescue 2/3).
+        static void AddModules(ConfigNode n, AvailablePart ap)
+        {
+            foreach (PartModule m in ap.partPrefab.Modules)
+            {
+                var mn = new ConfigNode("MODULE");
+                try { m.Save(mn); }
+                catch (Exception) { mn = new ConfigNode("MODULE"); }
+                if (!mn.HasValue("name")) mn.AddValue("name", m.moduleName);
+                n.AddNode(mn);
+            }
         }
 
         static string NodePos(AvailablePart ap, string nodeId) =>

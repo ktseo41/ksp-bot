@@ -7,7 +7,7 @@ import math
 import time
 
 from .core import bot, say, sc
-from .flight import _norm, _dot, burn_time, execute_node, tune_node, ut, vessel, warp_to
+from .flight import _approve, _norm, _dot, burn_time, execute_node, speed_at, tune_node, ut, vessel, warp_to
 
 
 def find_target(name):
@@ -55,7 +55,7 @@ def match_plane(target, tol_deg=0.05):
     times = [_next_time(o, o.ut_at_true_anomaly(o.true_anomaly_at_an(to))),
              _next_time(o, o.ut_at_true_anomaly(o.true_anomaly_at_dn(to)))]
     t = min(times)
-    spd = o.orbital_speed_at(t)
+    spd = speed_at(o, t)
     dv = 2 * spd * math.sin(ri / 2)
     best = None
     for sign in (1, -1):
@@ -82,7 +82,48 @@ def _closest(orbit, target):
     return orbit.next_closest_approach(target.orbit).distance
 
 
-def intercept(target, max_wait_orbits=12, aim=25.0):
+def phase_orbit(target, lead_after, max_orbits=6, max_dv=120.0):
+    """Shift the phase fast: raise the apoapsis for N orbits, then circularize back at the same radius, so the
+    target leads by lead_after (rad). Rescue 3 at 90 km vs Gwenbro at 79 km faced a 96-orbit phasing wait: ~1 h real
+    time, because rails warp is capped at x50 that low. Picks the fewest orbits whose round trip fits max_dv."""
+    from .flight import _phase_angle, burn_at
+    v = vessel()
+    o = v.orbit
+    mu, r, T1, T2 = o.body.gravitational_parameter, o.semi_major_axis, o.period, target.orbit.period
+    t0 = ut() + 120
+    delta = (lead_after - _phase_angle(v, target, t0)) % (2 * math.pi)
+    v_c = math.sqrt(mu / r)
+    opts = []
+    for n in range(1, max_orbits + 1):
+        for k in (0, 1):
+            T = T2 * (1 + (delta + 2 * math.pi * k) / (2 * math.pi * n))  # target lead grows 2pi(T/T2 - 1) per orbit
+            if T <= T1:
+                continue
+            a = (mu * (T / (2 * math.pi)) ** 2) ** (1 / 3)
+            dv = math.sqrt(mu * (2 / r - 1 / a)) - v_c
+            opts.append((n, dv, 2 * a - r - o.body.equatorial_radius))
+            break
+    fit = [x for x in opts if 2 * x[1] <= max_dv]
+    n, dv, ap = min(fit) if fit else min(opts, key=lambda x: x[1])
+    say(f"phasing orbit: {n} orbit(s) to apoapsis {ap / 1000:.0f} km, 2 x {dv:.0f} m/s")
+    if 2 * dv > max_dv * 1.5:
+        say("phasing too expensive; not burning")
+        return False
+    burn_at(t0, prograde=dv)
+    o = v.orbit
+    tp = ut() + o.time_to_periapsis
+    if tp - ut() < o.period / 2:
+        tp += o.period
+    t_back = tp + (n - 1) * o.period
+    burn_at(t_back, prograde=math.sqrt(mu / o.periapsis) - speed_at(o, t_back))
+    o = v.orbit
+    if o.apoapsis - o.periapsis > 0.02 * r:
+        from .flight import Refused
+        raise Refused(f"phasing return left {o.periapsis_altitude / 1000:.0f} x {o.apoapsis_altitude / 1000:.0f} km")
+    return True
+
+
+def intercept(target, max_wait_orbits=3, aim=25.0, phased=False):
     """Hohmann-type transfer towards the target, timed by phase and tuned for a pass `aim` m from it (not 0: the
     stop at the closest approach should leave room to turn; Rescue 1 stopped at 9 m and hit the target turning)."""
     v = vessel()
@@ -105,6 +146,9 @@ def intercept(target, max_wait_orbits=12, aim=25.0):
         wait += synodic
     if wait > max_wait_orbits * o.period:
         say(f"phasing wait {wait:.0f}s ({wait / o.period:.1f} orbits)")
+        if not phased:  # arrive ~10 min before the departure point instead of waiting
+            if phase_orbit(target, (need - (n2 - n1) * 600) % (2 * math.pi)):
+                return intercept(target, max_wait_orbits, aim, phased=True)
     dv = math.sqrt(mu / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1)
     node = v.control.add_node(ut() + wait, dv, 0, 0)
 
@@ -117,6 +161,7 @@ def intercept(target, max_wait_orbits=12, aim=25.0):
         return abs(_closest(n.orbit, target) - aim) + 100 * low
     tune_node(node, cost, steps=(("prograde", 2.0), ("ut", 20.0), ("normal", 1.0), ("radial", 1.0)))
     say(f"intercept burn {node.delta_v:.1f} m/s in {node.ut - ut():.0f}s, closest {_closest(node.orbit, target):.0f} m")
+    _approve(node, dv)
     execute_node(node)
     # fix the closest approach right away (burn errors grow over half an orbit)
     if abs(_closest(v.orbit, target) - aim) > 500:
@@ -124,6 +169,7 @@ def intercept(target, max_wait_orbits=12, aim=25.0):
         tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
         say(f"intercept correction {node.delta_v:.1f} m/s, closest {_closest(node.orbit, target):.0f} m")
         if node.delta_v > 0.3:
+            _approve(node, 10.0)  # Rescue 3 "corrected" a bad intercept with 342 m/s
             execute_node(node)
         else:
             node.remove()
@@ -533,25 +579,21 @@ def transfer_fuel(amount_frac=1.0):
     return moved
 
 
-def transfer_crew():
-    """After a grab: move the grabbed vessel's crew into free seats on ours (tag 'chaser'), like the stock
-    crew-transfer dialog. A rescue contract's 'Save X' completes on the grab itself (onPartCouple)."""
+def transfer_crew(to_part="mk1pod.v2"):
+    """After a grab: move the grabbed vessel's crew into free seats of our `to_part` parts (KspBot MoveCrew: kRPC's
+    TransferCrew threw for Gwenbro, whose seat object didn't exist after the grab). A rescue's 'Save X' completes
+    on the grab or on this transfer."""
     v = vessel()
-    seats = [p for p in v.parts.all if p.tag == "chaser" and p.crew_capacity > len(p.crew)]
+    ours = [p for p in v.parts.all if p.name == to_part]
     moved = []
     for p in v.parts.all:
-        if p.tag == "chaser":
+        if p in ours:
             continue
         for c in list(p.crew):
-            dst = next((s for s in seats if s.crew_capacity > len(s.crew)), None)
-            if dst is None:
-                say(f"no free seat for {c.name}")
-                break
-            sc().transfer_crew(c, dst)
-            time.sleep(2)  # KSP respawns the crew a frame later
+            say(bot().move_crew(c.name, to_part))
             moved.append(c.name)
     say(f"moved {moved}; aboard: " + ", ".join(f"{p.title}: {[c.name for c in p.crew]}"
-                                             for p in vessel().parts.all if p.tag == "chaser" and p.crew_capacity))
+                                             for p in vessel().parts.all if p.name == to_part))
     return bool(moved)
 
 
