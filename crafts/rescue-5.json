@@ -1,0 +1,242 @@
+{
+ "name": "Rescue 5",
+ "description": "Three rescues in one flight: Mk1-3 pod (3 seats) with a Klaw on top, 2.5 m heat shield, radial Mk2-R chutes; uncrewed (OKTO in the 1.25 m service stack under a C7 adapter tank, RCS on the adapter); Eve 1 launcher.",
+ "parts": [
+  {
+   "id": "pod",
+   "part": "mk1-3pod"
+  },
+  {
+   "id": "claw",
+   "part": "GrapplingDevice",
+   "parent": "pod",
+   "node": "top",
+   "childNode": "top"
+  },
+  {
+   "id": "main",
+   "part": "parachuteRadial",
+   "parent": "pod",
+   "symmetry": 3,
+   "angle": 0,
+   "height": 0.2,
+   "stage": 7
+  },
+  {
+   "id": "drogue",
+   "part": "radialDrogue",
+   "parent": "pod",
+   "symmetry": 3,
+   "angle": 60,
+   "height": 0.2,
+   "stage": 6
+  },
+  {
+   "id": "shield",
+   "part": "HeatShield2",
+   "parent": "pod",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "dec3",
+   "part": "Decoupler.2",
+   "parent": "shield",
+   "node": "bottom",
+   "stage": 5,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adS",
+   "part": "adapterSize2-Size1",
+   "parent": "dec3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rcs",
+   "part": "RCSBlock.v2",
+   "parent": "adS",
+   "symmetry": 4,
+   "angle": 45,
+   "height": 0.0
+  },
+  {
+   "id": "core0",
+   "part": "probeCoreOcto.v2",
+   "parent": "adS",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mono",
+   "part": "RCSFuelTank",
+   "parent": "core0",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw",
+   "part": "sasModule",
+   "parent": "mono",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1",
+   "part": "fuelTank",
+   "parent": "rw",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "solar",
+   "part": "solarPanels5",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 0,
+   "height": 0.5
+  },
+  {
+   "id": "bat",
+   "part": "batteryPack",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 90,
+   "height": 0.5
+  },
+  {
+   "id": "ant",
+   "part": "SurfAntenna",
+   "parent": "t1",
+   "height": 0.5,
+   "angle": 45
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "t1",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decC",
+   "part": "Decoupler.1",
+   "parent": "terrier",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rwT",
+   "part": "sasModule",
+   "parent": "decC",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adT",
+   "part": "largeAdapter",
+   "parent": "rwT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "tT",
+   "part": "Rockomax16.BW",
+   "parent": "adT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "poodle",
+   "part": "liquidEngine2-2.v2",
+   "parent": "tT",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decB",
+   "part": "Decoupler.2",
+   "parent": "poodle",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t2",
+   "part": "Rockomax32.BW",
+   "parent": "decB",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "skipper",
+   "part": "engineLargeSkipper.v2",
+   "parent": "t2",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decA",
+   "part": "Decoupler.2",
+   "parent": "skipper",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1a",
+   "part": "Rockomax32.BW",
+   "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1b",
+   "part": "Rockomax32.BW",
+   "parent": "t1a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mainsail",
+   "part": "liquidEngineMainsail.v2",
+   "parent": "t1b",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "R8winglet",
+   "parent": "t1b",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -2.5
+  }
+ ]
+}
