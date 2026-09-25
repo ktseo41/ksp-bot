@@ -124,8 +124,12 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Researched precisionEngineering (HG-5 relay, DTS-M1, hex core), advFuelSystems, **nuclearPropulsion (LV-N Nerv)**. Sci 50.
 
 ### Next steps (plan)
-1. **Bob rescue: DONE.** Next small things: fix the airless-liftoff overshoot (see "Bob liftoff") before the next airless liftoff; the Mun Tanker 1 hulk stays in Mun orbit (debris).
+1. Done this session: Bob rescued (#23/#24), Minmus Science 1 (#25). UT ~3,236,750, funds 1.31M, sci 50. Now at the space center.
+   Until the Duna window (~1.87M s ≈ 86 days): e.g. a relay constellation with the new HG-5 (RelayAntenna5) / hex core, the
+   "Test LV-N Nerv on an escape trajectory out of the Mun" contract if still offered, more science for specializedConstruction
+   (docking) → station. Mk16 test contract (6-9 km, <110 m/s) can't be met with the ML7 drogues (pod < 110 m/s only at ~3 km).
+   Photograph key moments as they happen (blog). Liftoff is now throttle-capped with a 1.5× apoapsis stop; watch its first Mun use.
 2. **Duna 1 in the career** (Valentina): window **UT 5,108,742** (flight 295 d). `ksp warp-sc 5098000` at the space center (~3 h early), `launch "Duna 1" --crew "Valentina Kerman"`, `ascent --alt 80000`, `circularize`, `transfer Duna --pe 60000` (auto-corrects after the ejection), `soi`, `correct Duna --pe 60000` (avoids Ike now), `soi`, `capture`, science + orbital EVA report (NO landed EVA in the career), `land`, `science --transmit`, `liftoff`, `window Kerbin` → warp in the tracking station, `fly`, `transfer Kerbin --pe 30000`, `soi`, `correct Kerbin --pe 30000`, `soi`, `correct`, `reentry`. The Duna→Kerbin wait is ~615 days; fly other missions meanwhile.
-3. Research precisionEngineering (160: HG-5 relay, DTS-M1 dish, hex probe core) → relay constellation; then docking/RCS for a station.
+3. precisionEngineering + nuclearPropulsion researched → relay constellation (HG-5), Nerv-based craft for later; then docking (specializedConstruction) / RCS (advFlightControl) for a station.
 4. Record (docs/record/career.json) every launch. Summary images: optional (user); img3's grid only fits 20 launches.
 5. Long-term (user): Duna + Ike, refuelling station, relay constellation, Eve, Moho, Jool.
