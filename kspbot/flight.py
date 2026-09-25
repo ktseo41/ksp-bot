@@ -301,6 +301,10 @@ def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape
     ap.reference_frame = v.orbital_reference_frame
     ap.target_direction = (0, 1, 0)
     while fl.mean_altitude < atmo and v.orbit.time_to_apoapsis > 10:
+        if any(e.active and not e.has_fuel for e in v.parts.engines):
+            # boosters that burned out as the apoapsis reached the target: drop them now (Keo Relay 1 carried
+            # its empty Kickbacks from 25 to 70 km, until circularize staged)
+            auto_stage(v)
         if v.orbit.apoapsis_altitude < target_alt - 500:
             v.control.throttle = 0.3
             auto_stage(v)
@@ -753,6 +757,33 @@ def _t_at_arg(o, u):
     return t
 
 
+def wait_plane(inc, lan, lead=1.0, alt=80000):
+    """On the pad: warp until the pad passes under a node of the plane (inc, lan in deg) and return the surface
+    heading that launches into it. Northward launches put the pad at the ascending node, southward at the
+    descending one; whichever comes first. The node ends up ~lead deg past the pad's longitude at liftoff
+    (Polar Relay 1: 203.3 at liftoff -> LAN 204.1)."""
+    v = vessel()
+    body = v.orbit.body
+    lat = math.radians(v.flight().latitude)
+    rate = 360.0 / body.rotational_period
+
+    def pad_long():
+        o = v.orbit  # the pad's "orbit": lan + argpe + true anomaly = its inertial longitude
+        return math.degrees(o.longitude_of_ascending_node + o.argument_of_periapsis + o.true_anomaly) % 360
+
+    az = math.asin(max(-1.0, min(1.0, math.cos(math.radians(inc)) / math.cos(lat))))  # inertial azimuth, north
+    opts = [((lan - lead - pad_long()) % 360 / rate, az), (((lan + 180) - lead - pad_long()) % 360 / rate, math.pi - az)]
+    wait, az = min(opts)
+    v_orb = math.sqrt(body.gravitational_parameter / (body.equatorial_radius + alt))
+    v_rot = 2 * math.pi * body.equatorial_radius * math.cos(lat) / body.rotational_period
+    heading = math.degrees(math.atan2(v_orb * math.sin(az) - v_rot, v_orb * math.cos(az))) % 360
+    say(f"pad at {pad_long():.1f} deg; {'ascending' if az < math.pi / 2 else 'descending'} node in {wait:.0f}s, "
+        f"heading {heading:.1f}")
+    warp_to(ut() + wait)
+    say(f"pad at {pad_long():.1f} deg (target {(lan if az < math.pi / 2 else lan + 180) % 360:.1f} - {lead})")
+    return heading
+
+
 def match_orbit(inc, lan, argpe, sma, ecc):
     """Reach an orbit given by its elements (deg, m) around the current body, e.g. a contract's "specific orbit":
     plane change on the node line, then burn at the future apoapsis for the periapsis height, then at the
@@ -817,7 +848,11 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     def cost2(n):
         time.sleep(0.03)
         no = n.orbit
-        return (abs(no.periapsis - rp) + abs(no.apoapsis - ra)) / 1000 + 0.2 * _ang(no.argument_of_periapsis, argpe)
+        # argPe only counts for eccentric targets (the contract ignores it below e 0.05); without the inclination
+        # term the tuner flipped Keo Relay 2 retrograde (1602 m/s) to please the argPe of a near-circle
+        return (abs(no.periapsis - rp) + abs(no.apoapsis - ra)) / 1000 \
+            + (0.2 * _ang(no.argument_of_periapsis, argpe) if ecc >= 0.05 else 0.0) \
+            + 10 * math.degrees(_rel_inc(no.inclination, no.longitude_of_ascending_node, inc, lan))
     node = v.control.add_node(t, dv, 0, 0)
     tune_node(node, cost2, steps=(("prograde", 1.0), ("radial", 1.0), ("ut", 20.0)))
     say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s")

@@ -327,6 +327,7 @@ PHASES = {
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
+    "wait-plane": lambda a: flight.wait_plane(a.inc, a.lan),
     "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed, a.keep_until),
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
@@ -434,6 +435,9 @@ def main(argv=None):
     p = add("match-orbit", PHASES["match-orbit"], help="reach an orbit given by elements (a contract's specific orbit)")
     for k in ("inc", "lan", "argpe", "sma", "ecc"):
         p.add_argument("--" + k, type=float, required=True)
+    p = add("wait-plane", PHASES["wait-plane"], help="on the pad: warp until launch into plane --inc/--lan, print heading")
+    p.add_argument("--inc", type=float, required=True)
+    p.add_argument("--lan", type=float, required=True)
     p = add("return", PHASES["return"], help="leave a moon for the parent with periapsis --pe")
     p.add_argument("--pe", type=float, default=30000)
     p = add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, drogues, main chutes, land")

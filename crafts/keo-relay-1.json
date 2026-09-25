@@ -1,0 +1,188 @@
+{
+ "name": "Keo Relay 1",
+ "description": "Keosynchronous relay for the contracts (antenna + power + goo + thermometer): OKTO, RA-2, FL-T800 + Terrier on the Mun Tanker 1 launcher (Polar Relay 1 without the Science Jr, bigger tank).",
+ "parts": [
+  {
+   "id": "core0",
+   "part": "probeCoreOcto.v2"
+  },
+  {
+   "id": "relay",
+   "part": "RelayAntenna5",
+   "parent": "core0",
+   "node": "top"
+  },
+  {
+   "id": "rw",
+   "part": "sasModule",
+   "parent": "core0",
+   "node": "bottom"
+  },
+  {
+   "id": "t1",
+   "part": "fuelTank.long",
+   "parent": "rw",
+   "node": "bottom"
+  },
+  {
+   "id": "goo",
+   "part": "GooExperiment",
+   "parent": "t1",
+   "height": 0.3,
+   "angle": 45
+  },
+  {
+   "id": "thermo",
+   "part": "sensorThermometer",
+   "parent": "t1",
+   "height": 0.3,
+   "angle": 225
+  },
+  {
+   "id": "solar",
+   "part": "solarPanels5",
+   "parent": "t1",
+   "symmetry": 4,
+   "angle": 0,
+   "height": 0.6
+  },
+  {
+   "id": "bat",
+   "part": "batteryPack",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 135,
+   "height": 0.3
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "t1",
+   "node": "bottom",
+   "stage": 3
+  },
+  {
+   "id": "dec2",
+   "part": "Decoupler.1",
+   "parent": "terrier",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw1",
+   "part": "sasModule",
+   "parent": "dec2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw2",
+   "part": "sasModule",
+   "parent": "rw1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m1",
+   "part": "fuelTank",
+   "parent": "rw2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat2",
+   "part": "batteryPack",
+   "parent": "m1",
+   "height": 0.5,
+   "angle": 0
+  },
+  {
+   "id": "m2",
+   "part": "fuelTank",
+   "parent": "m1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m3",
+   "part": "fuelTank",
+   "parent": "m2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "m4",
+   "part": "fuelTank",
+   "parent": "m3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "swivel",
+   "part": "liquidEngine2.v2",
+   "parent": "m4",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "basicFin",
+   "parent": "m4",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -0.6
+  },
+  {
+   "id": "dec1",
+   "part": "Decoupler.1",
+   "parent": "swivel",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "core",
+   "part": "MassiveBooster",
+   "parent": "dec1",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "r8",
+   "part": "R8winglet",
+   "parent": "core",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -3.2
+  },
+  {
+   "id": "side",
+   "part": "MassiveBooster",
+   "parent": "core",
+   "symmetry": 2,
+   "stage": 1,
+   "rigid": true,
+   "angle": 90
+  },
+  {
+   "id": "cones",
+   "part": "noseCone",
+   "parent": "side",
+   "node": "top",
+   "childNode": "bottom01"
+  }
+ ]
+}

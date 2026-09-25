@@ -147,6 +147,57 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - **Salvage 3** (uncrewed, for an LKO adapter-recovery contract as a Klaw diagnostic): `circularize` left 62x84 km and the "burn prograde now" periapsis fallback ran 2 min at full thrust: periapsis +9 km, apoapsis hyperbolic. **Reverted to launch** (tooling bug, game-offered). Fix: raise a low periapsis at the apoapsis when it comes first; the burn-now fallback stops if the apoapsis runs away. The user then stopped the salvage effort (recovered on the pad): **rule: no "Recover part" contracts for small/curved parts** (docs/design-guide.md section 0, memory). Contracts left active: Module 761V7 (Minmus Thud), Unit G-P87T (LKO 2.5 m adapter) - far deadlines.
 - KSP restart before Duna: commit 21.4 -> 23.6 GB, nonpaged pool 1.22 -> 1.25 GB, KSP 4.39 -> 3.94 GB, available 3.6 -> 2.3 GB (the restart freed nothing overall). UT 4,165,818, funds 1.73M, sci 8.5, rep 257.6.
 
+## 2026-09-25 — Duna 1 (career, Valentina)
+- Built Duna 1 in the career VAB (42 parts, 84.8 t, 42.9k), `warp-sc 5098000`, launched with Valentina. LKO 79x80, Poodle 1197 + lander 3893 m/s (same as the sandbox).
+- Transfer: ejection 1072 + 2.7 m/s correction -> Duna pe 60 km, but arrival inc 124 (retrograde). In solar orbit `correct --inc-to 10`
+  stalled at a 0.1 m/s local optimum (inc 50): out there 0.1 m/s moves the Duna pass ~3,500 km, so the 0.5 m/s seed grid stepped
+  over the whole target. Added a 0.05 m/s grid pass -> inc 9.7 for 0.4 m/s (burn error left pe 4.6 km, trimmed later). Fine pe
+  trims from 48 days out chase noise (a few mm/s from turning the craft moves the pass by 100s of km): do them inside the SOI.
+- **Duna SOI: arrival v_inf 1364 m/s** (sandbox ~760): capture to 60 km would cost 966 m/s, leaving about -50 m/s for the landing +
+  return (sandbox: landing ~900, liftoff ~1450, ejection ~740). Cause (tooling): `transfer_planet` sized the ejection for Duna's
+  semi-major axis (20.7 Gm) while Duna would be near periapsis (19.7-20.2 Gm); with the extra energy the pe-only tuner twisted the
+  ejection so the path cut across Duna's orbit early (194-day flight instead of 295, heliocentric pe 13.33 Gm < Kerbin's orbit).
+  **Reverted to launch** (game-offered, tooling bug, crew safety). Fix: ejection sized for the target's radius at arrival, the tuner
+  cost adds arrival v_inf / 10, and the burn is refused if v_inf > 1.25x the Hohmann value + 50.
+
+- Relaunch (same UT): ejection 1055 m/s (seed from the arrival radius, v_inf 868 planned), tuned arrival v_inf 1037, correction
+  3.6 m/s, inc 9.3 prograde. Duna SOI: v_inf 1067, `correct --inc-to 10` inside the SOI 6.3 m/s -> pe 59.5 km.
+- **Capture to 59 x 1007 km** (539 m/s; the Poodle ran dry and staged, the Terrier finished): an elliptical capture instead of
+  a 60 km circle saves ~220 m/s and costs nothing for the landing (`periapsis --alt 5000` at the apoapsis, 19 m/s).
+  Orbit science 161 (crew 35, goo 70, thermo 56) + orbital EVA report 56 ("space just above Duna's Lowlands"), kept aboard.
+- **Landing**: `land` died at 28 km (1120 m/s, tumbling at 33 deg/s once): kRPC `Parachute.deployed` throws a
+  NullReferenceException on the lander's 3 Mk2-R (they share the Terrier's stage, so they went active in vacuum at capture;
+  their "Safe to deploy?" field is gone). Emergency script (chute calls guarded, same `_powered_descent`): powered descent from
+  12 km AGL at 925 m/s, **landed at 15.71 N, 156.21 E, Midlands, 1.4 m/s, tilt 9.4 deg**; the Mk2-Rs never opened (it
+  landed on the engine alone). Landing ~656 m/s by mass. Fix: `_chute_deployed()` tolerant of that error (land, liftoff).
+  Design lesson: give the lander's chutes their own stage, not the engine's.
+- Surface science 161 (crew 35, goo 70, thermo 56) kept aboard. Lander left: LF 376.8 / Ox 460.6, 7.43 t, **~2800 m/s**
+  (vac) for liftoff ~1450 + ejection ~740. Photos: docs/media/2026-09-25_duna-1_{pad,orbit,descent,powered-descent,landed}.png.
+- Duna->Kerbin window **UT 22,895,340** (600.8 days, flight 297 d). Valentina waits on the surface; other missions meanwhile.
+
+## 2026-09-25 — keosynchronous relays (while Valentina waits on Duna)
+- KSP restart at the space center: commit 24.2 -> 23.7 GB, nonpaged pool 1.356 -> 1.357 GB, available 2.34 -> 2.27 GB,
+  KSP 2.75 -> 2.31 GB (right after load). Funds 2.03M after the Duna milestones.
+- Accepted both "keosynchronous orbit of Kerbin" contracts (goo + thermometer; orbits from persistent.sfs
+  SpecificOrbitParameter: A inc 33.95, e 0.104, LAN 24.64, argPe 252.3; B inc 22.03, e 0.0069, LAN 177.82; sma 3,463 km).
+  crafts/keo-relay-1/2.json = Polar Relay 1 without the Science Jr, FL-T800, + thermometer (22.3k, sat stage 4594 m/s).
+- New `wait-plane --inc --lan`: warps on the pad until the pad's inertial longitude (lan + argpe + nu of the pad "orbit")
+  reaches a node of the plane, returns the surface heading (inertial azimuth minus the pad's rotation). A: descending node,
+  heading 126.6 -> inc 31.6, LAN 24.4; B: ascending node, heading 66.2 -> inc 20.5, LAN 177.9.
+- **Spent SRBs carried to 70 km** (user spotted it): the Kickbacks burned out exactly as the apoapsis reached 80 km, `ascent`
+  switched to coasting, and the coast loop only staged while topping up -> the empty casings rode along until circularize.
+  Fix: the coast loop drops dry engines at once (Keo Relay 2: dropped at 1:02, right after burnout).
+- **Keo Relay 1**: match-orbit plane 92 + 643 + 523 + 7 m/s -> 2502 x 3222 km, inc 33.95, LAN 24.6, argPe 242.7 (5 % = 18 deg
+  allowed): **contract done**, 4339 m/s left.
+- **Keo Relay 2**: match-orbit's apoapsis burn (1602 m/s) **flipped the orbit retrograde** (inc 158, LAN 357.8 = same plane
+  backwards): its cost weighted argPe error even for a near-circular target (e 0.007, the contract ignores argPe below 0.05)
+  and had no inclination term. Revert gone (launched via the space center, hours in). Fixed the cost (argPe only if
+  e >= 0.05, + 10 x relative inclination). Recovery: bi-elliptic reversal - ap raised to 9,000 km (212), velocity reversed at
+  the apoapsis (1150; `execute_node` overshot ~140 m/s: the node frame flips with the orbit when the speed passes zero, so
+  don't use it for reversals) -> 9102 x 21867 km prograde; far side lowered 277, `capture --apo` at the periapsis ->
+  2843 x 2890 km, inc 22.02, LAN 177.82. Contract done once SAS stopped a 1 deg/s spin ("stability for ten seconds").
+  Funds 2.36M, sci 39.5, rep 326.5.
+
 ### Next steps (plan)
 0. Salvage stopped (user). Next: **Duna 1** (item 2 below). Uncrewed craft beyond ~15.8 Mm need an antenna (CommNet
    signal required; OKTO internal 5k vs DSN 50G). Duna 1 is crewed (Valentina) so control is fine; its Communotron 16
