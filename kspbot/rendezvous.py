@@ -80,8 +80,9 @@ def _closest(orbit, target):
     return orbit.next_closest_approach(target.orbit).distance
 
 
-def intercept(target, max_wait_orbits=12):
-    """Hohmann-type transfer towards the target, timed by phase and tuned on the closest-approach distance."""
+def intercept(target, max_wait_orbits=12, aim=25.0):
+    """Hohmann-type transfer towards the target, timed by phase and tuned for a pass `aim` m from it (not 0: the
+    stop at the closest approach should leave room to turn; Rescue 1 stopped at 9 m and hit the target turning)."""
     v = vessel()
     o = v.orbit
     mu = o.body.gravitational_parameter
@@ -111,12 +112,12 @@ def intercept(target, max_wait_orbits=12):
     def cost(n):
         time.sleep(0.03)
         low = max(0.0, pe_floor - n.orbit.periapsis_altitude)
-        return _closest(n.orbit, target) + 100 * low
+        return abs(_closest(n.orbit, target) - aim) + 100 * low
     tune_node(node, cost, steps=(("prograde", 2.0), ("ut", 20.0), ("normal", 1.0), ("radial", 1.0)))
     say(f"intercept burn {node.delta_v:.1f} m/s in {node.ut - ut():.0f}s, closest {_closest(node.orbit, target):.0f} m")
     execute_node(node)
     # fix the closest approach right away (burn errors grow over half an orbit)
-    if _closest(v.orbit, target) > 500:
+    if abs(_closest(v.orbit, target) - aim) > 500:
         node = v.control.add_node(ut() + 90, 0, 0, 0)
         tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
         say(f"intercept correction {node.delta_v:.1f} m/s, closest {_closest(node.orbit, target):.0f} m")
@@ -206,7 +207,7 @@ def rendezvous(name, dist=25.0):
     target = find_target(name)
     sc().target_vessel = target
     match_plane(target)
-    c = intercept(target)
+    c = intercept(target, aim=dist)
     if c > 5000:
         say(f"closest approach {c:.0f} m, too far")
         return False
@@ -259,8 +260,16 @@ def grab(name, speed=0.3):
     for p in v.parts.all:
         p.tag = "chaser"
     n0 = len(v.parts.all)
-    arm_claw(v)
     frame = _frame(target)
+    # Turning swings the Klaw around the centre of mass: only turn freely while the target is outside that
+    # circle (+ margin). Rescue 1 (12 m stack) started at 8.6 m, swung at 4-16 deg/s for 90 s and hit the target.
+    arm = math.sqrt(_dot(_claw(v).position(v.reference_frame), _claw(v).position(v.reference_frame)))
+    safe = arm + 8.0
+    d = _rel(v, target, frame)[2]
+    if d < safe:
+        say(f"too close to turn: {d:.1f} m < {safe:.1f} m (Klaw {arm:.1f} m from the centre of mass); back off first")
+        return False
+    arm_claw(v)
     t0 = time.time()
     while time.time() - t0 < 600:
         if len(vessel().parts.all) > n0:
@@ -272,9 +281,9 @@ def grab(name, speed=0.3):
         want = tuple(x * speed for x in los)
         err = tuple(a - b for a, b in zip(want, u))
         e = math.sqrt(_dot(err, err))
-        if e > 0.08 and _dot(_norm(err), los) > 0.3:  # a push that still roughly faces the target
+        if e > 0.08 and _dot(_norm(err), los) > 0.9:  # a push close to the current facing: no big turn
             _burn_vector(v, target, frame, err, tol=0.02, max_throttle=0.1)
-        elif e > 0.08 and d > 8:  # need braking or a big sideways fix: turn to it, then face the target again
+        elif e > 0.08 and d > safe:  # braking or a big sideways fix: turn to it, then face the target again
             _burn_vector(v, target, frame, err, tol=0.02, max_throttle=0.1)
         _point(v, frame, los, tol=2.0, timeout=20)
         time.sleep(0.2)

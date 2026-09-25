@@ -727,9 +727,12 @@ def match_orbit(inc, lan, argpe, sma, ecc):
         t = min((_t_at_arg(o, u + k * math.pi) for k in (0, 1)), key=o.orbital_speed_at)  # the slower crossing
         spd = o.orbital_speed_at(t)
 
+        pe_floor = o.periapsis_altitude - 2000  # the tuner's radial freedom once put Polar Relay 1's pe in the air
+
         def cost(n):
             time.sleep(0.03)
-            return math.degrees(_rel_inc(n.orbit.inclination, n.orbit.longitude_of_ascending_node, inc, lan))
+            low = max(0.0, pe_floor - n.orbit.periapsis_altitude)
+            return math.degrees(_rel_inc(n.orbit.inclination, n.orbit.longitude_of_ascending_node, inc, lan)) + low / 100
         best = None
         for sign in (1, -1):
             node = v.control.add_node(t, -spd * (1 - math.cos(ri)), sign * 2 * spd * math.sin(ri / 2), 0)
@@ -775,6 +778,8 @@ def match_orbit(inc, lan, argpe, sma, ecc):
     say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s")
     execute_node(node)
 
+    if abs(v.orbit.periapsis - rp) > 0.01 * rp:  # Polar Relay 1 came out 13 % low: fix it at the apoapsis
+        change_periapsis(rp - R)
     o = v.orbit
     say(f"orbit pe {o.periapsis_altitude:.0f} (want {rp - R:.0f}) ap {o.apoapsis_altitude:.0f} (want {ra - R:.0f}) "
         f"inc {math.degrees(o.inclination):.2f} (want {math.degrees(inc):.2f}) "
@@ -1092,9 +1097,13 @@ def _coast_clear(v, margin=500.0, steps=24):
 
 # ---------------------------------------------------------------- reentry
 
-def reentry(main_alt=4000, main_speed=250):
+def reentry(main_alt=4000, main_speed=250, keep_until=None):
     """Coast to the atmosphere, drop everything except the parachute stages, hold retrograde, arm drogues
-    below 20 km, stage the main chutes once below main_alt and slower than main_speed (or at 2.5 km)."""
+    below 20 km, stage the main chutes once below main_alt and slower than main_speed (or at 2.5 km).
+    keep_until=ALT (uncrewed pod whose probe core sits in the service module): keep the service module on,
+    engine first, deploy the chutes directly (no staging), decouple it under the chutes below ALT m."""
+    if keep_until is not None:
+        return _reentry_keep(main_alt, main_speed, keep_until)
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
@@ -1149,6 +1158,53 @@ def reentry(main_alt=4000, main_speed=250):
         except Exception as e:  # a chute part already gone (seen once after staging the mains)
             say(f"chute deploy skipped: {e}")
     say("chutes deployed")
+    while v.situation.name not in ("landed", "splashed"):
+        time.sleep(1)
+    say(f"{v.situation.name}! {v.name}")
+
+
+def _reentry_keep(main_alt, main_speed, keep_until):
+    v = vessel()
+    body = v.orbit.body
+    fl = v.flight(body.reference_frame)
+    atmo = body.atmosphere_depth
+    o = v.orbit
+    if fl.mean_altitude > atmo and o.periapsis_altitude < atmo:
+        p = o.semi_major_axis * (1 - o.eccentricity ** 2)
+        r = body.equatorial_radius + atmo
+        nu = -math.acos(max(-1.0, min(1.0, (p / r - 1) / o.eccentricity)))
+        warp_to(o.ut_at_true_anomaly(nu), lead=60)
+    _antennas(v, False)
+    ap = v.auto_pilot
+    ap.reference_frame = v.surface_velocity_reference_frame
+    ap.target_direction = (0, -1, 0)
+    ap.engaged = True
+    say("reentry (service module kept): holding retrograde")
+    chutes = list(v.parts.parachutes)
+    drogues = [c for c in chutes if "drogue" in c.part.name.lower()]
+    mains = [c for c in chutes if c not in drogues]
+    armed = False
+    while True:
+        alt, spd = fl.mean_altitude, fl.speed
+        if not armed and alt < 20000:
+            for c in drogues:
+                c.arm()
+            armed = True
+            say(f"drogues armed at {alt:.0f} m, {spd:.0f} m/s")
+        if (alt < main_alt and spd < main_speed) or alt < 2500:
+            break
+        time.sleep(0.2)
+    ap.engaged = False
+    for c in mains:
+        c.deploy()
+    say(f"main chutes deployed at {fl.mean_altitude:.0f} m, {fl.speed:.0f} m/s")
+    while fl.surface_altitude > keep_until and v.situation.name not in ("landed", "splashed"):
+        time.sleep(0.2)
+    for p in v.parts.all:
+        if p.decoupler is not None and not p.decoupler.decoupled and "HeatShield" not in p.name:
+            p.decoupler.decouple()
+            say(f"service module dropped at {fl.surface_altitude:.0f} m, {fl.speed:.1f} m/s")
+    v = vessel()
     while v.situation.name not in ("landed", "splashed"):
         time.sleep(1)
     say(f"{v.situation.name}! {v.name}")

@@ -124,6 +124,8 @@ def cmd_accept(a):
     c.accept()
     time.sleep(1)
     ok = any(x.title == c.title for x in _contracts("active"))
+    if ok:
+        sc().save("persistent")  # see cmd_launch
     print("accepted:" if ok else "ACCEPT FAILED:", c.title)
 
 
@@ -163,6 +165,10 @@ def cmd_launch(a):
         _clear_pad()
     except Exception as e:  # some calls are flight-scene only
         print("pad check skipped:", str(e).splitlines()[0])
+    # kRPC's LaunchVessel goes to the flight scene without saving: contracts accepted at the space center since
+    # the last save came back as merely offered in flight (the three accepted 2026-09-25 were lost, advances kept).
+    if status().get("scene") == "SPACECENTER":
+        sc().save("persistent")
     sc().launch_vessel("VAB", a.craft, "LaunchPad", a.crew or [])
     time.sleep(5)
     try:
@@ -321,7 +327,7 @@ PHASES = {
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
-    "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed),
+    "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed, a.keep_until),
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
     "survey": lambda a: flight.survey(a.kind, a.dist),
@@ -432,6 +438,7 @@ def main(argv=None):
     p = add("reentry", PHASES["reentry"], help="coast to atmosphere, drop stages, drogues, main chutes, land")
     p.add_argument("--main-alt", type=float, default=4000)
     p.add_argument("--main-speed", type=float, default=250)
+    p.add_argument("--keep-until", type=float, help="uncrewed: keep the service module (probe core) on, drop it under chutes below this height")
     add("node", PHASES["node"], help="execute the next maneuver node")
     p = add("survey", PHASES["survey"], help="orbital survey contract: run the experiment over each waypoint")
     p.add_argument("--kind", default="temperature")

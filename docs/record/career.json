@@ -32,7 +32,8 @@
    "Two Minmus observational survey contracts (8 sites)",
    "Minmus biome tour: Midlands, Greater Flats, Lesser Flats, Highlands (+ Great Flats, Lowlands earlier)",
    "Every Minmus surface biome visited (Poles, Flats, Slopes on Mun Lander 7)",
-   "First rendezvous + Klaw grab: an uncrewed tanker refuelled Bob's stranded Mun lander in Mun orbit (Mun Tanker 1)"
+   "First rendezvous + Klaw grab: an uncrewed tanker refuelled Bob's stranded Mun lander in Mun orbit (Mun Tanker 1)",
+   "First relay satellite: Polar Relay 1 (RA-2) in a 1259 x 1883 km polar orbit, launch timed for the contract's LAN"
  ],
  "career_launches": [
   {"n":1,"craft":"Hopper 1","slug":"hopper-1","dest":"kerbin","stat":"16 km","crew":"","goal":"first hop, science","result":"success","note":"16 km hop, first science; funds 25k→110k"},
@@ -59,7 +60,9 @@
   {"n":22,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"minmus","stat":"all biomes","crew":"Jeb","goal":"Minmus Poles/Flats/Slopes, no landed EVA","result":"success","note":"polar orbit; landed at Poles, Flats and Slopes, so every Minmus surface biome is now visited; orbital EVA report; science 5.5 -> 247; Jeb safe"},
   {"n":23,"craft":"Mun Lander 7","slug":"mun-lander-7","dest":"mun","stat":"891 m/s","crew":"Bob","goal":"Mun biomes (Lowlands, Farside Crater)","result":"success","note":"orbit science + orbital EVA report; landed in Lowlands, hopped to Farside Crater; the old liftoff made the hop cost 1434 m/s, leaving 891 m/s, short of the ~970 needed to fly home. Stranded, then rescued: lifted to a 35 km Mun orbit, refuelled by Mun Tanker 1 (#24), tanks rebalanced after an uneven fill spun the lander, flew home and splashed down; Bob safe; science 274"},
   {"n":24,"craft":"Mun Tanker 1","slug":"mun-tanker-1","dest":"mun","stat":"Klaw rescue","crew":"-","goal":"refuel Bob's stranded lander in Mun orbit","result":"success","note":"uncrewed OKTO + Klaw + 2x FL-T400 + Terrier; first launch reverted (circularization tooling bug); relaunch to a retrograde 30 km Mun orbit; first career rendezvous (plane 18 m/s, intercept 9 + 25 m/s, held 28 m), Klaw grab, 292 LF / 358 Ox transferred, released; hulk left in Mun orbit"},
-  {"n":25,"craft":"Minmus Science 1","slug":"minmus-science-1","dest":"minmus","stat":"+565 science","crew":"Jeb","goal":"Minmus observational survey (4 low sites) + science tour with barometer, Science Jr and a storage unit","result":"success","note":"survey sites capped at 5.1-7.1 km: periapsis dips aimed over each site (decompiled trigger range 7.75 km); landed Lowlands, Greater Flats, Midlands, Great Flats; one liftoff escaped Minmus (liftoff bug), quickloaded; all data collected into the storage unit and recovered: science 105 -> 670, funds 1.31M"}
+  {"n":25,"craft":"Minmus Science 1","slug":"minmus-science-1","dest":"minmus","stat":"+565 science","crew":"Jeb","goal":"Minmus observational survey (4 low sites) + science tour with barometer, Science Jr and a storage unit","result":"success","note":"survey sites capped at 5.1-7.1 km: periapsis dips aimed over each site (decompiled trigger range 7.75 km); landed Lowlands, Greater Flats, Midlands, Great Flats; one liftoff escaped Minmus (liftoff bug), quickloaded; all data collected into the storage unit and recovered: science 105 -> 670, funds 1.31M"},
+  {"n":26,"craft":"Rescue 1","slug":"rescue-1","dest":"kerbin-orbit","stat":"empty cabin","crew":"-","goal":"uncrewed Klaw rescue of Beafrod from Kerbin orbit","result":"partial","note":"first launch seated Jeb by default (recovered; --crew none); the accepted contracts were lost because kRPC launched without saving, so Beafrod's cabin was empty; rendezvous 1.7 m/s intercept, stopped 8.6 m off, the 12 m stack swung at 4-16 deg/s during the grab and hit the cabin (no damage); released; first engine-first uncrewed reentry with the service module kept until 300 m, pod recovered"},
+  {"n":27,"craft":"Polar Relay 1","slug":"polar-relay-1","dest":"kerbin-orbit","stat":"polar relay","crew":"-","goal":"contract polar orbit (inc 90, LAN 205, 1259 x 1883 km) with RA-2 relay + Science Jr","result":"success","note":"launch timed on the pad's inertial longitude (LAN 204.1 on arrival); first match-orbit: plane 198 + 489 + 573 m/s, periapsis came out 13 % low and the plane burn dipped it into the air; fixed with a 30 m/s periapsis burn; contract done, first relay satellite"}
  ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
@@ -93,6 +96,7 @@
    "landing loop lagged → 15 m/s touchdown",
    "kRPC biome lookup wants radians, not degrees → every biome-targeted landing looked at the wrong spot",
    "Communotron antenna never unfolded → science 'transmitted' silently failed",
-   "survey waypoints accepted mid-flight don't count until a scene reload"
+   "survey waypoints accepted mid-flight don't count until a scene reload",
+   "kRPC launches straight into flight without saving: contracts accepted at the space center came back as 'offered', the rescue kerbal vanished, the advances stayed"
  ]
 }
