@@ -252,8 +252,57 @@ def arm_claw(v):
     return False
 
 
-def grab(name, speed=0.3):
-    """Tag our parts, arm the Klaw, point at the target and drift into it at `speed` m/s."""
+def _face_axis(target, face, frame):
+    """Unit vector (in frame) of the face of the target's root part the Klaw should hit: an axis ("-z") or a
+    normal "x,y,z" in the part frame. Map a part's faces with sc().raycast_distance first: the Thud's -z
+    mounting side is a rounded ridge (only +-0.1 m passes the 43 deg check), its +z side a flat plane 13 deg
+    off the axis, normal (0, 0.24, 1)."""
+    if "," in face:
+        d = tuple(float(x) for x in face.split(","))
+    else:
+        k = "xyz".index(face[-1])
+        d = [0.0, 0.0, 0.0]
+        d[k] = -1.0 if face.startswith("-") else 1.0
+    return _norm(sc().transform_direction(tuple(d), target.parts.root.reference_frame, frame))
+
+
+def _station(v, target, frame, a, dist, tol=2.0, timeout=900):
+    """Move to the point dist m out along the target's axis a and stop there, going around the target
+    (via a point off to the side) when starting on the far side."""
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        p, u, d, s = _rel(v, target, frame)
+        along = _dot(p, a)
+        lat = tuple(x - along * y for x, y in zip(p, a))
+        ll = math.sqrt(_dot(lat, lat))
+        if along < 0.3 * dist:  # behind or beside the face: first a point to the side, clear of the target
+            side = _norm(lat) if ll > 1 else _norm(_cross_any(a))
+            goal = tuple(dist * x + 0.5 * dist * y for x, y in zip(side, a))
+        else:
+            goal = tuple(dist * x for x in a)
+        off = tuple(g - x for g, x in zip(goal, p))
+        do = math.sqrt(_dot(off, off))
+        if do < tol and s < 0.05:
+            return True
+        want = tuple(x / max(do, 1e-6) * min(1.0, do / 20.0) for x in off)
+        err = tuple(w - x for w, x in zip(want, u))
+        if math.sqrt(_dot(err, err)) > max(0.03, 0.15 * math.sqrt(_dot(want, want))):
+            _burn_vector(v, target, frame, err, tol=0.01, max_throttle=0.3)
+        else:
+            time.sleep(0.5)
+    return False
+
+
+def _cross_any(a):
+    from .flight import _cross
+    c = _cross(a, (0.0, 0.0, 1.0))
+    return c if _dot(c, c) > 0.01 else _cross(a, (1.0, 0.0, 0.0))
+
+
+def grab(name, speed=0.15, face=None):
+    """Tag our parts, arm the Klaw, point at the target and drift into it at `speed` m/s.
+    The Klaw only catches when a 0.1 m ray from its centre hits the target within 43 deg of square
+    (ModuleGrappleNode.CheckGrappleContact): on a small part (a Thud) aim at a flat face, e.g. face="-z"."""
     v = vessel()
     target = find_target(name)
     sc().target_vessel = target
@@ -269,25 +318,60 @@ def grab(name, speed=0.3):
     if d < safe:
         say(f"too close to turn: {d:.1f} m < {safe:.1f} m (Klaw {arm:.1f} m from the centre of mass); back off first")
         return False
+    if face:
+        a = _face_axis(target, face, frame)
+        say(f"moving onto the target's {face} axis")
+        if not _station(v, target, frame, a, max(25.0, safe + 10)):
+            say("could not reach the approach point")
+            return False
     arm_claw(v)
-    t0 = time.time()
-    while time.time() - t0 < 600:
+    t0 = tlog = time.time()
+    while time.time() - t0 < 1800:
         if len(vessel().parts.all) > n0:
             say("grabbed")
             vessel().auto_pilot.engaged = False  # the grab merged us into a new vessel object
             return True
         p, u, d, s = _rel(v, target, frame)
-        los = tuple(-x / d for x in p)
-        want = tuple(x * speed for x in los)
-        err = tuple(a - b for a, b in zip(want, u))
+        w = target.angular_velocity(frame)
+        if math.degrees(math.sqrt(_dot(w, w))) > 3 and d > safe:
+            # a spinning target can't be grabbed (Module 761V7 turned at 160 deg/s after our bumps); stock KSP
+            # zeroes the spin of vessels going on rails, so a moment of rails warp stops it
+            say(f"target spinning {math.degrees(math.sqrt(_dot(w, w))):.0f} deg/s: rails warp to stop it")
+            sc().rails_warp_factor = 2
+            time.sleep(3)
+            sc().rails_warp_factor = 0
+            time.sleep(3)
+            continue
+        if face:  # come in along the face axis, steering the sideways offset back onto it
+            a = _face_axis(target, face, frame)
+            along = _dot(p, a)
+            lat = tuple(x - along * y for x, y in zip(p, a))
+            ll = math.sqrt(_dot(lat, lat))
+            if along < safe and d > safe:  # not in front of the face (it turned after a bump): go round again
+                say(f"not in front of the {face} face (along {along:.1f} m, off {ll:.1f} m): repositioning")
+                _station(v, target, frame, a, max(25.0, safe + 10))
+                continue
+            los = tuple(-x for x in a)
+            # inside the turning circle nothing can be corrected: hold outside it until the offset is small
+            go = speed if (ll < 0.25 or along > safe + 6) else 0.0
+            want = tuple(go * x - 0.05 * y for x, y in zip(los, lat))
+        else:
+            los = tuple(-x / d for x in p)
+            want = tuple(x * speed for x in los)
+        err = tuple(a_ - b for a_, b in zip(want, u))
         e = math.sqrt(_dot(err, err))
-        if e > 0.08 and _dot(_norm(err), los) > 0.9:  # a push close to the current facing: no big turn
-            _burn_vector(v, target, frame, err, tol=0.02, max_throttle=0.1)
-        elif e > 0.08 and d > safe:  # braking or a big sideways fix: turn to it, then face the target again
-            _burn_vector(v, target, frame, err, tol=0.02, max_throttle=0.1)
-        _point(v, frame, los, tol=2.0, timeout=20)
+        if time.time() - tlog > 20:
+            say(f"grab: {d:.1f} m, closing {-_dot(p, u) / d:.2f} m/s, velocity error {e:.3f} m/s")
+            tlog = time.time()
+        # Outside the turning circle the velocity is trimmed to 0.03 m/s (Salvage 1 with 0.08 m/s drifted metres
+        # past a Thud for 10 min); inside it only small pushes near the current facing are allowed.
+        if d > safe and e > 0.03:
+            _burn_vector(v, target, frame, err, tol=0.01, max_throttle=0.05)
+        elif e > 0.05 and _dot(_norm(err), los) > 0.95:
+            _burn_vector(v, target, frame, err, tol=0.01, max_throttle=0.05)
+        _point(v, frame, los, tol=0.5 if d < safe else 2.0, timeout=20)
         time.sleep(0.2)
-    say("no grab within 10 min")
+    say("no grab within 30 min")
     return False
 
 

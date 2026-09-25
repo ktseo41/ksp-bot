@@ -50,6 +50,23 @@ namespace KspBot
             return p.requireSignalForControl;
         }
 
+        /// <summary>Set a vessel's type (like the stock rename dialog). kRPC hides type Unknown vessels, e.g. a
+        /// contract's "Module 761V7" to recover; as a Probe it can be targeted. Returns how many were changed.</summary>
+        [KRPCProcedure]
+        public static int SetVesselType(string name, string type)
+        {
+            var t = (VesselType)Enum.Parse(typeof(VesselType), type, true);
+            var n = 0;
+            foreach (var v in FlightGlobals.Vessels.Where(v => v.vesselName == name))
+            {
+                v.vesselType = t;
+                if (v.protoVessel != null) v.protoVessel.vesselType = t;
+                n++;
+            }
+            GameEvents.onVesselRename.Fire(new GameEvents.HostedFromToAction<Vessel, string>(null, name, name));
+            return n;
+        }
+
         /// <summary>Show a message on the game screen.</summary>
         [KRPCProcedure]
         public static void Message(string text, float seconds)

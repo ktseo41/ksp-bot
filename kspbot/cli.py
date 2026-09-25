@@ -320,7 +320,7 @@ PHASES = {
     "circularize": lambda a: flight.circularize(a.at),
     "periapsis": lambda a: flight.change_periapsis(a.alt),
     "transfer": lambda a: flight.transfer_to(a.body, a.pe),
-    "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc),
+    "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(),
     "capture": lambda a: flight.capture(a.apo),
     "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits)),
@@ -333,7 +333,7 @@ PHASES = {
     "survey": lambda a: flight.survey(a.kind, a.dist),
     "rendezvous": lambda a: _rdv().rendezvous(a.target, a.dist),
     "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
-    "grab": lambda a: _rdv().grab(a.target, a.speed),
+    "grab": lambda a: _rdv().grab(a.target, a.speed, a.face),
     "transfer-fuel": lambda a: _rdv().transfer_fuel(a.frac),
     "transfer-crew": lambda a: _rdv().transfer_crew(),
     "release": lambda a: _rdv().release(),
@@ -418,6 +418,7 @@ def main(argv=None):
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
     p.add_argument("--inc", type=float, help="minimum arrival inclination (deg)")
+    p.add_argument("--inc-to", type=float, help="aim for this arrival inclination (0..180 deg)")
     p = add("window", lambda a: flight.planet_window(a.body), help="next Hohmann window to another planet")
     p.add_argument("body")
     add("soi", PHASES["soi"], help="warp to the next SOI change")
@@ -455,7 +456,8 @@ def main(argv=None):
     p.add_argument("--dist", type=float, default=25.0)
     p = add("grab", PHASES["grab"], help="arm the Klaw and drift into the target vessel")
     p.add_argument("target")
-    p.add_argument("--speed", type=float, default=0.3)
+    p.add_argument("--speed", type=float, default=0.15)
+    p.add_argument("--face", help='side of the target\'s root part to hit, e.g. "-z" (a flat face)')
     p = add("transfer-fuel", PHASES["transfer-fuel"], help="after a grab: move our fuel into the grabbed vessel")
     p.add_argument("--frac", type=float, default=1.0)
     add("transfer-crew", PHASES["transfer-crew"], help="after a grab: move the grabbed vessel's crew into our free seats")

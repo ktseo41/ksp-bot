@@ -446,14 +446,20 @@ def _moon_penalty(patch, target):
     return 1000.0 + (moon.body.sphere_of_influence - moon.periapsis) / 1000.0
 
 
-def _node_cost(node, target, pe_alt, min_inc=None):
+def _inc_off(orbit, inc_to):
+    """Degrees/5 between the arrival inclination and inc_to (0..180: picks prograde vs retrograde too)."""
+    return abs(math.degrees(orbit.inclination) - inc_to) / 5.0 if inc_to is not None else 0.0
+
+
+def _node_cost(node, target, pe_alt, min_inc=None, inc_to=None):
     time.sleep(0.04)  # let KSP recompute patches
     if node.orbit.body.name == target.name:  # already inside the target SOI: just shape the periapsis
         return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0 + _inc_short(node.orbit, min_inc) \
-            + _moon_penalty(node.orbit, target)
+            + _inc_off(node.orbit, inc_to) + _moon_penalty(node.orbit, target)
     enc = _encounter(node.orbit, target)
     if enc:
-        return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc) + _moon_penalty(enc[1], target)
+        return abs(enc[0] - pe_alt) / 1000.0 + _inc_short(enc[1], min_inc) + _inc_off(enc[1], inc_to) \
+            + _moon_penalty(enc[1], target)
     o = _patch_around(node.orbit, target.orbit.body.name)
     if o is None:
         return 1e9
@@ -620,13 +626,24 @@ def transfer_planet(target_name, pe_alt, samples=48):
     return True
 
 
-def correct_course(target_name, pe_alt, min_inc=None):
+def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     """Mid-course correction toward target periapsis pe_alt (small burn now + 120 s); min_inc: also tilt the
-    arrival orbit to at least this inclination (cheap far out, e.g. for survey sites at high latitude)."""
+    arrival orbit to at least this inclination (cheap far out, e.g. for survey sites at high latitude);
+    inc_to: aim for this arrival inclination (0..180, e.g. 25 to meet a prograde target; flipping from a
+    retrograde pass means crossing an impact path, so seed from a grid first)."""
     v = vessel()
     target = sc().bodies[target_name]
     node = v.control.add_node(ut() + 120, 0, 0, 0)
-    cost = lambda n: _node_cost(n, target, pe_alt, min_inc)
+    cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
+    if inc_to is not None:
+        best = None
+        for nm in [x * 0.5 for x in range(-12, 13)]:
+            for rd in [x * 0.5 for x in range(-12, 13)]:
+                node.prograde, node.normal, node.radial = 0.0, nm, rd
+                c = cost(node)
+                if best is None or c < best[0]:
+                    best = (c, nm, rd)
+        node.prograde, node.normal, node.radial = 0.0, best[1], best[2]
     tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
     if _encounter(node.orbit, target) is None and v.orbit.body.name != target.name:
         # far off course (e.g. deflected by a Mun flyby): seed from a coarse prograde x radial grid, then tune
