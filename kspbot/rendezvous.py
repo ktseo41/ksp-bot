@@ -67,9 +67,11 @@ def match_plane(target, tol_deg=0.05):
             best = (c, sign)
     node = v.control.add_node(t, -spd * (1 - math.cos(ri)), best[1] * dv, 0)
 
-    def cost(n):
+    sma0 = o.semi_major_axis
+
+    def cost(n):  # keep the orbit's energy: Salvage 2's 90 deg plane change tuned itself onto an escape path
         time.sleep(0.03)
-        return math.degrees(n.orbit.relative_inclination(to))
+        return math.degrees(n.orbit.relative_inclination(to)) + abs(n.orbit.semi_major_axis - sma0) / 1000
     tune_node(node, cost, steps=(("normal", 1.0), ("prograde", 0.5)))
     say(f"plane change {math.degrees(ri):.2f} deg: {node.delta_v:.1f} m/s")
     execute_node(node)
@@ -325,6 +327,8 @@ def grab(name, speed=0.15, face=None):
             say("could not reach the approach point")
             return False
     arm_claw(v)
+    if face and any(p.rcs is not None for p in v.parts.all):
+        return _rcs_grab(v, target, frame, face, speed, n0)
     t0 = tlog = time.time()
     while time.time() - t0 < 1800:
         if len(vessel().parts.all) > n0:
@@ -372,6 +376,91 @@ def grab(name, speed=0.15, face=None):
         _point(v, frame, los, tol=0.5 if d < safe else 2.0, timeout=20)
         time.sleep(0.2)
     say("no grab within 30 min")
+    return False
+
+
+def _rcs_axes(v, target, frame, pulse=0.6):
+    """Signs mapping vessel-frame x/y/z to control.right/forward/up, from a short test pulse on each."""
+    c = v.control
+    signs = []
+    for name in ("right", "forward", "up"):
+        u0 = sc().transform_direction(_rel(v, target, frame)[1], frame, v.reference_frame)
+        setattr(c, name, 1.0)
+        time.sleep(pulse)
+        setattr(c, name, 0.0)
+        time.sleep(0.3)
+        u1 = sc().transform_direction(_rel(v, target, frame)[1], frame, v.reference_frame)
+        du = [b - a for a, b in zip(u0, u1)]
+        k = max(range(3), key=lambda i: abs(du[i]))
+        signs.append((k, 1.0 if du[k] > 0 else -1.0))
+        say(f"rcs {name}: vessel axis {'xyz'[k]} {'+' if du[k] > 0 else '-'} ({abs(du[k]):.3f} m/s)")
+    return signs  # per control: (vessel axis index, sign)
+
+
+def _rcs_grab(v, target, frame, face, speed, n0, timeout=1800):
+    """Final approach with RCS: the Klaw stays square to the face (autopilot), RCS alone steers the sideways
+    offset to 0 and holds the closing speed, and keeps pushing through the contact."""
+    c = v.control
+    c.sas = False
+    c.rcs = True
+    ap = v.auto_pilot
+    ap.reference_frame = frame
+    ap.engaged = True
+    ap.target_direction = tuple(-x for x in _face_axis(target, face, frame))
+    ap.wait()
+    signs = _rcs_axes(v, target, frame)
+    t0 = tlog = time.time()
+    try:
+        while time.time() - t0 < timeout:
+            if len(vessel().parts.all) > n0:
+                say("grabbed")
+                return True
+            a = _face_axis(target, face, frame)
+            ap.target_direction = tuple(-x for x in a)
+            p, u, d, s = _rel(v, target, frame)
+            w = target.angular_velocity(frame)
+            spin = math.degrees(math.sqrt(_dot(w, w)))
+            along = _dot(p, a)
+            lat = tuple(x - along * y for x, y in zip(p, a))
+            ll = math.sqrt(_dot(lat, lat))
+            if spin > 3 and d > 6:
+                say(f"target spinning {spin:.0f} deg/s: rails warp to stop it")
+                for x in ("right", "forward", "up"):
+                    setattr(c, x, 0.0)
+                sc().rails_warp_factor = 2
+                time.sleep(3)
+                sc().rails_warp_factor = 0
+                time.sleep(3)
+                continue
+            if spin > 3 or along < 3.0 or (ll > 3.0 and along < 12.0):
+                # spinning up close, or not in front of the face: translate (no turning) to a point in front of
+                # it, via a point off to the side when behind (a straight line from behind would cross the target)
+                side = _norm(lat) if ll > 1 else _norm(_cross_any(a))
+                goal = tuple(20 * x for x in a) if along > 3.0 else tuple(20 * x + 10 * y for x, y in zip(side, a))
+                off = tuple(g - x for g, x in zip(goal, p))
+                do = math.sqrt(_dot(off, off))
+                want = tuple(x / max(do, 1e-6) * min(0.5, do / 20.0) for x in off)
+            else:
+                closing = speed if ll < 0.5 or along > 8 else 0.0  # line up before the last metres
+                want = tuple(-closing * x - min(0.15, 0.1 * ll) * y / max(ll, 1e-6) for x, y in zip(a, lat))
+            err = sc().transform_direction(tuple(w_ - x for w_, x in zip(want, u)), frame, v.reference_frame)
+            for (k, sign), name in zip(signs, ("right", "forward", "up")):
+                cmd = err[k] * sign * 8.0
+                setattr(c, name, max(-1.0, min(1.0, cmd if abs(err[k]) > 0.004 else 0.0)))
+            if time.time() - tlog > 15:
+                say(f"rcs grab: {d:.1f} m, along {along:.1f}, off-axis {ll:.2f} m, closing {-_dot(p, u) / d:.2f} m/s, "
+                    f"target spin {spin:.1f}, mono {v.resources.amount('MonoPropellant'):.1f}")
+                tlog = time.time()
+            time.sleep(0.1)
+    finally:
+        for x in ("right", "forward", "up"):
+            setattr(c, x, 0.0)
+        c.rcs = False
+        try:
+            vessel().auto_pilot.engaged = False
+        except Exception:
+            pass
+    say(f"no grab within {timeout / 60:.0f} min")
     return False
 
 

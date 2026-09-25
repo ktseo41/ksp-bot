@@ -67,6 +67,45 @@ namespace KspBot
             return n;
         }
 
+        /// <summary>Klaw diagnostics for the active vessel: grapple state, arm animation progress, where the capture
+        /// ray starts (claw part frame), and what that ray hits with the Klaw's own layer mask vs all layers.</summary>
+        [KRPCProcedure]
+        public static string GrappleDebug(string targetName)
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var g = v.FindPartModulesImplementing<ModuleGrappleNode>().FirstOrDefault()
+                    ?? throw new InvalidOperationException("no Klaw");
+            var nt = g.nodeTransform;
+            var anim = typeof(ModuleGrappleNode).GetField("deployAnimator", Any)?.GetValue(g) as ModuleAnimateGeneric;
+            var pt = g.part.transform;
+            var o = new Obj
+            {
+                ["state"] = g.state,
+                ["fsm"] = (typeof(ModuleGrappleNode).GetField("fsm", Any)?.GetValue(g) as KerbalFSM)?.currentStateName,
+                ["progress"] = anim != null ? (object)anim.Progress : null,
+                ["node"] = pt.InverseTransformPoint(nt.position).ToString("F3"),
+                ["nodeFwd"] = pt.InverseTransformDirection(nt.forward).ToString("F3"),
+                ["range"] = g.captureRange, ["minDot"] = g.captureMinFwdDot, ["maxRvel"] = g.captureMaxRvel,
+            };
+            RaycastHit h;
+            if (Physics.Raycast(nt.position, nt.forward, out h, 50f, LayerUtil.DefaultEquivalent))
+            {
+                var p = FlightGlobals.GetPartUpwardsCached(h.transform.gameObject);
+                o["hitMask"] = $"{p?.partInfo.title} on {p?.vessel.vesselName} at {h.distance:F3} m, dot {Vector3.Dot(nt.forward, -h.normal):F3}, layer {h.collider.gameObject.layer}";
+            }
+            if (Physics.Raycast(nt.position, nt.forward, out h, 50f))
+            {
+                var p = FlightGlobals.GetPartUpwardsCached(h.transform.gameObject);
+                o["hitAll"] = $"{p?.partInfo.title} on {p?.vessel.vesselName} at {h.distance:F3} m, layer {h.collider.gameObject.layer} ({LayerMask.LayerToName(h.collider.gameObject.layer)})";
+            }
+            var tv = FlightGlobals.VesselsLoaded.FirstOrDefault(x => x.vesselName == targetName);
+            if (tv != null)
+                o["targetColliders"] = string.Join("; ", tv.parts.SelectMany(p => p.GetComponentsInChildren<Collider>(true))
+                    .Select(c => $"{c.name} layer {c.gameObject.layer} ({LayerMask.LayerToName(c.gameObject.layer)}) trigger {c.isTrigger} enabled {c.enabled} {c.GetType().Name}"));
+            o["mask"] = LayerUtil.DefaultEquivalent;
+            return Json.Write(o);
+        }
+
         /// <summary>Show a message on the game screen.</summary>
         [KRPCProcedure]
         public static void Message(string text, float seconds)
