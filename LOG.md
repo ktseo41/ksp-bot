@@ -299,19 +299,55 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   reentry --keep-until 300 (drogues 20 km 1090 m/s, mains 4 km 203 m/s), landed in the grasslands at night,
   recovered. **Rescue Mitbro done**: funds 2.84M, sci 45.3, rep 368.
 
+## 2026-09-26 — Eve 1 (attempt 1 reverted: hatch blocked, planner can't reach an inclined planet)
+- Science is the bottleneck (45; next nodes 160-550). Research (opus, save-parsed): Minmus surface materials bay
+  0/125 in all 9 biomes (Minmus Science 1's ~500 were apparently lost: the storage unit's Collect All took the
+  non-rerunnable Science Jr data - keep single-use data in its part until understood); no high-orbit science
+  anywhere; orbital EVA reports are per biome (low orbit); EVA Experiments Kit (unlocked) gives 25 x multiplier
+  per body/situation at 100% transmit; funds->science strategies are worthless (~1 sci / 10k); Science Lab =
+  advExploration 160 + advElectrics 160 (power). R&D 2 caps nodes at 500 sci. Plan: Eve 1 -> Minmus biome hopper
+  (~1600) -> EVA kit support -> lab -> Mun.
+- crafts/eve-1.json = Duna 1 minus legs / lander chutes + a second goo/thermometer + 2 barometers (high + low
+  space), whole stack strutted. 84.6 t, 40 parts, 44.5k, Jeb. Ascent: rate sd 0.19 deg/s, max 1.6 (250 m - 15 km),
+  max Q 33 kPa: smooth. LKO 79.4 x 79.7, Poodle 1251 + Terrier 4105 m/s.
+- `transfer Eve --pe 120000 --plan`: no encounter; the closest-approach tuner inflated the ejection to 1172 m/s
+  (v_inf 943 vs Hohmann ~780, heliocentric pe 9.14 Gm < Eve's 9.83) and its radial freedom put the escape
+  periapsis at 67 km: `_approve` REFUSED it (first real catch). Cause: Eve is inclined 2.1 deg; the in-plane
+  seed + closest-approach cost can't find the out-of-plane path (Duna, 0.06 deg, never showed it).
+- `eva out` in LKO: "hatch obstructed" - my barometer sat at angle 90 = the Mk1 hatch (design-guide already says
+  so; I didn't check). **Reverted to launch** (game-offered; flight couldn't do its EVA science, planner needs a
+  fix anyway), recovered. Instruments moved to 225/270/315 at two heights; pad test: EVA out + board OK.
+- Planner fix (fable): folding Eve's plane into the ejection is impossible from an equatorial LKO (at the Eve window
+  Eve arrives 347 Mm out of our plane, SOI 85 Mm; a single-burn 3-D Lambert needs asymptote declination 48-66 deg,
+  reachable only for ~2180 m/s). `transfer_planet` now does a broken-plane transfer: universal-variable Lambert to
+  the target's arrival position projected onto our plane (flight time scanned 0.6-1.4 x Hohmann, min of ejection +
+  capture + mid-course plane-change estimate), node tuned (prograde/ut/normal, no radial -> the escape periapsis
+  stays at the burn altitude) to match the required exit velocity vector; if the target is outside its SOI of our
+  plane it prints the mid-course `correct` UT and expected m/s instead of trimming. Offline check (bodies only):
+  Kepler propagation error <= 0.0013 km; Eve window: T 184 d, v_inf 790 -> ejection ~1040, plane change ~413 at
+  ~UT 14,211,384, arrival v_inf 919; Duna window: T 278 d, ejection 1085, arrival v_inf 778, only 20.5 Mm off-plane
+  (old path). Untested live: `node.orbit.time_to_soi_change` on a node patch (falls back to bisection).
+- Eve 1 recovered on the pad (safe state for a session handoff). Eve window UT 11,823,553 (now ~11,790,000).
+
 ### Next steps (plan)
-State (2026-09-26): KSP at the space center, UT ~10,899,500, funds 2.84M, sci 45.3, rep 368.
-Valentina (Duna 1) waits landed on Duna, Midlands 15.71 N 156.21 E, ~2800 m/s left, science aboard.
+State (2026-09-26): KSP at the space center, UT ~11,790,000, funds 2.84M, sci 45.3, rep 368. Eve 1 built (VAB),
+Jeb assigned at launch. Valentina (Duna 1) waits landed on Duna, ~2800 m/s, window Duna->Kerbin UT 22,895,340.
 Active contracts: Explore Duna, Module 761V7 (abandoned, Thud), Unit G-P87T (LKO adapter).
-0. Follow CLAUDE.md "How to decide": state expected numbers incl. real time (phasing waits!) before each phase.
-1. After every `launch` + `accept`: check `contracts` in flight (accepted contracts reverted to offered once more,
-   cause unknown). Crafts must be rebuilt (`ksp build`) to get MODULE nodes; old .craft files have none.
-2. Klaw + MoveCrew proven (Rescue 4). Rescue contracts are routine now: crafts/rescue-4.json (struts added after
-   the flight: first launch of the strutted version should show no sway; check the recorder's rate).
-   Unit G-P87T (LKO adapter) is recoverable with the same craft type if it isn't a small curved part.
-3. **Duna 1 return**: window UT 22,895,340 (Duna->Kerbin, flight 297 d). Warp at the space center (`warp-sc` ~3 h early),
-   `fly "Duna 1"`, `liftoff --alt 60000` (check heading vs the ~16 deg prograde plane), `transfer Kerbin --pe 30000
-   --plan` then `node`, `soi`, `correct Kerbin --pe 30000` (inside Kerbin's SOI), `reentry`. Recovery completes
-   "Explore Duna". Then update docs/record/career.json #30 (result), writeup (Korean), photos.
-4. Small: ascent attitude hold 2-3 s after SRB staging; `contracts` parameter display (kRPC completed flag).
-5. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.
+0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
+1. **Eve 1** (Jeb; Eve high/low orbit science + orbital EVA reports, return). Expected numbers:
+   launch `launch "Eve 1" --crew "Jebediah Kerman"`, `ascent --alt 80000`, `circularize` -> LKO ~80 km, Poodle ~1251
+   + Terrier ~4105 m/s. `transfer Eve --pe 120000 --plan` (FIRST LIVE RUN of the Lambert code): expect "Lambert:
+   flight ~184 d, v_inf ~790, ejection ~1040", tuned v_inf error < ~3 m/s, plan pe ~80 km, Sun pe ~9.8 Gm, no
+   encounter by design -> `ksp node`. Do NOT correct right after. At ~UT 14,211,384 (~111 d later):
+   `correct Eve --pe 120000 --plan` expect <= ~413 m/s (first big mid-course plane change) -> node. Eve SOI:
+   `capture --apo <high>` elliptical (~120 m/s; circular would be ~1390), science high (> 400 km) and at the
+   periapsis pass (low): crew report, goo, thermo, baro (two sets on the pod), orbital EVA report per biome
+   (`eva out/report/board`; hatch verified on the pad). Return: `window Kerbin` from Eve, `transfer Kerbin --pe 30000
+   --plan` (broken-plane again: mid-course correction), `reentry`. Budget ~2300 of 5356 m/s.
+2. Minmus biome hopper (~1600 sci; materials bay 0/125 in all 9 biomes): ML7-type lander + 5 Science Jr + 5 goo;
+   single-use data stays in its part (Minmus Science 1 lost ~500 via Collect All); orbital EVA reports per biome.
+3. EVA Experiments Kit support in KspBot (kit in the kerbal inventory + `eva science`), ~550 sci in orbits.
+4. Science Lab (advExploration 160 + advElectrics 160) after the hopper; R&D 3 for nodes > 500 sci.
+5. Duna 1 return at its window (see earlier steps: liftoff --alt 60000, transfer Kerbin --pe 30000 --plan, ...).
+6. Small: `contracts` parameter display (kRPC completed flag); accepted contracts once reverted to offered.
+7. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve, Moho, Jool.

@@ -699,56 +699,214 @@ def planet_window(target_name, origin=None, lookback_days=40, flight_time=False)
     raise RuntimeError("no window found")
 
 
+def _stumpff(z):
+    """Stumpff functions C(z), S(z)."""
+    if z > 1e-8:
+        s = math.sqrt(z)
+        return (1 - math.cos(s)) / z, (s - math.sin(s)) / s ** 3
+    if z < -1e-8:
+        s = math.sqrt(-z)
+        return (math.cosh(s) - 1) / -z, (math.sinh(s) - s) / s ** 3
+    return 0.5, 1 / 6
+
+
+def _lambert(mu, r1, r2, dt, h):
+    """Lambert's problem (universal variables, bisection on z): the velocities (v1, v2) of the conic that goes
+    from r1 to r2 in dt seconds the way round that is prograde about the normal h. None near the 180 deg
+    singularity (the transfer plane is undefined there) or if no solution."""
+    R1, R2 = math.sqrt(_dot(r1, r1)), math.sqrt(_dot(r2, r2))
+    c = _cross(r1, r2)
+    th = math.acos(max(-1.0, min(1.0, _dot(r1, r2) / (R1 * R2))))
+    if _dot(h, c) < 0:
+        th = 2 * math.pi - th
+    if abs(math.sin(th)) < 1e-3:
+        return None
+    A = math.sin(th) * math.sqrt(R1 * R2 / (1 - math.cos(th)))
+
+    def y(z):
+        C, S = _stumpff(z)
+        return R1 + R2 + A * (z * S - 1) / math.sqrt(C)
+
+    def f(z):
+        yy = y(z)
+        if yy < 0:
+            return -1.0
+        C, S = _stumpff(z)
+        return (yy / C) ** 1.5 * S + A * math.sqrt(yy) - math.sqrt(mu) * dt
+
+    lo, hi = -4 * math.pi ** 2, 4 * math.pi ** 2 - 1e-6
+    if f(hi) < 0:
+        return None
+    for _ in range(120):
+        mid = (lo + hi) / 2
+        if f(mid) < 0:
+            lo = mid
+        else:
+            hi = mid
+    yy = y((lo + hi) / 2)
+    fl, g, gd = 1 - yy / R1, A * math.sqrt(yy / mu), 1 - yy / R2
+    v1 = tuple((b - fl * a) / g for a, b in zip(r1, r2))
+    v2 = tuple((gd * b - a) / g for a, b in zip(r1, r2))
+    return v1, v2
+
+
+def _vel_at(o, t, frame):
+    """Velocity on orbit o at UT t (central differences of position_at; orbital_speed_at is unreliable)."""
+    a, b = o.position_at(t - 1, frame), o.position_at(t + 1, frame)
+    return tuple((y - x) / 2 for x, y in zip(a, b))
+
+
+def _exit_velocity(node, home, frame):
+    """Where and how a node's trajectory leaves home's SOI: (velocity relative to home, UT, position in frame),
+    read from the patch around home's parent (KSP's own patched-conic hand-over), or None if it does not escape."""
+    o = node.orbit
+    p = _patch_around(o, home.orbit.body.name)
+    if p is None:
+        return None
+    dt = o.time_to_soi_change
+    t = ut() + dt if dt == dt and dt > 0 else None  # NaN check
+    soi = home.sphere_of_influence
+    if t is None or abs(o.radius_at(t) - soi) > 0.02 * soi:  # not the hand-over time: find the SOI crossing
+        lo, hi = node.ut, node.ut + 20 * 86400
+        for _ in range(30):
+            mid = (lo + hi) / 2
+            if o.radius_at(mid) < soi:
+                lo = mid
+            else:
+                hi = mid
+        t = hi
+    v = tuple(a - b for a, b in zip(_vel_at(p, t, frame), _vel_at(home.orbit, t, frame)))
+    return v, t, p.position_at(t, frame)
+
+
 def transfer_planet(target_name, pe_alt, samples=48):
-    """From a circular parking orbit, at the Hohmann window, burn to another planet of the same star:
-    sample the ejection point around one parking orbit, keep the closest pass, tune for periapsis pe_alt."""
+    """From a circular parking orbit, at (or after) the window, burn to another planet of the same star.
+    Lambert (time of flight scanned around the Hohmann value for the cheapest ejection + capture) gives the
+    heliocentric departure velocity; the node is tuned so the SOI-exit velocity matches it, with no radial
+    component (the burn point stays the periapsis, so it cannot dip into the air), then refined on the target
+    periapsis pe_alt once an encounter exists. The target's arrival position is projected onto our orbital
+    plane: near a 180 deg transfer the plane change to an inclined planet (Eve, 2.1 deg) cannot be folded into
+    the ejection from an equatorial parking orbit (it needs a ~40 deg tilted hyperbola, ~+1100 m/s), so it is
+    left to a mid-course correction where the lever arm is long (~a quarter orbit before arrival, <= ~420 m/s).
+    Eve 1's old closest-approach tuner instead pumped the energy up and dropped the escape periapsis to 67 km."""
     v = vessel()
     target = sc().bodies[target_name]
     home = v.orbit.body
-    t_win, T = planet_window(target_name, flight_time=True)
+    sun = home.orbit.body
+    t_win, T_h = planet_window(target_name, flight_time=True)
     P = v.orbit.period
     if t_win - ut() > P:
         warp_to(t_win - P / 2)
-    mu_s = home.orbit.body.gravitational_parameter
-    # the target's radius AT ARRIVAL, not its semi-major axis: Duna 1 aimed at Duna's mean radius (20.7 Gm) while
-    # Duna was near periapsis (19.7 Gm); the tuner then twisted the ejection to still hit it -> v_inf 1364, not ~930
-    sun_frame = home.orbit.body.non_rotating_reference_frame
-    r1 = math.dist(home.orbit.position_at(t_win, sun_frame), (0, 0, 0))
-    r2 = math.dist(target.orbit.position_at(t_win + T, sun_frame), (0, 0, 0))
-    v_inf = abs(math.sqrt(mu_s / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1))
-    mu, r0 = home.gravitational_parameter, v.orbit.semi_major_axis
-    dv = math.sqrt(v_inf ** 2 + 2 * mu / r0) - math.sqrt(mu / r0)
+    mu_s, mu, mu_t = sun.gravitational_parameter, home.gravitational_parameter, target.gravitational_parameter
+    r0, r_cap = v.orbit.semi_major_axis, target.equatorial_radius + pe_alt
+    frame = sun.non_rotating_reference_frame
+    t_dep = ut() + P / 2
+    r1 = home.orbit.position_at(t_dep, frame)
+    h = _norm(_cross(r1, _vel_at(home.orbit, t_dep, frame)))
+
+    def plan(t1, p1, T):
+        """Lambert from p1 at t1 to the target's arrival position projected onto our plane; (v_inf_req vector,
+        v_inf magnitudes at departure/arrival, out-of-plane offset of the target at arrival) or None."""
+        r2 = target.orbit.position_at(t1 + T, frame)
+        z2 = _dot(r2, h)
+        sol = _lambert(mu_s, p1, tuple(x - z2 * y for x, y in zip(r2, h)), T, h)
+        if sol is None:
+            return None
+        vi1 = tuple(a - b for a, b in zip(sol[0], _vel_at(home.orbit, t1, frame)))
+        vi2 = tuple(a - b for a, b in zip(sol[1], _vel_at(target.orbit, t1 + T, frame)))
+        return vi1, math.sqrt(_dot(vi1, vi1)), math.sqrt(_dot(vi2, vi2)), z2
+
+    R1 = math.sqrt(_dot(r1, r1))
+
+    def dv_total(vi1, vi2, z2, T):
+        """Ejection + circular capture at pe_alt + the mid-course plane change (tilt z2/R2 at ~arrival speed)."""
+        R2 = math.dist(target.orbit.position_at(t_dep + T, frame), (0, 0, 0))
+        return math.sqrt(vi1 ** 2 + 2 * mu / r0) - math.sqrt(mu / r0) \
+            + math.sqrt(vi2 ** 2 + 2 * mu_t / r_cap) - math.sqrt(mu_t / r_cap) \
+            + abs(z2) / R2 * math.sqrt(mu_s * (2 / R2 - 2 / (R1 + R2)))
+
+    # the exact Hohmann time of flight is the 180 deg Lambert singularity: scan the flight time and keep the
+    # cheapest total (Duna: 278 d instead of 309, arrival v_inf 780 instead of 870; Eve 1: 184 d + ~410 m/s
+    # plane change beats arriving at Eve's node at 238 d, v_inf 1423/2286)
+    best = None
+    for i in range(41):
+        T = T_h * (0.6 + 0.02 * i)
+        p = plan(t_dep, r1, T)
+        if p and (best is None or dv_total(p[1], p[2], p[3], T) < best[0]):
+            best = (dv_total(p[1], p[2], p[3], T), T, p)
+    if best is None:
+        say("Lambert found no transfer around the window; not planning")
+        return False
+    total, T, (vi_req, vi_dep, vi_arr, z2) = best
+    t_arr = t_dep + T
+    dv = math.sqrt(vi_dep ** 2 + 2 * mu / r0) - math.sqrt(mu / r0)
+    R2 = math.dist(target.orbit.position_at(t_arr, frame), (0, 0, 0))
+    dv_pc = abs(z2) / R2 * math.sqrt(mu_s * (2 / R2 - 2 / (R1 + R2)))
+    vi_hohmann = abs(math.sqrt(mu_s / R1) * (math.sqrt(2 * R2 / (R1 + R2)) - 1))
+    day = 21600.0
+    say(f"Lambert: flight {T / day:.0f} d (Hohmann {T_h / day:.0f}), departure v_inf {vi_dep:.0f} (Hohmann "
+        f"{vi_hohmann:.0f}) -> ejection ~{dv:.0f} m/s, arrival v_inf {vi_arr:.0f}; {target_name} is "
+        f"{z2 / 1e6:+.0f} Mm out of our plane at arrival (SOI {target.sphere_of_influence / 1e6:.0f} Mm), "
+        f"plane change ~{dv_pc:.0f} m/s; ejection + capture + plane change ~{total:.0f} m/s")
+    if vi_dep > 1.3 * vi_hohmann + 50:
+        say(f"departure v_inf {vi_dep:.0f} >> Hohmann {vi_hohmann:.0f}: bad window geometry; not planning")
+        return False
     t0 = ut() + 300
     node = v.control.add_node(t0, dv, 0, 0)
-    mu_t = target.gravitational_parameter
 
-    def cost(n):
-        """Periapsis error (km) + arrival v_inf / 10: an off-tangent pass costs capture fuel, not just time."""
-        c = _node_cost(n, target, pe_alt)
-        enc = _encounter(n.orbit, target)
-        return c + math.sqrt(mu_t / abs(enc[1].semi_major_axis)) / 10.0 if enc else c
-    best = None
+    def vinf_cost(n):
+        time.sleep(0.04)  # let KSP recompute patches
+        ex = _exit_velocity(n, home, frame)
+        return math.dist(ex[0], vinf_cost.req) if ex else 1e6
+    vinf_cost.req = vi_req
+    seed = None
     for i in range(samples):
         node.ut = t0 + i * P / samples
-        c = cost(node)
-        if best is None or c < best[0]:
-            best = (c, node.ut)
-    node.ut = best[1]
-    say(f"ejection {dv:.0f} m/s (v_inf {v_inf:.0f}), best seed cost {best[0]:.0f} at +{best[1] - ut():.0f}s; tuning")
-    c = tune_node(node, cost, steps=(("prograde", 10.0), ("ut", 30.0), ("normal", 10.0), ("radial", 5.0)))
+        c = vinf_cost(node)
+        if seed is None or c < seed[0]:
+            seed = (c, node.ut)
+    node.ut = seed[1]
+    say(f"best seed v_inf error {seed[0]:.0f} m/s at +{seed[1] - ut():.0f}s; tuning")
+    c = tune_node(node, vinf_cost, steps=(("prograde", 10.0), ("ut", 30.0), ("normal", 5.0)))
+    # second pass from the real hand-over point (the SOI edge is 84 Mm from Kerbin, and ~1-2 days later)
+    ex = _exit_velocity(node, home, frame)
+    p = plan(ex[1], ex[2], t_arr - ex[1]) if ex else None
+    if p:
+        vinf_cost.req = p[0]
+        c = tune_node(node, vinf_cost, steps=(("prograde", 2.0), ("ut", 10.0), ("normal", 2.0)))
+    say(f"ejection tuned: v_inf error {c:.1f} m/s, {node.delta_v:.0f} m/s")
+    if c > 20:
+        say("cannot match the required departure velocity; node left for inspection")
+        return False
+
+    def pe_cost(n):
+        """Periapsis error (km) + arrival v_inf / 10 (an off-tangent pass costs capture fuel), never into the air."""
+        c = _node_cost(n, target, pe_alt)
+        if home.has_atmosphere and n.orbit.periapsis_altitude < home.atmosphere_depth:
+            c += 1e4
+        enc = _encounter(n.orbit, target)
+        return c + math.sqrt(mu_t / abs(enc[1].semi_major_axis)) / 10.0 if enc else c
+    if _encounter(node.orbit, target) or abs(z2) < target.sphere_of_influence:
+        # the in-plane path already passes through the SOI (Duna): shape the pass; else leave it for mid-course
+        tune_node(node, pe_cost, steps=(("prograde", 2.0), ("ut", 10.0), ("normal", 2.0), ("radial", 1.0)))
     enc = _encounter(node.orbit, target)
     vi = math.sqrt(mu_t / abs(enc[1].semi_major_axis)) if enc else None
-    say(f"cost {c:.1f}, encounter {enc[0] if enc else None}, arrival v_inf {vi}, dv {node.delta_v:.0f}")
-    if not enc and c > 1000.0 + target.sphere_of_influence / 1000.0 + 5e5:  # >500,000 km off: don't burn
-        say("no usable ejection found; node left for inspection")
+    say(f"encounter {enc[0] if enc else None}, arrival v_inf {vi}, dv {node.delta_v:.0f}")
+    if vi and vi > 1.25 * vi_arr + 50:
+        say(f"arrival v_inf {vi:.0f} >> planned {vi_arr:.0f}: off-tangent pass; node left for inspection")
         return False
-    v_target = math.sqrt(mu_s * (2 / r2 - 1 / target.orbit.semi_major_axis))
-    vi_hohmann = v_target - math.sqrt(mu_s * 2 * r1 / (r2 * (r1 + r2)))
-    if vi and vi > 1.25 * abs(vi_hohmann) + 50:
-        say(f"arrival v_inf {vi:.0f} >> Hohmann {vi_hohmann:.0f}: off-tangent pass; node left for inspection")
-        return False
+    if not enc:
+        # plane change where the lever arm is long: ~90 deg of true anomaly before arrival on the transfer ellipse
+        e = abs(R1 - R2) / (R1 + R2)
+        E = 2 * math.atan(math.sqrt((1 - e) / (1 + e)))
+        t_pc = t_arr - (E - e * math.sin(E)) / math.pi * T
+        say(f"no encounter by design ({target_name} {z2 / 1e6:+.0f} Mm out of plane): do `ksp correct "
+            f"{target_name} --pe {pe_alt:.0f}` around UT {t_pc:.0f} ({(t_pc - ut()) / day:.0f} days from now), "
+            f"expect ~{dv_pc:.0f} m/s")
     _approve(node, dv)
     execute_node(node)
+    if not enc:
+        return True
     enc = _encounter(v.orbit, target)  # a 1 m/s error in the ejection moved the Duna pass by ~12,000 km
     if not enc or abs(enc[0] - pe_alt) > 3000:
         return correct_course(target_name, pe_alt)
