@@ -840,7 +840,22 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Contract "Position Mun Sat 1 in an adjusted orbit of the Mun" (offered after the restart; 61.8k + 21k advance):
   inc 134.70, e 0.240, sma 859.5 km, LAN 313.0, argPe 140.6. New `match-orbit` (first flight): plane 25.9 deg 125 m/s
   (plan 127), pe side 47, ap 17.4, pe trim 0.6 -> argPe off 0.2 deg: **contract done** (+61,774, rep 545.6), 190 m/s.
+- Merged (opus): `land` site finder with a Kerbin-elevation link rule (`--min-elev`, default 20 uncrewed; `land --plan`).
+  Records (opus): career.json #48-#51, cards rebuilt (Dres added), writeup 7.28-7.30.
+- **Eeloo 1** designed (fable, docs/eeloo-1-plan.md): Dres 1's stack falls 2 m/s short at Eeloo (arrival v_inf ~2,200,
+  capture ~1,660, landing ~1,000), so Dres 1's lander on Moho 1's Twin-Boar launcher/transfer stage (52 parts, 138.7 t).
+  **The mid-course plane change must be early (UT 51.15-53.3M, ~380-450 m/s)**, not at the planner's printed UT 66.7M
+  (~1,900 there on this e 0.67 transfer). Pad check matched (1421 SL / 1184 SL / 3414 / 3683). Launched UT 43.56M:
+  ap 46 km at 3:00, AoA peak 7.7 deg at q 1.3 kPa (harmless), 79.3 x 79.5, Poodle 2,796 (plan ~2,860). Ejection
+  1,958 (plan 1,960-2,000), T 1,198 d, arrival v_inf 2,208, Eeloo +5,191 Mm out of plane; Poodle 806 left, Terrier
+  3,683. Sun orbit 13.30 x 69.02 Gm. Arrival ~UT 69.4M.
 ### Next steps (plan)
+**State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
+(then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
+far-out `correct`, then inside the SOI `correct --inc-to 0`; capture link forecast is in code now; contract orbit via
+`match-orbit --window 5`); Duna 2 arrival ~51.30M; **Eeloo 1 mid-course UT 51.15-53.3M: `correct Eeloo --pe 70000
+--inc-to 0 --plan`, expect 380-450 (> 550 = don't burn)**; Jool 1 SOI 52.79M; Dres 1 mid-course UT 56,159,878 (~116;
+Kerbin solar conjunction 56,548,906 - keep 2 days away); Dres arrival ~59.19M; Eeloo arrival ~69.4M.
 **State (2026-09-27, session end): KSP at the space center, UT ~41.40M, funds 3.30M, sci 5,270, rep 543.
 In flight: Eve 2 (#49) cruising to Eve: SOI ~UT 45.20M, pe ~45.30M; Eve pe 10,358 km, inc 2.8, Poodle 2,390, lander
 attached. Moho 1 landed (done). Jool 1 cruising (SOI 52.79M). Minmus Lab 1 (Bob, Gwenbro) running.
