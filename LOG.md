@@ -535,23 +535,61 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   Steam launch after taskkill sometimes does nothing). The user is restarting the PC (Windows memory: available
   5.4 GB, commit 20.3 / 33.8 GB, nonpaged pool 1.81 GB - high again, see memory note).
 
+## 2026-09-26 — PC restart, save fix verified, Duna 1 heads home, Rescue 6 (Elfry + Barzor with his lander can)
+- KSP back up (Windows before start: commit 15.4 GB, nonpaged pool 0.89 GB, available 3.6 GB). **Save-NRE fix verified live**:
+  `status` flightGlobalsReady false; `scene tracking_station` / `scene space_center` and flight -> space center all print
+  "test save ok" (8 switches today, no failure).
+- **Duna 1 ejection** (Valentina): `warp-sc 22893000`, `fly`, `transfer Kerbin --pe 30000 --plan`: Lambert 675, tuned
+  **762 m/s** (expected ~740), Kerbin encounter pe 9,121 km inc 88.6 -> burned, residual 0.2; 623 m/s left. After the Duna
+  SOI exit Kerbin pass pe 11,514 km, inc 56.5, Kerbin SOI at UT 29,273,095.
+- `correct Kerbin --pe 30000` from there planned **80 m/s**. Cause: we left from Duna's aphelion side and the arrival point is
+  178 deg ahead, on the line a normal burn tilts the plane about, so Kerbin's 14 Mm out-of-plane offset can't be removed
+  cheaply (fine grids +-1 and +-15 m/s: pe only 11.5 -> 8.5 Mm). Not burned. Mid-course 90 deg before arrival: **UT
+  26,854,269** (~10 m/s expected, the Lambert print said plane change ~10). `correct` now refuses > 20 m/s far out when the
+  arrival is > 135 deg ahead and prints that UT. The aim-point seed crashed there (all 36 tries lost the encounter).
+- Tooling: solar panels open with the antennas after `circularize` (in orbit) and fold before `land` (panels only).
+- Contracts: accepted Rescue Elfry (LKO, 52k) and Recover Barzor + Barzor's hulk (Mk1 lander can, 6.7 x 7.7 km equatorial
+  Minmus orbit, 204k). crafts/rescue-6.json = Rescue 5. `launch` auto-crewed the pod (Bill, Mitbro, Daphrick): recovered
+  on the pad, relaunched `--crew none`. (`launch`'s pad check prints "skipped: not available in SpaceCenter": runs too early.)
+- **Attempt 1 reverted to launch** (tooling): grab of Elfry's pod OK, but `transfer-crew --to mk1-3pod` treated Elfry's own
+  Mk1-3 pod as "ours" (same part name) and moved nobody, then `release` let her go. A scratch RCS back-off script (grab
+  refused "too close to turn") left SAS and RCS on; the next grab's autopilot fought them for 10 min (5-28 deg/s swings):
+  monopropellant 150 -> 0, battery 360 -> 0, control none, spinning 12 deg/s in the dark. Without RCS the Minmus grab
+  wasn't possible -> revert. Fixes: transfer_crew takes the crew only from the parts below the Klaw and checks they
+  arrived; grab turns SAS/RCS off first and backs off with RCS translation (`_back_off`) when too close.
+- Attempt 2: 99.4 x 99.7 km (Poodle 856 + Terrier 2158), rendezvous ~100 m/s, grab 0 bounces, Elfry moved, released.
+  `transfer Minmus --plan` gave **1094 m/s** (Kerbin escape): Minmus was 3.9 Mm out of Kerbin's equatorial plane at
+  arrival (inc 6 deg, SOI 2.25 Mm); the offset is < 0.4 Mm for departures 17-18 days later -> waited at the space center
+  (warp-sc +16.6 d): **930 m/s** (Minmus v_inf 276, as Rescue 4). The Poodle ran dry mid-burn -> pe 84.6 km inc 61;
+  `correct Minmus --pe 15000 --inc-to 0` 9.7 m/s -> pe 12.2 km, inc 6.3. In the SOI `--inc-to 0` wanted 9.2 m/s for no
+  inclination change: skipped. Capture 193 m/s (expected 193) -> 12.2 x 12.6 km; rendezvous plane 17 m/s.
+- **Burns refused behind Minmus: "no control (partial)"**. The user saw the node time go positive (passed) and asked:
+  fable diagnosed it: stock "No Pilot" (ModuleCommand: crew without the Pilot trait + no CommNet link =
+  KerbalPartial, which locks only map node editing; throttle, staging, SAS work). Elfry is an Engineer. Our burn guard
+  refused it: fixed (partial with a kerbal control source passes). Finished with kill_relative + approach (965 m pass,
+  held 28 m), grab 0 bounces, Barzor moved into our pod, the can kept on the Klaw.
+- Lab visit on the way (UT 23.456M): 273 sci transmitted, **sci 652 -> 925**; topped up from storage to 730/750.
+- Return 167 m/s (expected 162) -> Kerbin pe 36.7 km (the +6 km bias again, 4f), trimmed 1.5 m/s -> 30.8 km; reentry
+  with the can on top: fine (the can stayed cool in the pod's wake), splashdown, recovered: **both contracts done, funds
+  1.93 -> 2.19M**, rep 438. Crew +2: Elfry (engineer), Barzor.
+
 ### Next steps (plan)
-State (2026-09-26, before a PC restart): KSP closed; save 'kspbot' written at the space center, UT ~22,856,300,
-funds 1.81M, sci 652, rep 424, R&D 3. Everything committed. The new KspBot (Save / SwitchScene / SceneGuard) is
-installed but NOT yet verified live: after `tools/install.sh kspbot` + `ksp wait`, check `ksp status` shows
-"loaded": "SPACECENTER", "flightGlobalsReady": false, and `ksp scene tracking_station` / `ksp scene space_center`
-print "test save ok" (docs/save-nre-diagnosis.md + LOG entry above).
-Duna 1 (Valentina, pilot) in a 59 x 60 km Duna orbit, inc 15.7, 1386 m/s, ~378 sci aboard: return window UT 22,895,340
-(~39,000 s after the save; warp there from the space center, then `fly "Duna 1"`, `transfer Kerbin --pe 30000 --plan`).
+State (2026-09-26, after Rescue 6): KSP running, at the space center, UT ~23.68M, funds 2.19M, sci 925, rep 438.
+Save-NRE fix verified live. Timeline ahead (UT): 25,054,465 Ike Station 1 window; 26,854,269 Duna 1 mid-course;
+~27.5M lab visit (500 cap ~53 days after 23.456M); 28,925,295 / 29,029,189 Eve 1 tilt / ejection; 29,273,095 Duna 1
+Kerbin SOI.
+Duna 1 (Valentina, ~378 sci, 623 m/s) on the way home: Kerbin pass pe 11,514 km inc 56.5 -> correct at UT 26,854,269.
 Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
-Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 745/750 data, ~10 sci/day; next transmit before
-UT ~23.9M (500 cap). Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
+Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 730/750 data, ~9.3 sci/day, transmitted at 23.456M.
+Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
 Active contracts: **Ike station** (crafts/ike-station-1.json, window UT 25,054,465), Duna x2 (complete on recovery),
 Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
-Crew at KSC: Daphrick (scientist), Bill (engineer), Mitbro, Jedgard (pilots).
+Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
+Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
-1. **Duna 1 return** at UT 22,895,340 (flight 297 d): liftoff from Duna (thin air; sandbox: ~1450 m/s), then
-   `transfer Kerbin --pe 30000 --plan` (Duna inc 0.06: little plane change), correct, reentry. ~2800 m/s aboard.
+1. **Duna 1 return**: ejected (762 m/s). At UT 26,854,269 (90 deg before arrival; warp there from the space center)
+   `correct Kerbin --pe 30000 --plan`: expect ~10 m/s (plane) -> Kerbin pe 30 km; stop if > 40. Then warp-sc to the Kerbin
+   SOI (29,273,095), `correct` again inside (a few m/s), reentry (Mk1 pod + heat shield, v_inf ~830).
 2. **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
    29029189 ... tilt ... 105 m/s + ejection 215 = 320"; tilt at the apoapsis UT 28,925,295, dry-run v_inf error
    < ~5 m/s) -> node; then `depart Kerbin --pe 30000 --at 29029189 --plan` (~215 m/s, encounter) -> node; after the
@@ -581,6 +619,12 @@ Crew at KSC: Daphrick (scientist), Bill (engineer), Mitbro, Jedgard (pilots).
    k. Solar panel deployment in the flight code (after LKO, like the antennas); Ike Station 1 needs its Gigantors.
    j. EVA kicks from the MPL (~0.08 m/s, 6 deg/s): eva out should turn the station's SAS on first and wait; near an
       apoapsis re-check the periapsis after every EVA.
+   l. `correct` far out: the aim-point seed crashed (all 36 tries lost the encounter, best None) and the plain tuner walks
+      off to 80 m/s (its step grows 1.5x per success and the cost has no dv term): add a dv term / cap the step.
+   m. `launch`'s pad check runs before the flight scene is up ("skipped: not available in SpaceCenter").
+   n. `transfer` to Minmus: check Minmus' out-of-plane offset at arrival (> SOI -> say when the next good departure is)
+      instead of tuning an escape trajectory (1094 m/s planned for Rescue 6).
+   o. kill_relative / approach / grab burn without the control guard: call _ensure_control there too.
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
 6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).
