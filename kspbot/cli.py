@@ -327,10 +327,12 @@ def _reentry(a):
 
 def _land(a):
     if flight.vessel().orbit.body.has_atmosphere:
+        if a.plan:  # land_atmo would burn: PLAN_ONLY only warns in its periapsis check
+            raise flight.Refused("--plan is for airless landings; here use `deorbit --plan`")
         return flight.land_atmo(a.pe, ignore_link=a.ignore_link, science=a.science)
     if a.science:
         print("--science is for atmospheric landings (flying high/low sets); here run `science --transmit` after")
-    return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)
+    return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at, min_elev=a.min_elev)
 
 
 def cmd_science(a):
@@ -565,6 +567,11 @@ def main(argv=None):
     p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")
     p.add_argument("--orbits", type=int, default=8, help="how many orbits ahead to search for a --biome site")
     p.add_argument("--at", type=float, nargs=2, metavar=("LAT", "LON"), help="land near this point (a waypoint)")
+    p.add_argument("--min-elev", type=float, metavar="DEG",
+                   help="airless: Kerbin's elevation the CommNet link needs at the touchdown (half of it from the "
+                        "vessel at the burn start); sites/passes below it are skipped, and with none in the window "
+                        "the next one is named and nothing flies. Default 20 uncrewed (which then also waits for a "
+                        "gentle site without --biome/--at), 0 crewed. Relays not counted")
     p.add_argument("--pe", type=float, default=5000, help="atmosphere: deorbit burn (now) to this periapsis first")
     p.add_argument("--ignore-link", action="store_true",
                    help="atmosphere, uncrewed: burn even with Kerbin < 20 deg up at the predicted periapsis")
@@ -650,6 +657,8 @@ def main(argv=None):
 
     sub.choices["deorbit"].add_argument("--plan", action="store_true",
                                         help="print the burn (UT, m/s) and the predicted periapsis ground point, stop")
+    sub.choices["land"].add_argument("--plan", action="store_true",
+                                     help="airless: print the chosen site (UT, Kerbin/Sun elevation), stop")
     for name in ("transfer", "correct", "match-orbit", "return", "depart"):
         sub.choices[name].add_argument("--plan", action="store_true",
                                        help="stop at the first tuned node (left in place); burn it with `ksp node`")
@@ -667,7 +676,7 @@ def main(argv=None):
         else:
             r = a.fn(a)
     except flight.Planned as e:
-        then = "run it again without --plan" if a.cmd == "deorbit" else "`ksp node`"
+        then = "run it again without --plan" if a.cmd in ("deorbit", "land") else "`ksp node`"
         print(f"PLANNED (not burned): {e}\ncheck it against the expected numbers, then {then}")
         return
     except flight.Refused as e:

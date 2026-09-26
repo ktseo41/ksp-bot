@@ -524,6 +524,135 @@ class Deorbit(unittest.TestCase):
         self.assertAlmostEqual(F._elevation((0, 2, 0), (1, 0, 0)), 0.0)
 
 
+class LandLink(unittest.TestCase):
+    """land --min-elev: Kerbin's elevation from the landing site in the body's rotating frame."""
+    E = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))  # directions of (0, 0), (0, 90 E), the north pole
+
+    def assertVec(self, a, b, places=9):
+        for x, y in zip(a, b):
+            self.assertAlmostEqual(x, y, places=places)
+
+    def test_surface_dir_turns_east(self):
+        w = 2 * math.pi / 34800.0  # Dres
+        self.assertVec(F._surface_dir(self.E, 0, 0, 0, w), (1, 0, 0))
+        self.assertVec(F._surface_dir(self.E, 0, 90, 0, w), (0, 1, 0))
+        self.assertVec(F._surface_dir(self.E, 90, 37, 0, w), (0, 0, 1))
+        # a quarter turn later the prime meridian points where 90 E did; a fixed direction's longitude falls
+        # (as _latlon_at: lon - w * dt), so the point at 90 W now faces (0, 0)
+        self.assertVec(F._surface_dir(self.E, 0, 0, 8700.0, w), (0, 1, 0))
+        self.assertVec(F._surface_dir(self.E, 0, -90, 8700.0, w), (1, 0, 0))
+        self.assertVec(F._surface_dir(self.E, 45, 0, 8700.0, w), (0, math.sqrt(0.5), math.sqrt(0.5)))
+
+    def test_elevation_from_the_ground(self):
+        w = 2 * math.pi / 34800.0
+        far = (1e10, 0.0, 0.0)  # Kerbin far along (0, 0)
+        R = 138000.0
+        self.assertAlmostEqual(F._elev_from(self.E, w, 0, 0, 0, far, R), 90.0, delta=0.001)
+        self.assertAlmostEqual(F._elev_from(self.E, w, 45, 0, 0, far, R), 45.0, delta=0.001)  # parallax 0.0006
+        self.assertAlmostEqual(F._elev_from(self.E, w, 0, 90, 0, far, R), 0.0, delta=0.001)
+        self.assertAlmostEqual(F._elev_from(self.E, w, 0, 120, 0, far, R), -30.0, delta=0.001)
+        # 60 deg west of the sub-Kerbin point now: overhead after 1/6 of a rotation, set a quarter turn later
+        self.assertAlmostEqual(F._elev_from(self.E, w, 0, -60, 34800.0 / 6, far, R), 90.0, delta=0.001)
+        self.assertAlmostEqual(F._elev_from(self.E, w, 0, -60, 34800.0 * 5 / 12, far, R), 0.0, delta=0.001)
+        # parallax: Kerbin 12,000 km away on the Mun's horizon line from the centre is ~1 deg under it on the limb
+        e = F._elev_from(self.E, 0.0, 0, 0, 0, (0.0, 12000e3, 0.0), 200e3)
+        self.assertAlmostEqual(e, -math.degrees(math.asin(200 / math.hypot(12000, 200))), places=6)
+        self.assertLess(e, -0.9)
+
+    def test_descent_timeline_matches_a_simulation(self):
+        hs, acc, g, h0, safety, max_decel = 250.0, 4.0, 1.13, 12000.0, 1.3, 3.0
+        t = 1000.0
+        start, td = F._descent_timeline(t, hs, acc, g, h0, safety, max_decel)
+        self.assertAlmostEqual(start, t - hs / acc / 2 - 10)  # land()'s own start
+        # step the kill (throttle min(1, hs/50) down to 5 m/s), the fall and the braking curve
+        dt, tt, v = 0.001, start, hs
+        while v > 5:
+            v -= acc * min(1.0, v / 50) * dt
+            tt += dt
+        a_d = min((acc - g) / safety, max_decel)
+        h, vs = h0, 0.0
+        while h > 0:
+            a = g if vs * vs < 2 * a_d * h else -a_d  # braking once on the curve
+            vs += a * dt
+            h -= vs * dt
+            tt += dt
+            if vs < 0:
+                break
+        self.assertAlmostEqual(td, tt, delta=2.0)
+
+    def test_link_ok(self):
+        self.assertTrue(F._link_ok(15, 25, 20))
+        self.assertFalse(F._link_ok(9, 25, 20))   # the burn start under half of it
+        self.assertFalse(F._link_ok(40, 19, 20))  # touchdown under it
+        self.assertTrue(F._link_ok(None, None, 20))  # at Kerbin
+        self.assertTrue(F._link_ok(-30, -50, 0))  # crewed: no condition
+
+    def test_sky_grid_interpolates_and_caches(self):
+        rate = math.radians(360 / 138984.0)  # Kerbin seen from the Mun: one turn per Mun orbit
+        calls = []
+
+        def fetch(t):
+            calls.append(t)
+            return (12e6 * math.cos(rate * t), 12e6 * math.sin(rate * t), 0.0), None
+        f = F._sky_grid(fetch, 69.0)
+        for t in (1000.0, 1010.5, 1030.0, 1034.0):
+            k, s = f(t)
+            self.assertIsNone(s)
+            ang = math.degrees(math.atan2(k[1], k[0]))
+            self.assertAlmostEqual(ang, math.degrees(rate * t), delta=0.001)
+        self.assertEqual(sorted(calls), [966.0, 1035.0])  # two grid points, each fetched once
+
+    def _fake_body(self, kerbin):
+        """Dres-like: equatorial 2000-s orbit, 34800-s day, Kerbin far along inertial longitude `kerbin`; the burn
+        starts 30 s before the site pass, the touchdown 200 s after it; the Sun opposite Kerbin."""
+        n, w = 2 * math.pi / 2000.0, 2 * math.pi / 34800.0
+        track = lambda t: (0.0, (math.degrees((n - w) * t) + 180) % 360 - 180)
+        k = (1e10 * math.cos(math.radians(kerbin)), 1e10 * math.sin(math.radians(kerbin)), 0.0)
+        sky = lambda t: (k, tuple(-x for x in k))  # the Sun on the other side
+        f = F._site_sky(track, sky, self.E, w, 0.0, lambda t: (t - 30, t + 200), 150000.0, 138000.0)
+        body = NS(name="Dres", equatorial_radius=138000.0)
+        return track, f, NS(orbit=NS(body=body, period=2000.0))
+
+    def _patched(self, v, run):
+        saved = F.vessel, F.ut, F._slope, F._biome
+        F.vessel, F.ut, F._slope, F._biome = (lambda: v), (lambda: 0.0), (lambda *a: 1.0), (lambda *a: "Midlands")
+        try:
+            return run()
+        finally:
+            F.vessel, F.ut, F._slope, F._biome = saved
+
+    def test_find_site_waits_for_kerbin(self):
+        # Kerbin opposite the vessel at t=0: at the site pass t the site faces n*t + w*200 at the touchdown, so
+        # Kerbin >= 20 deg up needs n*t >= 107.93 deg (t >= 599.6 s); the burn start (>= 10 at t-30) is looser
+        track, f, v = self._fake_body(180.0)
+        ok = lambda t: F._link_ok(*f(t)[:2], 20.0)
+        t = self._patched(v, lambda: F.find_site(None, track=track, ok=ok))
+        self.assertEqual(t, 600.0)
+        e_s, e_d, sun, ts, td = f(t)
+        self.assertGreaterEqual(e_d, 20.0)
+        self.assertLess(f(595.0)[1], 20.0)
+        self.assertGreater(e_s, 10.0)
+        self.assertAlmostEqual(sun, -f(t)[1], delta=0.01)  # the Sun as far down: night
+        # without the link condition the first gentle site comes at once
+        self.assertEqual(self._patched(v, lambda: F.find_site(None, track=track)), 120.0)
+        # a window with no such site: None (land names the next one instead of flying)
+        self.assertIsNone(self._patched(v, lambda: F.find_site(None, track=track, ok=ok, t_b=590.0)))
+
+    def test_find_point_skips_the_pass_without_kerbin(self):
+        # the point 110 W is under the track at t ~1474 (Kerbin 93 deg away), ~3596 (19.3 up at the touchdown: just
+        # short) and ~5718 s (41 up): the third pass is the one
+        track, f, v = self._fake_body(0.0)
+        ok = lambda t: F._link_ok(*f(t)[:2], 20.0)
+        t = self._patched(v, lambda: F.find_point(0.0, -110.0, track=track, ok=ok))
+        self.assertAlmostEqual(t, 250 / math.degrees(2 * math.pi / 2000.0 - 2 * math.pi / 34800.0) + 2 * 360 /
+                               math.degrees(2 * math.pi / 2000.0 - 2 * math.pi / 34800.0), delta=1.5)
+        self.assertGreater(f(t)[1], 40.0)
+        self.assertLess(f(t - 2122.0)[1], 20.0)
+        # no link needed: the first pass
+        t1 = self._patched(v, lambda: F.find_point(0.0, -110.0, track=track))
+        self.assertAlmostEqual(t1, 1473.6, delta=1.5)
+
+
 class LandScience(unittest.TestCase):
     def test_background_sets_do_not_block(self):
         calls = []
