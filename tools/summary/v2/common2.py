@@ -77,10 +77,10 @@ def legend(items=('ok', 'rev', 'dead', 'fail', 'live'), size=24):
 
 
 # ---------------------------------------------------------------- bodies
-BODY_NAME = {'kerbin': 'Kerbin', 'mun': 'Mun', 'minmus': 'Minmus', 'duna': 'Duna', 'eve': 'Eve', 'jool': 'Jool',
-             'ike': 'Ike', 'kerbol': 'Kerbol'}
-# display order (the order they were reached); Jool last = farthest
-BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'jool']
+BODY_NAME = {'kerbin': 'Kerbin', 'mun': 'Mun', 'minmus': 'Minmus', 'duna': 'Duna', 'eve': 'Eve', 'moho': 'Moho',
+             'jool': 'Jool', 'ike': 'Ike', 'kerbol': 'Kerbol'}
+# display order (the order they were reached); Jool last = farthest (Jool 1 is still on its way)
+BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'moho', 'jool']
 
 
 def dest_body(dest):
@@ -107,6 +107,9 @@ EXTRA = {
              '<path d="M0 50 Q50 44 100 50 L100 56 Q50 50 0 56Z" fill="#8cc860" opacity=".55"/>'
              '<path d="M0 68 Q50 62 100 68 L100 76 Q50 70 0 76Z" fill="#3f7a2c" opacity=".7"/>'
              '<ellipse cx="64" cy="60" rx="9" ry="5" fill="#2f5e22" opacity=".8"/>'),
+    'moho': (('#d8a88a', '#9a5f45', '#3c2016'),
+             '<circle cx="34" cy="38" r="9" fill="#7e4a34"/><circle cx="62" cy="62" r="11" fill="#84503a"/>'
+             '<circle cx="66" cy="30" r="5" fill="#7e4a34"/><circle cx="30" cy="68" r="4" fill="#84503a"/>'),
     'ike': (('#b8b6b2', '#77746f', '#35332f'),
             '<circle cx="36" cy="40" r="10" fill="#6a6762"/><circle cx="64" cy="64" r="8" fill="#6d6a65"/>'
             '<circle cx="60" cy="28" r="5" fill="#6d6a65"/>'),

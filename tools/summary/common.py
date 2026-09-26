@@ -1,8 +1,10 @@
 import json
+import os
 import random
 
-OUT = './docs/media/summary/'
-RECORD_PATH = './docs/record/career.json'
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+OUT = os.path.join(_ROOT, 'docs', 'media', 'summary') + '/'
+RECORD_PATH = os.path.join(_ROOT, 'docs', 'record', 'career.json')
 
 with open(RECORD_PATH) as _f:
     RECORD = json.load(_f)

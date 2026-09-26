@@ -44,7 +44,7 @@ css = '''
 .tdots{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;margin-top:auto}
 .tdots i{display:block;height:10px;border-radius:3px;background:var(--tech);opacity:.85}
 .row{display:flex;gap:2px;align-items:center;margin-top:auto;flex-wrap:wrap}
-.bodies{display:grid;grid-template-columns:repeat(6,1fr);position:relative;align-items:end;margin-top:20px}
+.bodies{display:grid;grid-template-columns:repeat(''' + str(len(BODY_ORDER)) + ''',1fr);position:relative;align-items:end;margin-top:20px}
 .body{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1}
 .body .pl{height:140px;display:flex;align-items:center;justify-content:center;position:relative}
 .body .nm{font-size:25px;font-weight:700}
@@ -163,7 +163,7 @@ def pick(body):
     return fs[0] if fs else None
 
 
-SIZE = {'kerbin': 118, 'mun': 92, 'minmus': 76, 'duna': 104, 'eve': 112, 'jool': 136}
+SIZE = {'kerbin': 118, 'mun': 92, 'minmus': 76, 'duna': 104, 'eve': 112, 'moho': 80, 'jool': 132}
 bodies = []
 for b in BODY_ORDER:
     f = pick(b)

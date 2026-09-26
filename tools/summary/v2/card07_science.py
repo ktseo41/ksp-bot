@@ -12,7 +12,7 @@ for h in H0:
         _lab[h['n']]['gain'] += h['gain']; _lab[h['n']]['count'] += 1
     else:
         H.append(dict(h))
-headline = f'큰 수확 {len(H0)}번, 합계 {num(total)}'
+headline = f'큰 수확 {len(H0)}번, +{num(total)}'
 NAMES = RECORD['research_names']
 TECH = RECORD['research']
 rd = CN['facilities']['R&D']

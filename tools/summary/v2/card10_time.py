@@ -28,7 +28,7 @@ css = '''
 
 TOP, H = 16, 850
 AX = 205
-DAY_COL = ['#7d8cff', '#56c8ff', '#35d67c']
+DAY_COL = ['#7d8cff', '#56c8ff', '#35d67c', '#b28cff']
 
 
 def Y(d):
@@ -54,7 +54,10 @@ for i, r in enumerate(RD):
     col = DAY_COL[i % len(DAY_COL)]
     svg.append(f'<rect x="124" y="{Y(prev):.1f}" width="22" height="{max(Y(d1) - Y(prev), 4):.1f}" rx="6" fill="{col}" opacity=".85"/>')
     mid = max((Y(prev) + Y(d1)) / 2, TOP + 22)
-    dls.append(f'<div class="dl" style="top:{mid:.0f}px"><b style="color:{col}">day {i + 1}</b><span>#{r["n_first"]}–#{r["n_last"]}</span></div>')
+    if i == len(RD) - 1:  # keep the last day's label clear of the NOW marker
+        mid = min(mid, Y(now_d) - 44)
+    rng = f'#{r["n_first"]}' if r['n_first'] == r['n_last'] else f'#{r["n_first"]}–#{r["n_last"]}'
+    dls.append(f'<div class="dl" style="top:{mid:.0f}px"><b style="color:{col}">day {i + 1}</b><span>{rng}</span></div>')
     prev = d1
 
 # markers + labels spread so they don't overlap (min gap), leader lines back to the true position
