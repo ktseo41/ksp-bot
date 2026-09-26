@@ -82,6 +82,24 @@ def _stage_parts(v, stage):
         return []
 
 
+def stage_hazards(cur, firing, engines):
+    """Why the next `stage` (stage cur - 1) must not fire, as sentences (pure: plain tuples read from kRPC).
+    firing: [(title, name)] of the parts it activates; engines: [(title, activation stage, active)] of the vessel.
+    A heat shield in it: staging jettisons the shield (the inflatable one is a decoupler of its own: Eve 2's shared the
+    deorbit stage's TD-12 stage). An inactive engine whose stage is >= cur: that stage is already past, so staging
+    skips it (after the release KSP gave the Eve 2 lander current stage 2 with its Terrier in stage 2; the next
+    `stage` fired stage 1, the TD-12 and the shield's decoupler, and left the Terrier off)."""
+    out = []
+    shields = sorted({t for t, n in firing if "heatshield" in n.lower() or "heat shield" in t.lower()})
+    if shields:
+        out.append(f"stage {cur - 1} holds {', '.join(shields)}: staging jettisons it")
+    skipped = sorted({(t, s) for t, s, active in engines if not active and 0 <= cur <= s})
+    if skipped:
+        out.append("unfired engine(s) in a stage already past: " + ", ".join(f"{t} (stage {s})" for t, s in skipped)
+                   + f"; staging fires stage {cur - 1} and skips them (`ksp activate ENGINE` turns one on)")
+    return out
+
+
 def auto_stage(v):
     """Stage when needed: no thrust at all (next engine stage), or dry engines that the next stage drops
     (spent boosters). Never while landed, never into a parachute-only stage, never dropping the last engine.

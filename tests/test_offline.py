@@ -832,5 +832,25 @@ class EscapePastMoon(unittest.TestCase):
         self.assertIsNone(F._moon_on_path(direct, kerbin))
 
 
+class StageSafety(unittest.TestCase):
+    def test_eve2_lander_after_the_release(self):
+        # current stage 2, Terrier in stage 2 never fired; stage 1 = the deorbit TD-12 + the shield's decoupler
+        firing = [("TD-12 Decoupler", "decoupler1-2"), ("Heat Shield (10m)", "InflatableHeatShield")]
+        engines = [("LV-909 \"Terrier\" Liquid Fuel Engine", 2, False)]
+        hz = F.stage_hazards(2, firing, engines)
+        self.assertEqual(len(hz), 2)
+        self.assertIn("Heat Shield (10m)", hz[0])
+        self.assertIn("stage 2", hz[1])
+
+    def test_normal_staging_passes(self):
+        # the Terrier fired with its stage (active), the next stage only drops a spent tank
+        self.assertEqual(F.stage_hazards(3, [("TD-12 Decoupler", "decoupler1-2")],
+                                         [("Terrier", 3, True), ("Poodle", 1, False)]), [])
+        # an engine of a later stage (lower number) being off is normal
+        self.assertEqual(F.stage_hazards(3, [("Poodle", "liquidEngine2-2.v2")], [("Poodle", 2, False)]), [])
+        # parts not in any stage (-1) are ignored
+        self.assertEqual(F.stage_hazards(0, [], [("Ant", -1, False)]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

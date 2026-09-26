@@ -297,22 +297,95 @@ def cmd_hire(a):
     print(bot().hire_kerbal())
 
 
-def cmd_stage(a):
-    v = sc().active_vessel
-    new = v.control.activate_next_stage()
-    print("stage now", v.control.current_stage)
-    if not new:
-        return
+def _engines(v):
+    return [(e.part.title, e.part.stage, e.active) for e in v.parts.engines]
+
+
+def _separated(v, new):
+    """After a separation: the new vessels (with their stage and unfired engines) and the active one's state."""
     time.sleep(1)
-    for x in new:
+    for x in new or []:
         try:
+            hz = flight.stage_hazards(x.control.current_stage, [], _engines(x))
             print(f"separated: {x.name} ({x.type.name}, {len(x.parts.all)} parts"
-                  f"{', command part' if flight._has_command(x) else ''})")
+                  f"{', command part' if flight._has_command(x) else ''}, stage {x.control.current_stage})"
+                  + (f" !! {hz[0]}" if hz else ""))
         except Exception:
             pass  # already destroyed / unloaded
     if not flight._has_command(v):
         # a decoupler leaves the root's side active: the Eve 2 lander (root Terrier) stays on the dropped stage
         print(f"!! the active vessel {v.name} has no command part now: `ksp switch NAME` to the separated one")
+
+
+def cmd_stage(a):
+    v = sc().active_vessel
+    cur = v.control.current_stage
+    firing = v.parts.in_stage(cur - 1) if cur > 0 else []
+    drops = v.parts.in_decouple_stage(cur - 1) if cur > 0 else []
+    print(f"{v.name}: current stage {cur}, next fires stage {cur - 1}: "
+          + (", ".join(sorted(p.title for p in firing)) or "nothing")
+          + (f"; separates {len(drops)} part(s)" if drops else ""))
+    hz = flight.stage_hazards(cur, [(p.title, p.name) for p in firing], _engines(v))
+    if hz and not a.force:
+        raise flight.Refused("; ".join(hz) + ". Fly it part by part (`ksp decouple`, `ksp activate`) or --force")
+    for h in hz:
+        print(f"!! --force: {h}")
+    new = v.control.activate_next_stage()
+    print("stage now", v.control.current_stage)
+    if new:
+        _separated(v, new)
+
+
+def _pick_parts(parts, key):
+    """Parts matching key: '#N' / N = index in the listing, else a case-insensitive substring of the title or
+    internal name, or the exact name tag."""
+    k = key.lower().lstrip("#")
+    if k.isdigit():
+        return [parts[int(k)]] if int(k) < len(parts) else []
+    return [p for p in parts if k in p.title.lower() or k in p.name.lower() or k == p.tag.lower()]
+
+
+def _part_row(i, p):
+    par = p.parent
+    return (f"#{i} {p.title} ({p.name}{', tag ' + p.tag if p.tag else ''}) stage {p.stage}, parent "
+            f"{par.title if par else None}, children {[c.title for c in p.children]}")
+
+
+def cmd_activate(a):
+    v = sc().active_vessel
+    parts = [e.part for e in v.parts.engines]
+    hits = _pick_parts(parts, a.part)
+    rows = "; ".join(_part_row(i, p) for i, p in enumerate(parts))
+    if not hits:
+        raise flight.Refused(f"no engine like '{a.part}' on {v.name}: {rows or 'none'}")
+    if len({p.name for p in hits}) > 1 and not a.all:
+        raise flight.Refused(f"'{a.part}' matches different engines ({rows}): name one, or --all")
+    for p in hits:
+        p.engine.active = True
+        print(f"{p.title} (stage {p.stage}) activated")
+    time.sleep(0.5)
+    print(f"available thrust {v.available_thrust / 1000:.1f} kN, current stage {v.control.current_stage}")
+
+
+def cmd_decouple(a):
+    v = sc().active_vessel
+    parts = [d.part for d in v.parts.decouplers if not d.decoupled]
+    rows = "; ".join(_part_row(i, p) for i, p in enumerate(parts))
+    hits = _pick_parts(parts, a.part)
+    if a.parent:
+        k = a.parent.lower()
+        hits = [p for p in hits if p.parent and (k in p.parent.title.lower() or k in p.parent.name.lower()
+                                                 or k == p.parent.tag.lower())]
+    if len(hits) != 1:
+        raise flight.Refused(f"'{a.part}'{' --parent ' + a.parent if a.parent else ''} matches {len(hits)} "
+                             f"decoupler(s) on {v.name}: {rows or 'none'}")
+    p = hits[0]
+    if ("heatshield" in p.name.lower() or "heat shield" in p.title.lower()) and not a.force:
+        raise flight.Refused(f"{p.title} is a heat shield: decoupling drops it (--force)")
+    print(f"decoupling {p.title} (parent {p.parent.title if p.parent else None}, "
+          f"children {[c.title for c in p.children]})")
+    new = p.decoupler.decouple()
+    _separated(v, [new] if new is not None else [])
 
 
 def cmd_switch(a):
@@ -520,7 +593,17 @@ def main(argv=None):
     p = add("shot", cmd_shot, help="screenshot of the game -> runs/<name>.png")
     p.add_argument("name", nargs="?", default="shot")
     add("hire", cmd_hire)
-    add("stage", cmd_stage)
+    p = add("stage", cmd_stage, help="fire the next stage (prints what it fires; refuses a stage holding a heat "
+                                     "shield or one that skips an unfired engine unless --force)")
+    p.add_argument("--force", action="store_true")
+    p = add("activate", cmd_activate, help="turn an engine on without staging (title / name substring, tag, or #N)")
+    p.add_argument("part")
+    p.add_argument("--all", action="store_true", help="several different engines match: activate them all")
+    p = add("decouple", cmd_decouple, help="fire one decoupler without staging (title / name substring, tag, or #N "
+                                           "from the listing it prints when ambiguous)")
+    p.add_argument("part")
+    p.add_argument("--parent", metavar="NAME", help="only the decoupler whose parent part matches NAME")
+    p.add_argument("--force", action="store_true", help="also a heat shield's decoupler")
     p = add("science", cmd_science, help="run all fresh experiments")
     p.add_argument("--transmit", action="store_true")
     p.add_argument("--all", action="store_true",
@@ -681,7 +764,7 @@ def main(argv=None):
         ap.error("--science does not work with --keep-until")
     flight.PLAN_ONLY = getattr(a, "plan", False)
     try:
-        if a.cmd in PHASES or a.cmd in ("stage", "science"):
+        if a.cmd in PHASES or a.cmd in ("stage", "science", "activate", "decouple"):
             from .recorder import Recorder
             with Recorder(a.cmd) as rec:
                 r = a.fn(a)
