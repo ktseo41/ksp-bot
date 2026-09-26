@@ -138,6 +138,21 @@ def cmd_accept(a):
             # 2026-09-26: the save threw an NRE (FlightState ctor) right after a flight; the accept had worked, the
             # error made me retry "accept 4", the list had shifted and a second contract (Ike station) got accepted
             raise SystemExit(f"accepted, but {e}; don't retry the accept")
+        saved, live = _saved_active_count(), len(_contracts("active"))
+        if saved != live:
+            # 2026-09-27: after a FLIGHT -> SPACECENTER switch kRPC listed two Mun contracts as active (advances paid)
+            # while KSP saved them as Offered: a stale ContractSystem; they could never complete. A restart cleared it.
+            raise SystemExit(f"ERROR: contract system out of sync: kRPC shows {live} active, the save {saved}; "
+                             "restart KSP at the space center (tools/install.sh) before relying on contracts")
+
+
+def _saved_active_count(name="persistent"):
+    """Active contracts in the save file (what KSP will actually track and complete)."""
+    import re
+    from .core import KSP_DIR
+    with open(f"{KSP_DIR}/saves/kspbot/{name}.sfs", encoding="utf-8", errors="replace") as f:
+        text = f.read().replace("\r", "")
+    return len(re.findall(r"^\t\t\tCONTRACT\n\t\t\t\{\n(?:\t\t\t\t[^\n]*\n)*?\t\t\t\tstate = Active\n", text, re.M))
 
 
 def cmd_decline(a):
