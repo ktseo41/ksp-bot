@@ -423,14 +423,14 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(a.force),
     "capture": lambda a: flight.capture(a.apo, a.early),
-    "land": lambda a: (flight.land_atmo(a.pe) if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
+    "land": lambda a: (flight.land_atmo(a.pe, ignore_link=a.ignore_link) if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "depart": lambda a: flight.depart_planet(a.body, a.pe, a.at, a.max_arrival, a.horizon),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
     "wait-plane": lambda a: flight.wait_plane(a.inc, a.lan),
     "reentry": _reentry,
-    "deorbit": lambda a: flight.deorbit(a.pe, a.at, a.under, a.sunward),
+    "deorbit": lambda a: flight.deorbit(a.pe, a.at, a.under, a.sunward, a.ignore_link),
     "inflate": lambda a: flight.inflate(),
     "node": lambda a: flight.execute_node(tol=a.tol, thrust_limit=a.thrust),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
@@ -543,6 +543,8 @@ def main(argv=None):
     p.add_argument("--orbits", type=int, default=8, help="how many orbits ahead to search for a --biome site")
     p.add_argument("--at", type=float, nargs=2, metavar=("LAT", "LON"), help="land near this point (a waypoint)")
     p.add_argument("--pe", type=float, default=5000, help="atmosphere: deorbit burn (now) to this periapsis first")
+    p.add_argument("--ignore-link", action="store_true",
+                   help="atmosphere, uncrewed: burn even with Kerbin < 20 deg up at the predicted periapsis")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
@@ -578,7 +580,10 @@ def main(argv=None):
                    help="burn where the new periapsis (the entry) comes to lie under BODY as seen from here (the "
                         "vessel 180 deg from BODY's direction, in the orbit plane), e.g. Kerbin for the direct link")
     p.add_argument("--sunward", type=float, default=0.0, metavar="DEG",
-                   help="with --under: rotate that direction DEG towards the Sun (Eve 2: 30 = daylight, Kerbin up)")
+                   help="with --under: rotate that direction DEG towards the Sun (Eve 2: 30 = daylight, Kerbin up; "
+                        "negative: away from it)")
+    p.add_argument("--ignore-link", action="store_true",
+                   help="uncrewed: burn even with Kerbin < 20 deg up at the predicted periapsis (printed always)")
     h = "inflate the inflatable heat shield (refused while an engine is aboard; KSP blocks it while a part sits on its top node)"
     add("inflate", PHASES["inflate"], help=h, description=h)
     h = ("in flight: make the loaded vessel NAME active. A decoupler leaves the root's side active, and a part dropped "
@@ -614,7 +619,8 @@ def main(argv=None):
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 
-    sub.choices["deorbit"].add_argument("--plan", action="store_true", help="print the burn (UT, m/s) and stop")
+    sub.choices["deorbit"].add_argument("--plan", action="store_true",
+                                        help="print the burn (UT, m/s) and the predicted periapsis ground point, stop")
     for name in ("transfer", "correct", "match-orbit", "return", "depart"):
         sub.choices[name].add_argument("--plan", action="store_true",
                                        help="stop at the first tuned node (left in place); burn it with `ksp node`")

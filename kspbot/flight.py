@@ -2713,15 +2713,19 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
 
 
 @_contained(_fallback_descent)
-def land_atmo(pe_alt=5000, burn_alt=12000):
+def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False):
     """Land on a body with a thin atmosphere (Duna) from a low orbit: deorbit burn to periapsis pe_alt,
     hold surface retrograde through entry, arm every parachute (they open when safe), and fly the powered
-    descent below burn_alt."""
+    descent below burn_alt. Its own deorbit burn (from above the atmosphere) is checked like `deorbit`'s: the
+    periapsis ground point, refused for an uncrewed craft with Kerbin < 20 deg up there unless ignore_link."""
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
     ap = v.auto_pilot
     if v.orbit.periapsis_altitude > pe_alt + 5000 and fl.mean_altitude > body.atmosphere_depth:
+        est = _retro_dv(v.orbit, ut(), pe_alt)
+        if est and v.orbit.periapsis_altitude >= body.atmosphere_depth:  # else it comes down anyway
+            _check_pe_link(v, v.orbit, ut(), est[0], ignore_link)
         _deorbit_now(v, pe_alt)  # a grazing periapsis (Duna 1 captured to 31 km) would skip through the air
     atmo = body.atmosphere_depth
     if fl.mean_altitude > atmo:
@@ -2838,6 +2842,61 @@ def _plane_angle(a, b, h):
     return math.degrees(math.atan2(_dot(h, _cross(a, b)), _dot(a, b)))
 
 
+def _toward(k, sd, h, deg):
+    """k rotated deg about h towards sd (negative: away from it); pure. release_ut used
+    copysign(radians(sunward), side), which dropped the sign of sunward: an anti-sunward offset came out sunward."""
+    return kepler.rotate(k, h, math.radians(deg) * math.copysign(1.0, _plane_angle(k, sd, h)))
+
+
+def _elevation(up, d):
+    """Degrees of direction d above the horizon whose zenith is up (pure)."""
+    return math.degrees(math.asin(max(-1.0, min(1.0, _dot(_norm(up), _norm(d))))))
+
+
+def _pe_ground(o, t, dv):
+    """Where a retrograde burn of dv (impulsive, at UT t on orbit o) puts the periapsis: (pe UT, lat, lon in the
+    body's rotating frame at that UT, terrain height, Kerbin's and the Sun's elevation there in deg; Kerbin None at
+    Kerbin). Moho 1's site search (scratch site.py) needed Kerbin > 20 deg up at touchdown for the link."""
+    body = o.body
+    frame = body.non_rotating_reference_frame
+    r, vel = _state(o, t, frame)
+    sp = math.sqrt(_dot(vel, vel))
+    k = kepler.Orbit.from_state(body.gravitational_parameter, r, tuple(x * (1 - dv / sp) for x in vel), t)
+    t_pe = k.time_of_nu(0.0, after=t)
+    p = k.position(t_pe)
+    q = sc().transform_position(p, frame, body.reference_frame)
+    lat = body.latitude_at_position(q, body.reference_frame)
+    lon = (body.longitude_at_position(q, body.reference_frame) - math.degrees(body.rotational_speed) * (t_pe - ut())
+           + 180) % 360 - 180
+    pb = _chain_pos(_sun_chain(body), t_pe)
+    sun = _elevation(p, tuple(-a - b for a, b in zip(pb, p)))
+    ker = None
+    if body.name != "Kerbin":
+        pk = _chain_pos(_sun_chain(sc().bodies["Kerbin"]), t_pe)
+        ker = _elevation(p, tuple(a - b - c for a, b, c in zip(pk, pb, p)))
+    return t_pe, lat, lon, body.surface_height(lat, lon), ker, sun
+
+
+def _check_pe_link(v, o, t, dv, ignore_link=False, min_elev=20.0):
+    """Print the predicted periapsis ground point of a deorbit burn (dv at UT t) with Kerbin's and the Sun's
+    elevation there. Refused when Kerbin is under min_elev deg at the pe of an uncrewed craft (the landing and its
+    science need the link), unless ignore_link or --plan (which says it would be)."""
+    t_pe, lat, lon, h, ker, sun = _pe_ground(o, t, dv)
+    body = o.body
+    say(f"predicted periapsis: UT {t_pe:.0f} ({(t_pe - t) / 60:.0f} min after the burn) over {lat:.2f}, {lon:.2f} "
+        f"(terrain {h:.0f} m, {_biome(body, lat, lon)}); " + (f"Kerbin {ker:.0f} deg up, " if ker is not None else "")
+        + f"Sun {sun:.0f} deg up" + (" (drag ends the path before the pe)" if body.has_atmosphere else ""))
+    if ker is None or ker >= min_elev or _crewed(v):
+        return
+    why = f"Kerbin only {ker:.0f} deg up at the periapsis (< {min_elev:.0f}): no link for the landing"
+    if ignore_link:
+        say(f"--ignore-link: {why}")
+    elif PLAN_ONLY:
+        say(f"WARNING: {why}; the burn will be refused without --ignore-link")
+    else:
+        raise Refused(why + " (pick another release point, or --ignore-link)")
+
+
 def release_ut(v, under, sunward=0.0, pe_alt=0.0, angle=180.0, lead=180.0):
     """Next UT (>= now + lead) at which the vessel is `angle` deg (along its motion) from the direction of body
     `under` seen from our body, rotated `sunward` deg towards the Sun, both projected into our orbit plane
@@ -2861,8 +2920,7 @@ def release_ut(v, under, sunward=0.0, pe_alt=0.0, angle=180.0, lead=180.0):
         pb = bo.position_at(t + coast, sframe)
         d_o = s.transform_direction(tuple(b - a for a, b in zip(pb, oo.position_at(t + coast, sframe))), sframe, frame)
         d_s = s.transform_direction(tuple(-a for a in pb), sframe, frame)
-        k, sd = _in_plane(d_o, h), _in_plane(d_s, h)
-        return kepler.rotate(k, h, math.copysign(math.radians(sunward), _plane_angle(k, sd, h)))
+        return _toward(_in_plane(d_o, h), _in_plane(d_s, h), h, sunward)
 
     def g(t):
         return (_plane_angle(target(t), o.position_at(t, frame), h) - angle + 180) % 360 - 180
@@ -2889,10 +2947,12 @@ def release_ut(v, under, sunward=0.0, pe_alt=0.0, angle=180.0, lead=180.0):
     return tb, off
 
 
-def deorbit(pe_alt, at=None, under=None, sunward=0.0):
+def deorbit(pe_alt, at=None, under=None, sunward=0.0, ignore_link=False):
     """Retrograde burn until the periapsis is at pe_alt: now, at UT `at`, or at release_ut(under, sunward) (the new
     periapsis under that body's direction). Node-less: the burn stops on the periapsis itself. Then coast: nothing
-    warps to the atmosphere here (Eve 2: drop the deorbit stage, `inflate`, arm the chutes first; `reentry`)."""
+    warps to the atmosphere here (Eve 2: drop the deorbit stage, `inflate`, arm the chutes first; `reentry`).
+    Prints the predicted periapsis ground point; an uncrewed craft is refused with Kerbin < 20 deg up there
+    (_check_pe_link) unless ignore_link."""
     v = vessel()
     o = v.orbit
     if at is not None and under is not None:
@@ -2915,6 +2975,7 @@ def deorbit(pe_alt, at=None, under=None, sunward=0.0):
     bt = burn_time(v, dv)
     say(f"deorbit: {dv:.0f} m/s retrograde, ~{bt:.0f} s, in {t - ut():.0f} s -> pe {pe_alt / 1000:.1f} km "
         f"(now {o.periapsis_altitude / 1000:.1f} x {o.apoapsis_altitude / 1000:.1f} km around {o.body.name})")
+    _check_pe_link(v, o, max(t, ut()), dv, ignore_link)
     if PLAN_ONLY:
         raise Planned(f"deorbit {dv:.0f} m/s at UT {t:.0f} (in {t - ut():.0f} s) to pe {pe_alt:.0f} m")
     _ensure_control(v)

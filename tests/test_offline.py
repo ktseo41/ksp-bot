@@ -102,5 +102,23 @@ class CaptureLink(unittest.TestCase):
         self.assertEqual(F._link_safe_centre(800.0, window, blackout, earliest=0.0), 800.0)
 
 
+class Deorbit(unittest.TestCase):
+    def test_toward_keeps_the_sign(self):
+        k, h = (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)
+        for sd in ((0.0, 1.0, 0.0), (0.0, -1.0, 0.0)):  # the Sun on either side of k
+            side = math.copysign(1.0, F._plane_angle(k, sd, h))
+            for deg in (30.0, -30.0):
+                r = F._toward(k, sd, h, deg)
+                self.assertAlmostEqual(F._plane_angle(k, r, h), side * deg, places=6)
+                # sunward (deg > 0) comes closer to the Sun, anti-sunward farther away
+                closer = F._dot(r, sd) > F._dot(k, sd)
+                self.assertEqual(closer, deg > 0)
+
+    def test_elevation(self):
+        self.assertAlmostEqual(F._elevation((0, 0, 5), (1, 0, 1)), 45.0)
+        self.assertAlmostEqual(F._elevation((0, 0, 1), (0, 0, -3)), -90.0)
+        self.assertAlmostEqual(F._elevation((0, 2, 0), (1, 0, 0)), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
