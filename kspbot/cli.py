@@ -291,6 +291,8 @@ def cmd_eva(a):
         print(b.eva_spawn())
     elif a.action == "state":
         print(b.eva_state())
+    elif a.action == "check":
+        print(b.eva_check(1.0))
     elif a.action == "flag":
         b.eva_plant_flag()
         time.sleep(8)
@@ -313,6 +315,20 @@ def cmd_eva(a):
         for e in flight.vessel().parts.experiments:
             if e.has_data:
                 print(e.title, e.science_subject.title, sum(d.science_value for d in e.data))
+
+
+def cmd_lab(a):
+    """Mobile Processing Lab on the active vessel (docs/lab/README.md)."""
+    b = bot()
+    if a.action in ("process", "dry"):
+        r = json.loads(b.lab_process(a.action == "dry"))
+        for it in r["items"]:
+            print(f"{it['labValue']:6.0f}  {it['result']:18s} {it['subject']}  ({it['part']})")
+        print("data stored", r["dataStored"])
+        return
+    r = json.loads(b.lab_status() if a.action == "status" else b.lab_action(a.action))
+    r["processed"] = len(r["processed"])
+    print(json.dumps(r))
 
 
 def cmd_wait(a):
@@ -400,7 +416,9 @@ def main(argv=None):
     p = add("warp", cmd_warp, help="warp to UT or +seconds")
     p.add_argument("ut")
     p = add("eva", cmd_eva, help="EVA: out | state | report | flag | board")
-    p.add_argument("action", choices=["out", "state", "report", "flag", "board"])
+    p.add_argument("action", choices=["out", "state", "check", "report", "flag", "board"])
+    p = add("lab", cmd_lab, help="science lab: status | dry | process | start | stop | transmit | clean")
+    p.add_argument("action", choices=["status", "dry", "process", "start", "stop", "transmit", "clean"])
     add("wait", cmd_wait, help="wait until KSP is up with a save loaded")
     p = add("sandbox-orbit", cmd_sandbox_orbit, help="TEST ONLY: teleport to a circular orbit (sandbox saves)")
     p.add_argument("body")

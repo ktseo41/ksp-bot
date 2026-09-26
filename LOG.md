@@ -455,11 +455,48 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   28,925,295) and a tangential periapsis burn (215 m/s, UT 29,029,189) -> 298-day arc, arrival v_inf 2142 (entry
   ~3.9 km/s), ~320 m/s total. Lab mechanics researched (opus): docs/lab/README.md + docs/lab/LabSketch.cs.
 
+## 2026-09-26 — Minmus Lab 1: science station in a 14 km polar Minmus orbit (Bob, Gwenbro)
+- Tooling first: the CLI already exits 1 on "ERROR" (tested); Rescue 5's `a && b` chains ran on because of `| tail` pipes.
+  KspBot: LabStatus / LabProcess(dryRun) / LabAction(start|stop|transmit|clean) (docs/lab/LabSketch.cs, labValue computed
+  like the results dialog) -> `ksp lab status|dry|process|start|stop|transmit|clean`.
+- crafts/minmus-lab-1.json: Clamp-O-Tron, OKTO, Science Jr, 3 Z-1k, reaction wheel, Rockomax adapter, MPL-LG-2, C7 adapter
+  tank (2 goo, thermo, baro, gravimeter, storage unit, HG-55), wheel, FL-T400 (2 Gigantors, magnetometer, 2 Z-400),
+  Terrier; Rescue 5 launcher. 87 t, 75k.
+- **Pad EVA test killed Bob and Gwenbro twice** (reverted both times): the moment the kerbal spawns at the MPL hatch
+  (airlock_l, part-frame angle 90, r 1.5 m) the stack gets a kick (tilt 0 -> 3.6 deg, 1 m/s within 0.5 s) and the 87 t
+  rocket topples onto the pad. New `eva check` / EvaCheck: airlock position + other parts' colliders within 1 m (none
+  here); EvaSpawn now refuses when parts overlap the hatch. In LKO, measured: EVA from the MPL adds ~6 deg/s and
+  ~0.08 m/s to the free station (baseline 0.02 deg/s); with the station's SAS on it damps to ~2 deg/s in 8 s and the
+  kerbal stays on the ladder -> orbital EVAs are fine with SAS on; **no pad/landed EVA from the MPL** (the same kick
+  probably explains the earlier "landed EVA flung the kerbal" incidents). Each kick moves the orbit: at Minmus
+  apoapsis (7.5 m/s) one EVA dropped the periapsis 14 -> -5.5 km; 9 tour EVAs left 13 x 15 -> 7.8 x 15 km.
+- **Ascent 1 flipped** at the Mainsail separation (14 km, q 24 kPa: 94 deg/s in 5 s), crashed in the sea, crew killed:
+  **reverted**. The long, light payload (MPL + 1.25 m stack + Gigantors on top) moved the centre of pressure forward;
+  Rescue 5's compact pod flew the same launcher fine. Fix: AV-R8 x4 on the Skipper tank, AV-T1 x4 on the Poodle tank,
+  Gigantors moved down to the FL-T400. Ascent 2 clean. LKO 79.3 x 79.5, Poodle 791 + Terrier 2200.
+- Kerbin low (EVA Grasslands, goo, materials, thermo, baro, gravity, magnetometer) and high sets straight into the lab
+  (159 + 240 data), `lab clean` resets goo/materials (lab needs ~70 s at 1x). Transfer 922 (expected 921).
+- Minmus SOI: pe 1660 km instead of 15 (encounter drift again, plus an EVA kick in Kerbin high space). Option chosen
+  (cheaper than a 170 m/s aim-point change): capture at the 1660 km pass into 1653 x 2062 km (204 m/s), at the apoapsis
+  one burn to a polar plane with pe 15 km (27.2 m/s, scratch script: plane through the axis and the position), pe fixed
+  after the EVA kick (2.1 m/s), circularize 61 m/s -> 12.9 x 13.3 km, inc 92.7. Terrier left 1774 m/s.
+- **The first capture burn never fired**: throttle 1, thrust 0, control "none". Require Signal for Control is on and I
+  never extended the HG-55: the OKTO's own antenna (5k x DSN 2 -> ~16 Mm) can't reach Minmus (47 Mm). Extending it
+  (allowed without control) gave signal 1.0 and full control. Lucky: 6000 s before leaving the SOI. `burn_at` should
+  refuse / warn when control is none (next steps).
+- Minmus high set + low set + all 9 low-orbit biomes (EVA report + gravity scan each, tour script with SAS and a 6 s
+  settle) -> lab 720/750 data, 9.7 sci/day, rest (~1,500 lab data: magnetometer 225/141, materials 125, gravity 9 x 100,
+  EVA reports) kept in the storage unit for top-ups or a ferry pickup (gravity transmits at 40 % only). Lab transmit:
+  **science 2.6 -> 146.4**. Periapsis raised to 13.6 km (3 m/s). Photo: docs/media/2026-09-26_minmus-lab-1_orbit.png.
+- Lab throughput: at 720 data the lab eats ~2 data/day (tau ~92 days at S = 2.5): a full lab makes ~10 sci/day,
+  so ~500 per 50 days; visit (switch to it, transmit) every <= 50 days.
+
 ### Next steps (plan)
-State (2026-09-26, after Rescue 5): KSP at the space center, UT ~18,893,000, funds 1.44M, sci 3, rep 407, R&D 3.
+State (2026-09-26, after Minmus Lab 1): KSP at the space center, UT ~19,418,500, funds 1.37M, sci 146, rep 407, R&D 3.
 Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna,
 ~2800 m/s, ~378 sci aboard (+ contracts "Explore Duna", "Science data from surface of Duna" complete on recovery).
-Minmus temperature survey contract (500 m sites) will lapse. Everything committed.
+Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 720/750 data, ~10 sci/day, storage unit full of
+top-up data; Terrier 1774 m/s. Crew at KSC: Daphrick (scientist), Bill (engineer), Mitbro, Jedgard (pilots).
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. **Duna 1 return** at UT 22,895,340 (flight 297 d): liftoff from Duna (thin air; sandbox: ~1450 m/s), then
    `transfer Kerbin --pe 30000 --plan` (Duna inc 0.06: little plane change), correct, reentry. ~2800 m/s aboard.
@@ -468,11 +505,11 @@ Minmus temperature survey contract (500 m sites) will lapse. Everything committe
    < ~5 m/s) -> node; then `depart Kerbin --pe 30000 --at 29029189 --plan` (~215 m/s, encounter) -> node; after the
    SOI exit `correct Kerbin --pe 30000` (a few m/s); reentry at ~3.9 km/s: pod-side goo/thermo/baro hold ~385 sci:
    before entry measure hatch-to-part distances; if <= 1.5 m, EVA "Take Data" into the pod.
-3. **Lab station** in low Minmus orbit (docs/lab/README.md): KspBot C# LabValue/LabStatus/LabProcess (sketch in
-   docs/lab/LabSketch.cs), MPL + 2 scientists (Gwenbro, Daphrick; Bob), HG-55, ~4000 EC, solar >= 8 EC/s, docking
-   port. Visit every <= 60 Kerbin days (500 sci cap per visit): catch-up, transmit, refill, clean.
+3. **Lab station**: flying (Minmus Lab 1). Visit every <= 50 days: `ksp fly "Minmus Lab 1"`, `lab status`, `lab transmit`,
+   top up with `lab process` when dataStored drops (storage unit has ~1,500 lab data). Later: a ferry with a docking
+   port to swap scientists (levels rise only on recovery) and bring home the storage unit's data.
 4. Tooling fixes found in the 2026-09-26 Q&A with the user (do before they bite again):
-   a. CLI exits 0 on "ERROR: ..." -> make cli.py exit non-zero on exceptions (chains ran on after a refusal).
+   a. (done: the CLI already exits 1/2/3; the chains ran on because of `| tail` pipes: use `set -o pipefail` or no pipes)
    b. Real-time guard for waits: warp_to should estimate real minutes from the rails-warp cap at the current
       altitude; long waits in a low orbit (Minmus 22 km: 8.2 d took 36 real minutes) -> raise the orbit first
       (Mun: 400 km, fast) or at least say it. Lesson is only in LOG so far.
@@ -486,6 +523,11 @@ Minmus temperature survey contract (500 m sites) will lapse. Everything committe
    e. tools/biometour.py -> a CLI command (`eva-tour`); the report title can lag the real subject.
    f. Moon return burns end with Kerbin pe +6 km every time (MS2, Survey 1): find the bias (finite burn?).
    g. aim-point seed + tuner stops short of the wanted inclination (73 of 90 at Eve): weight inc vs pe.
+   h. burn_at with control "none" (no CommNet link) waited out the whole burn at throttle 1 / thrust 0 (Minmus Lab 1):
+      refuse before the burn, extend antennas automatically after launch (deployable HG-55/DTS need extending).
+   i. capture from a hyperbola just after the periapsis: time_to_periapsis points to the past -> burn now instead.
+   j. EVA kicks from the MPL (~0.08 m/s, 6 deg/s): eva out should turn the station's SAS on first and wait; near an
+      apoapsis re-check the periapsis after every EVA.
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
 6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).

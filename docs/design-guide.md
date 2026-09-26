@@ -37,6 +37,13 @@
 - **Landed EVA is NOT safe, even with the ML7 layout** (career, 2026-09-25): on Minmus Poles (lander upright, 2.4° tilt) `eva out` flung Jeb off at ~400 m/s onto a Minmus escape path and knocked the lander over; the same layout had worked on the Minmus ground in the sandbox and on Duna. KspBot uses the stock `FlightEVA.spawnEVA` path, so it's a KSP physics blow-up, intermittent. Rule: in the career, EVA only in orbit (or on Kerbin's pad); no EVA on other bodies' surfaces until a cause is found.
 - Drogues alone do not slow a Mk1 pod below ~110 m/s at 6–9 km (Mk16 test contract window missed).
 - **Klaw vs small parts: don't take "Recover part from orbit" contracts for small/curved parts** (user rule). A loose Mk-55 Thud was never captured in two flights (engine-only, then RCS square to its flat face within 0.1 m, 0.15 m/s): every contact bounced and spun it up. Capture needs the Klaw's 0.1 m centre ray to hit within 43 deg of square (ModuleGrappleNode). Map a target's faces with `sc().raycast_distance` in its part frame first; stop a spinning target with a moment of rails warp; with RCS, disable RCS pitch/yaw/roll so the monopropellant goes to translation. (Salvage 1/2)
+- **Long, light payloads need fins on every atmospheric stage** (Minmus Lab 1, 2026-09-26): MPL + 1.25 m stack +
+  Gigantors on top of the Rescue 5 launcher flipped 5 s after the finned Mainsail stage dropped (14 km, q 24 kPa).
+  AV-R8 x4 on the Skipper tank + AV-T1 x4 on the Poodle tank, draggy parts (Gigantors) low on the stack: clean ascent.
+- **Deployable antennas (HG-55, DTS-M1) must be extended**: with Require Signal for Control the OKTO's own 5k antenna
+  reaches ~16 Mm (DSN 2); beyond that a probe-controlled craft (scientists aren't pilots) has no throttle.
+- **EVA from the MPL-LG-2 kicks the vessel** (~0.08 m/s, ~6 deg/s on a 12-20 t station): never on the pad or landed
+  (it toppled an 87 t stack twice); in orbit turn SAS on first and wait ~6 s; re-check the periapsis afterwards.
 
 Numbers are stock KSP 1.12.x values pulled from the KSP wiki/forums (see Sources). `(?)` marks
 figures that are community consensus but not verified against a primary in-game readout for

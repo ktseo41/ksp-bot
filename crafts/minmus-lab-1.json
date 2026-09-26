@@ -1,0 +1,299 @@
+{
+ "name": "Minmus Lab 1",
+ "description": "Science station for low Minmus orbit: Clamp-O-Tron on top, OKTO, Science Jr, 3 Z-1k, MPL-LG-2 (2 scientists), C7 adapter tank carrying 2 Gigantors, 2 goo, thermo, baro, gravimeter, storage unit, HG-55; FL-T400 + Terrier service stage stays on; Rescue 5 launcher. Fins on the Skipper (AV-R8) and Poodle (AV-T1) stages: attempt 1 flipped at the Mainsail separation (14 km, q 24 kPa).",
+ "parts": [
+  {
+   "id": "dock",
+   "part": "dockingPort2"
+  },
+  {
+   "id": "core",
+   "part": "probeCoreOcto.v2",
+   "parent": "dock",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "jr",
+   "part": "science.module",
+   "parent": "core",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat1",
+   "part": "batteryBank",
+   "parent": "jr",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat2",
+   "part": "batteryBank",
+   "parent": "bat1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat3",
+   "part": "batteryBank",
+   "parent": "bat2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw",
+   "part": "sasModule",
+   "parent": "bat3",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adL",
+   "part": "largeAdapter",
+   "parent": "rw",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "lab",
+   "part": "Large.Crewed.Lab",
+   "parent": "adL",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adS",
+   "part": "adapterSize2-Size1",
+   "parent": "lab",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "goo",
+   "part": "GooExperiment",
+   "parent": "adS",
+   "symmetry": 2,
+   "angle": 90,
+   "height": 0.3
+  },
+  {
+   "id": "thermo",
+   "part": "sensorThermometer",
+   "parent": "adS",
+   "angle": 45,
+   "height": 0.3
+  },
+  {
+   "id": "baro",
+   "part": "sensorBarometer",
+   "parent": "adS",
+   "angle": 135,
+   "height": 0.3
+  },
+  {
+   "id": "grav",
+   "part": "sensorGravimeter",
+   "parent": "adS",
+   "angle": 225,
+   "height": 0.3
+  },
+  {
+   "id": "box",
+   "part": "ScienceBox",
+   "parent": "adS",
+   "angle": 315,
+   "height": 0.3
+  },
+  {
+   "id": "hg",
+   "part": "HighGainAntenna",
+   "parent": "adS",
+   "angle": 45,
+   "height": -0.4
+  },
+  {
+   "id": "rw2",
+   "part": "sasModule",
+   "parent": "adS",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1",
+   "part": "fuelTank",
+   "parent": "rw2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "solar",
+   "part": "largeSolarPanel",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 45,
+   "height": 0.0
+  },
+  {
+   "id": "mag",
+   "part": "Magnetometer",
+   "parent": "t1",
+   "angle": 90,
+   "height": 0.0
+  },
+  {
+   "id": "batS",
+   "part": "ksp.r.largeBatteryPack",
+   "parent": "t1",
+   "symmetry": 2,
+   "angle": 135,
+   "height": 0.0
+  },
+  {
+   "id": "terrier",
+   "part": "liquidEngine3.v2",
+   "parent": "t1",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decC",
+   "part": "Decoupler.1",
+   "parent": "terrier",
+   "node": "bottom",
+   "stage": 4,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rwT",
+   "part": "sasModule",
+   "parent": "decC",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "adT",
+   "part": "largeAdapter",
+   "parent": "rwT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "tT",
+   "part": "Rockomax16.BW",
+   "parent": "adT",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "finsP",
+   "part": "winglet",
+   "parent": "tT",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -0.6
+  },
+  {
+   "id": "poodle",
+   "part": "liquidEngine2-2.v2",
+   "parent": "tT",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decB",
+   "part": "Decoupler.2",
+   "parent": "poodle",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t2",
+   "part": "Rockomax32.BW",
+   "parent": "decB",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "finsS",
+   "part": "R8winglet",
+   "parent": "t2",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -1.4
+  },
+  {
+   "id": "skipper",
+   "part": "engineLargeSkipper.v2",
+   "parent": "t2",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decA",
+   "part": "Decoupler.2",
+   "parent": "skipper",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1a",
+   "part": "Rockomax32.BW",
+   "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1b",
+   "part": "Rockomax32.BW",
+   "parent": "t1a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mainsail",
+   "part": "liquidEngineMainsail.v2",
+   "parent": "t1b",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "R8winglet",
+   "parent": "t1b",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -2.5
+  }
+ ]
+}

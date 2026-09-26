@@ -510,6 +510,34 @@ namespace KspBot
             return k ?? throw new InvalidOperationException("active vessel is not an EVA kerbal");
         }
 
+        /// Hatch geometry of the first crewed part with an airlock: position in the part frame (builder angle/height)
+        /// and the other parts' colliders within `radius` of it. Minmus Lab 1 (2026-09-26): a kerbal spawned out of
+        /// the MPL on the pad kicked the 87 t stack to 1 m/s and it fell over (twice, crew killed, reverted).
+        static Obj HatchCheck(float radius)
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var part = v.parts.FirstOrDefault(p => p.protoModuleCrew.Count > 0 && p.airlock != null)
+                       ?? throw new InvalidOperationException("no crewed part with a hatch");
+            var local = part.transform.InverseTransformPoint(part.airlock.position);
+            var hits = new List<object>();
+            foreach (var c in Physics.OverlapSphere(part.airlock.position, radius))
+            {
+                var hp = c.GetComponentInParent<Part>();
+                if (hp == null || hp == part) continue;
+                float d = -1;
+                try { d = Vector3.Distance(c.ClosestPoint(part.airlock.position), part.airlock.position); } catch (Exception) { }
+                hits.Add(new Obj { ["part"] = hp.partInfo.name, ["collider"] = c.name, ["trigger"] = c.isTrigger, ["distance"] = d });
+            }
+            return new Obj { ["part"] = part.partInfo.name, ["airlock"] = part.airlock.name,
+                             ["x"] = local.x, ["y"] = local.y, ["z"] = local.z,
+                             ["angle"] = Mathf.Atan2(local.z, local.x) * Mathf.Rad2Deg,
+                             ["overlaps"] = hits };
+        }
+
+        /// <summary>Hatch geometry and colliders of other parts within `radius` m of the airlock (see HatchCheck).</summary>
+        [KRPCProcedure]
+        public static string EvaCheck(float radius) => Json.Write(HatchCheck(radius));
+
         /// <summary>Send the first crew member of the active vessel out of its hatch. The kerbal becomes the active vessel.</summary>
         [KRPCProcedure]
         public static string EvaSpawn()
@@ -519,6 +547,9 @@ namespace KspBot
             var v = FlightGlobals.ActiveVessel;
             var part = v.parts.FirstOrDefault(p => p.protoModuleCrew.Count > 0 && p.airlock != null)
                        ?? throw new InvalidOperationException("no crewed part with a hatch");
+            var check = HatchCheck(0.75f);
+            if (((List<object>)check["overlaps"]).Count > 0)
+                throw new InvalidOperationException("parts overlap the hatch: " + Json.Write(check));
             var crew = part.protoModuleCrew[0];
             var k = FlightEVA.fetch.spawnEVA(crew, part, part.airlock, true)
                     ?? throw new InvalidOperationException("EVA failed (hatch obstructed?)");
@@ -589,6 +620,98 @@ namespace KspBot
                           ?? NearHatch(k, 2.0f)
                           ?? throw new InvalidOperationException("not at a hatch");
             k.BoardPart(airlock);
+        }
+
+        // ---------------- Science lab (docs/lab/README.md) ----------------
+
+        static ModuleScienceLab ActiveLab() =>
+            FlightGlobals.ActiveVessel?.FindPartModuleImplementing<ModuleScienceLab>()
+            ?? throw new InvalidOperationException("no science lab on the active vessel");
+
+        /// Same formula as ExperimentResultDialogPage.UpdatePageLabValue (labValue stays 0 unless the dialog sets it).
+        static float LabValue(ModuleScienceLab lab, ScienceData d)
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var s = ResearchAndDevelopment.GetSubjectByID(d.subjectID);
+            if (s == null) return 0f;
+            float x = ResearchAndDevelopment.GetReferenceDataValue(d.dataAmount, s)
+                      * HighLogic.CurrentGame.Parameters.Career.ScienceGainMultiplier;
+            if (v.Landed) x *= 1f + lab.SurfaceBonus;
+            if (d.subjectID.Contains(FlightGlobals.currentMainBody.bodyName)) x *= 1f + lab.ContextBonus;
+            if ((v.Landed || v.Splashed) && v.mainBody == FlightGlobals.GetHomeBody()) x *= lab.homeworldMultiplier;
+            return (float)Math.Round(x);
+        }
+
+        /// <summary>Lab state: data stored/capacity, science stored/cap, running, scientists, rate, processed subjects.</summary>
+        [KRPCProcedure]
+        public static string LabStatus()
+        {
+            var lab = ActiveLab(); var conv = lab.Converter;
+            float sci = lab.part.protoModuleCrew.Where(c => c.HasEffect<Experience.Effects.ScienceSkill>())
+                           .Sum(c => 1f + conv.scientistBonus * c.experienceLevel);
+            double ec = 0, ecMax = 0;
+            foreach (var p in lab.vessel.parts)
+                foreach (var r in p.Resources)
+                    if (r.resourceName == "ElectricCharge") { ec += r.amount; ecMax += r.maxAmount; }
+            return Json.Write(new Obj {
+                ["dataStored"] = lab.dataStored, ["dataStorage"] = lab.dataStorage,
+                ["storedScience"] = lab.storedScience, ["scienceCap"] = conv.scienceCap,
+                ["running"] = conv.IsActivated, ["status"] = conv.status, ["scientists"] = sci,
+                ["operational"] = lab.IsOperational(), ["sciPerDay"] = conv.CalculateScienceRate(lab.dataStored),
+                ["ec"] = ec, ["ecMax"] = ecMax, ["processed"] = lab.ExperimentData.ToList() });
+        }
+
+        /// <summary>What the results dialog's lab button does, for every data item on the active vessel.
+        /// Data is consumed (non-rerunnable experiments become inoperable; containers lose the item).</summary>
+        [KRPCProcedure]
+        public static string LabProcess(bool dryRun)
+        {
+            var v = FlightGlobals.ActiveVessel; var lab = ActiveLab();
+            if (!lab.IsOperational()) throw new InvalidOperationException("no scientist in the lab part");
+            var rows = new List<object>(); float room = lab.dataStorage - lab.dataStored;
+            var seen = new HashSet<string>(lab.ExperimentData);
+            foreach (var p in v.parts.ToList())
+            foreach (var c in p.Modules.OfType<IScienceDataContainer>().ToList())
+            {
+                if (c is ModuleScienceLab) continue;
+                foreach (var d in c.GetData())
+                {
+                    d.labValue = LabValue(lab, d);
+                    string why = d.labValue <= 0 ? "no value"
+                        : seen.Contains(d.subjectID) ? "already processed"
+                        : d.labValue > room ? "lab full" : null;
+                    if (why == null)
+                    {
+                        room -= d.labValue; seen.Add(d.subjectID);
+                        if (!dryRun)
+                        {
+                            var it = lab.ProcessData(d); while (it.MoveNext()) { }  // no real yields: stores synchronously
+                            if (!lab.ExperimentData.Contains(d.subjectID)) why = "rejected";
+                            else if (c is ModuleScienceExperiment e) e.DumpData(d);
+                            else if (c is ModuleScienceContainer k) k.RemoveData(d);
+                        }
+                    }
+                    rows.Add(new Obj { ["subject"] = d.subjectID, ["part"] = p.partInfo.name,
+                                       ["labValue"] = d.labValue, ["result"] = why ?? (dryRun ? "would process" : "processed") });
+                }
+            }
+            return Json.Write(new Obj { ["items"] = rows, ["dataStored"] = lab.dataStored });
+        }
+
+        /// <summary>start | stop research, transmit stored science, clean (reset) the vessel's used experiments.</summary>
+        [KRPCProcedure]
+        public static string LabAction(string action)
+        {
+            var lab = ActiveLab();
+            switch (action)
+            {
+                case "start": lab.Converter.StartResourceConverter(); break;
+                case "stop": lab.Converter.StopResourceConverter(); break;
+                case "transmit": lab.TransmitScience(); break;
+                case "clean": lab.CleanModulesEvent(); break;
+                default: throw new ArgumentException("start | stop | transmit | clean");
+            }
+            return LabStatus();
         }
 
         // ---------------- Craft building ----------------
