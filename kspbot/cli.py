@@ -37,7 +37,13 @@ def cmd_vessel(a):
     try:
         stages = [st for st in v.stages if st.delta_v > 0.5]
     except Exception:
-        stages = []  # KSP has not computed delta-v yet (right after scene load)
+        # KSP has not computed delta-v yet: right after scene load, or for hours after `fly` (Moho 1)
+        flight._recalc_delta_v(v)
+        try:
+            stages = [st for st in v.stages if st.delta_v > 0.5]
+        except Exception as e:
+            stages = []
+            print(f"  stages: {e}")
     for st in stages:
         if True:
             print(f"  stage {st.number}: dv={st.delta_v:.0f} (vac {st.vacuum_delta_v:.0f}) twr={st.twr:.2f} "

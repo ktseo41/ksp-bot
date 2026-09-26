@@ -451,6 +451,60 @@ namespace KspBot
             FlightDriver.StartAndFocusVessel("persistent", FlightGlobals.Vessels.IndexOf(v));
         }
 
+        static object Field(object o, string name) => o.GetType().GetField(name, Any)?.GetValue(o);
+
+        static Obj DeltaVState(VesselDeltaV d) => new Obj
+        {
+            ["ready"] = d.IsReady,
+            ["running"] = d.SimulationRunning,
+            ["simulation"] = Field(d, "simulation") != null,
+            ["updateFlightScene"] = d.UpdateFlightScene,
+            ["dirty"] = Field(d, "calcsDirty"),
+            ["syncLists"] = Field(d, "syncListInstances"),
+            ["eventDelay"] = Field(d, "vesselEventDelayTime"),
+            ["stock"] = d.DoStockSimulation,
+            ["globalStock"] = DeltaVGlobals.DoStockSimulations,
+            ["active"] = FlightGlobals.ActiveVessel == d.Vessel,
+            ["loaded"] = d.Vessel != null && d.Vessel.loaded,
+            ["flightGlobalsReady"] = FlightGlobals.ready,
+            ["stages"] = d.OperatingStageInfo?.Count ?? -1,
+            ["engines"] = d.OperatingEngineInfo?.Count ?? -1,
+        };
+
+        /// <summary>KSP's delta-v readout (VesselDeltaV) of the active vessel: its state and, if it is not ready,
+        /// a forced full recalculation. kRPC's Stage.*DeltaV throw "Delta-v has not been calculated" until one full
+        /// RunCalculations has finished (only its clean end sets IsReady, nothing resets it). After `scene
+        /// space_center` + `fly` Moho 1 stayed not-ready for hours of game time (2026-09-27; right after `launch` it
+        /// was fine): the switched-to vessel gets a fresh VesselDeltaV (Vessel.StartFromBackup), and with
+        /// DELTAV_USE_TIMED_VESSELCALCS off a full run starts only while calcsDirty and no run is registered, so a
+        /// run handle left behind, or runs that keep ending with syncListInstances set, never mark it ready.
+        /// Here: stop its coroutines, clear the handles, and run RunCalculations to its end at once.
+        /// Returns JSON {before, after, steps} (the states tell which gate was stuck).</summary>
+        [KRPCProcedure]
+        public static string RecalcDeltaV()
+        {
+            var v = FlightGlobals.ActiveVessel ?? throw new InvalidOperationException("no active vessel");
+            var d = v.VesselDeltaV ?? throw new InvalidOperationException("the active vessel has no VesselDeltaV");
+            var o = new Obj { ["before"] = DeltaVState(d) };
+            if (!d.IsReady)
+            {
+                d.StopAllCoroutines();
+                typeof(VesselDeltaV).GetField("simulation", Any)?.SetValue(d, null);
+                typeof(VesselDeltaV).GetField("updateFlightScene", Any)?.SetValue(d, false);
+                typeof(VesselDeltaV).GetField("syncListInstances", Any)?.SetValue(d, false);
+                typeof(VesselDeltaV).GetField("vesselEventDelayTime", Any)?.SetValue(d, 0.0);
+                if (!d.DoStockSimulation) d.EnableStockSimluation();
+                d.SetCalcsDirty(resetPartCaches: true);
+                var run = (IEnumerator)typeof(VesselDeltaV).GetMethod("RunCalculations", Any).Invoke(d, null);
+                var steps = 0;
+                while (steps < 10000 && run.MoveNext()) steps++;  // it only yields null between stages
+                o["steps"] = steps;
+            }
+            o["after"] = DeltaVState(d);
+            Debug.Log("[KspBot] RecalcDeltaV " + Json.Write(o));
+            return Json.Write(o);
+        }
+
         /// <summary>From the space center: save, go to the main menu and load another save folder
         /// (e.g. career <-> sandbox) without restarting KSP.</summary>
         [KRPCProcedure]
