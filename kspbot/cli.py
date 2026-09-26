@@ -127,6 +127,8 @@ def _pick(kind, key):
 
 def cmd_accept(a):
     c = _pick("offered", a.key)
+    save()
+    before = _saved_active_count()
     c.accept()
     time.sleep(1)
     ok = any(x.title == c.title for x in _contracts("active"))
@@ -138,12 +140,14 @@ def cmd_accept(a):
             # 2026-09-26: the save threw an NRE (FlightState ctor) right after a flight; the accept had worked, the
             # error made me retry "accept 4", the list had shifted and a second contract (Ike station) got accepted
             raise SystemExit(f"accepted, but {e}; don't retry the accept")
-        saved, live = _saved_active_count(), len(_contracts("active"))
-        if saved != live:
+        after = _saved_active_count()
+        if after != before + 1:
             # 2026-09-27: after a FLIGHT -> SPACECENTER switch kRPC listed two Mun contracts as active (advances paid)
             # while KSP saved them as Offered: a stale ContractSystem; they could never complete. A restart cleared it.
-            raise SystemExit(f"ERROR: contract system out of sync: kRPC shows {live} active, the save {saved}; "
-                             "restart KSP at the space center (tools/install.sh) before relying on contracts")
+            # (Compared before/after, not with kRPC's count: all_contracts keeps expired contracts as "active".)
+            raise SystemExit(f"ERROR: contract system out of sync: the save's active contracts went {before} -> "
+                             f"{after}, not +1; restart KSP at the space center (tools/install.sh) before relying on "
+                             "contracts")
 
 
 def _saved_active_count(name="persistent"):
