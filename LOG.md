@@ -890,6 +890,13 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   (Kerbin 34/44 deg), free fall from 9.4 km, **landed on Gilly** at 7.88, -109.21 (10 deg east of the site; Midlands),
   28/28 parts. Surface science +264 (sci 4,049); **funds 4.81 -> 5.04M** (Gilly firsts), rep 586. 2,070 m/s left.
   Photo docs/media/2026-09-27_eve-2-gilly-landed.png. `hop` is a Kerbin sounding-rocket routine (no airless biome hop).
+- Lab visits UT 46.8M +276, 47.8M +248, 48.8M +219, 49.8M +193 (sci 4,985); 50.8M: the transmit printed no gain
+  (170.5 stored left aboard, retry next visit). Lab data 256/750 and falling (sciPerDay 3.5).
+- Jool 2 design (fable) was started and stopped unfinished at the user's request.
+- **Stopped here at the user's request (2026-09-27): saved at the space center, UT 50,800,305, funds 5.04M,
+  sci 4,985, rep 586.** Next on resume: Duna 2 trim ~UT 51.18M (`correct Duna --pe 100000 --inc-to 0 --plan`), Duna SOI
+  51.61M; Eeloo 1 mid-course UT 51.15-53.3M (expect 380-450, > 550 don't burn); Jool 1 SOI 52.79M; lab visit ~51.8M;
+  Dres 1 mid-course 56,159,878; windows Dres 53.87M / Eeloo 53.95M / Jool 54.25M (Jool 2 to design).
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
