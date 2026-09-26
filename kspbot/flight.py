@@ -2482,15 +2482,96 @@ def wait_plane(inc, lan, lead=1.0, alt=80000):
     return heading
 
 
-def match_orbit(inc, lan, argpe, sma, ecc):
-    """Reach an orbit given by its elements (deg, m) around the current body, e.g. a contract's "specific orbit":
-    plane change on the node line, then burn at the future apoapsis for the periapsis height, then at the
-    periapsis (placed at argpe) for the apoapsis. Cheap high around a moon (Minmus at 330 km: 67 m/s orbital)."""
+def _argpe_off(inc, lan, argpe, t_inc, t_lan, t_argpe):
+    """Degrees between our periapsis and the target's as KSP's orbit contracts measure it (FinePrint
+    VesselUtilities.VesselAtOrbit, decompiled): the argPe for an inclined target; for one within 1 deg of the
+    equator the longitude of the periapsis, LAN + argPe (LAN - argPe near 180 deg), since the LAN means nothing
+    there. Angles in degrees (pure: unit-tested)."""
+    if abs(t_inc) % 180 < 1:
+        sg = 1 if abs(t_inc) % 360 < 1 else -1
+        d = (lan + sg * argpe) - (t_lan + sg * t_argpe)
+    else:
+        d = argpe - t_argpe
+    d = abs(d) % 360
+    return 360 - d if d > 180 else d
+
+
+def _arg_of(inc, lan, d):
+    """Argument of latitude (rad) on the orbit plane (inc, lan in rad) of the direction d (in _plane's frame)."""
+    n, a = _plane(inc, lan)
+    return math.atan2(_dot(d, _cross(n, a)), _dot(d, a))
+
+
+def _apsides_turns(mu, p, e, dw):
+    """The two burns that turn an orbit's line of apsides by dw (rad, forward) with its shape kept: where the old
+    and the new orbit cross, true anomaly dw/2 and dw/2 + pi on the old one, the speed and the horizontal velocity
+    already match; only the radial velocity v_r = sqrt(mu/p) e sin(nu) flips. Returns [(nu, dv along the outward
+    radial = -2 v_r)] (pure: unit-tested)."""
+    k = math.sqrt(mu / p) * e
+    return [(nu % (2 * math.pi), -2 * k * math.sin(nu)) for nu in (dw / 2, dw / 2 + math.pi)]
+
+
+def _placement_plans(mu, a0, e0, w0, rp, ra, wt, placed):
+    """Where to put the new periapsis (argument of latitude on our orbit, rad): at the target's (wt), or at our own
+    periapsis / apoapsis (the burns there are pure prograde) and then turn the apsides onto wt (only when KSP checks
+    the argPe: placed). Burn 1 opposite the new periapsis and burn 2 at it, each leaving the velocity horizontal
+    (_horizontal_dv); the turn keeps the final shape (_apsides_turns). Returns [(total, wp, dv1, dv2, turn dv,
+    name)], the cheapest first (pure: unit-tested). Eve 2's capture orbit (120 x 19,131 km, its periapsis 170 deg
+    from the contract's): at the target's direction ~860 m/s (burn 1 kills ~360 m/s of radial velocity close to our
+    periapsis), at our apoapsis + a 10 deg turn ~460."""
+    p0 = a0 * (1 - e0 * e0)
+    k0 = math.sqrt(mu / p0)
+    pt, et = 2 * rp * ra / (rp + ra), (ra - rp) / (ra + rp)
+    out = []
+    for wp, name in ((wt, "at the target's periapsis"), (w0, "at our periapsis"), (w0 + math.pi, "at our apoapsis")):
+        nu = wp + math.pi - w0
+        r1 = p0 / (1 + e0 * math.cos(nu))
+        vr, vt = k0 * e0 * math.sin(nu), k0 * (1 + e0 * math.cos(nu))
+        dv1 = math.hypot(vr, math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))) - vt)
+        dv2 = abs(math.sqrt(mu * (2 / rp - 2 / (rp + ra))) - math.sqrt(mu * (2 / rp - 2 / (rp + r1))))
+        d = (wt - wp + math.pi) % (2 * math.pi) - math.pi
+        turn = abs(_apsides_turns(mu, pt, et, d)[0][1]) if placed else 0.0
+        out.append((dv1 + dv2 + turn, wp % (2 * math.pi), dv1, dv2, turn, name))
+    return sorted(out)
+
+
+def _horizontal_dv(r, vel, speed):
+    """Burn vector that leaves the velocity at position r horizontal (in the orbit plane, along the motion) with
+    this speed: r becomes an apsis. r x v x r points along the motion in either handedness."""
+    t = _norm(_cross(_cross(r, vel), r))
+    return tuple(speed * a - b for a, b in zip(t, vel))
+
+
+def _apsis_burn(v, t, speed, frame):
+    """A node at UT t that leaves the velocity there horizontal with this speed (_horizontal_dv)."""
+    o = v.orbit
+    r, vel = o.position_at(t, frame), _vel_at(o, t, frame)
+    node = v.control.add_node(t, 0, 0, 0)
+    _set_node_dv(node, _horizontal_dv(r, vel, speed), frame)
+    return node
+
+
+def match_orbit(inc, lan, argpe, sma, ecc, window=3.0):
+    """Reach an orbit given by its elements (deg, m) around the current body, e.g. a contract's "specific orbit"
+    (window: its deviation, %): plane change on the node line; burn 1 where the target's apoapsis will be and burn 2
+    at its periapsis, each leaving the velocity horizontal (the burn point an apsis, so the periapsis lands where
+    the target's is; for a target at e <= 0.05, whose argPe KSP ignores, at our own apsides: pure prograde); then,
+    if the argPe is still off by more than max(1 deg, 0.3 x window x 3.6) (KSP's measure, _argpe_off), an apsides
+    rotation (_rotate_apsides) at whichever of its two points has a CommNet link (uncrewed) and comes first; last,
+    pe / ap trims if > 1 % off. Cheap high around a moon (Minmus at 330 km: 67 m/s orbital).
+    Mun Sat 1: the old tuned burns (a free radial component at burn 1, argPe weighed 0.2/deg vs 1/km at burn 2)
+    ended with argPe 17.8 deg off (window 10.8); a 16 m/s radial burn fixed it by hand. The periapsis is placed by
+    its direction, not by the argPe number: near the equator our LAN is anything (the Eve 2 contract: inc 0, argPe
+    330.23, KSP compares LAN + argPe)."""
+    inc_d, lan_d, argpe_d = inc, lan, argpe
     inc, lan, argpe = math.radians(inc), math.radians(lan), math.radians(argpe)
     v = vessel()
-    mu = v.orbit.body.gravitational_parameter
-    R = v.orbit.body.equatorial_radius
+    body = v.orbit.body
+    mu = body.gravitational_parameter
+    R = body.equatorial_radius
+    frame = body.non_rotating_reference_frame
     rp, ra = sma * (1 - ecc), sma * (1 + ecc)
+    tgt_dir = kepler.Orbit(mu, sma, ecc, inc, lan, argpe, 0.0, 0.0).P  # the target's periapsis, in _plane's frame
 
     o = v.orbit
     ri = _rel_inc(o.inclination, o.longitude_of_ascending_node, inc, lan)
@@ -2520,52 +2601,136 @@ def match_orbit(inc, lan, argpe, sma, ecc):
         _approve(node, 2 * spd * math.sin(ri / 2))
         execute_node(node)
 
-    # burn 1 at the future apoapsis: the far side (argpe) comes to the periapsis radius
+    # where the new periapsis goes: a horizontal burn off our apsides also kills the radial velocity (up to ~e v:
+    # ~360 m/s on Eve 2's capture orbit), so our own apsides + an apsides turn can be cheaper (_placement_plans)
     o = v.orbit
-    t = _t_at_arg(o, argpe + math.pi)
-    r1 = o.radius_at(t)
-    dv = math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))) - speed_at(o, t)
+    placed = ecc > 0.05  # KSP checks the argPe only above e 0.05 (VesselAtOrbit)
+    n1, a1 = _plane(o.inclination, o.longitude_of_ascending_node)
+    wt = _arg_of(o.inclination, o.longitude_of_ascending_node, tgt_dir)
+    plans = _placement_plans(mu, o.semi_major_axis, o.eccentricity, o.argument_of_periapsis, rp, ra, wt, placed)
+    tot, wp, dv1, dv2, turn, name = plans[0]
+    say(f"new periapsis {name}: ~{dv1:.0f} + {dv2:.0f}" + (f" + turn {turn:.0f}" if placed else "")
+        + f" = {tot:.0f} m/s (" + ", ".join(f"{p[5]} {p[0]:.0f}" for p in plans[1:])
+        + ("" if placed else "; the contract ignores the argPe at e <= 0.05") + ")")
+    pe_dir = tuple(math.cos(wp) * x + math.sin(wp) * y for x, y in zip(a1, _cross(n1, a1)))
 
-    def cost1(n):
-        time.sleep(0.03)
-        no = n.orbit
-        return abs(no.radius_at_true_anomaly(argpe - no.argument_of_periapsis) - rp) / 1000
-    node = v.control.add_node(t, dv, 0, 0)
-    tune_node(node, cost1, steps=(("prograde", 1.0), ("radial", 1.0)))
+    def u_pe(d=pe_dir):
+        """Argument of latitude of the direction d (default: the new periapsis) on our orbit now."""
+        o = v.orbit
+        return _arg_of(o.inclination, o.longitude_of_ascending_node, d)
+
+    # burn 1 opposite the new periapsis: velocity horizontal there, so the far side comes to rp (a free radial
+    # component here once left that point off the apsis: Mun Sat 1)
+    o = v.orbit
+    t = _t_at_arg(o, u_pe() + math.pi)
+    r1 = o.radius_at(t)
+    node = _apsis_burn(v, t, math.sqrt(mu * (2 / r1 - 2 / (r1 + rp))), frame)
     if node.delta_v > 2.0:  # below that it's burn-residual noise (Keo Relay 3: --plan stopped on 1.2, 0.7, ... trims)
         say(f"periapsis side to {rp - R:.0f} m: {node.delta_v:.1f} m/s")
-        _approve(node, dv, rp - R)
+        _approve(node, dv1, rp - R)
         execute_node(node)
     else:
         node.remove()
 
-    # burn 2 at argpe: raise the apoapsis
+    # burn 2 at the new periapsis: horizontal again, for the apoapsis
     o = v.orbit
-    t = _t_at_arg(o, argpe)
+    t = _t_at_arg(o, u_pe())
     r2 = o.radius_at(t)
-    dv = math.sqrt(mu * (2 / r2 - 2 / (r2 + ra))) - speed_at(o, t)
+    node = _apsis_burn(v, t, math.sqrt(mu * (2 / r2 - 2 / (r2 + ra))), frame)
+    if node.delta_v > 2.0:
+        say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s (pe {r2 - R:.0f} m here)")
+        _approve(node, dv2, rp - R)
+        execute_node(node)
+    else:
+        node.remove()
 
-    def cost2(n):
-        time.sleep(0.03)
-        no = n.orbit
-        # argPe only counts for eccentric targets (the contract ignores it below e 0.05); without the inclination
-        # term the tuner flipped Keo Relay 2 retrograde (1602 m/s) to please the argPe of a near-circle
-        return (abs(no.periapsis - rp) + abs(no.apoapsis - ra)) / 1000 \
-            + (0.2 * _ang(no.argument_of_periapsis, argpe) if ecc >= 0.05 else 0.0) \
-            + 10 * math.degrees(_rel_inc(no.inclination, no.longitude_of_ascending_node, inc, lan))
-    node = v.control.add_node(t, dv, 0, 0)
-    tune_node(node, cost2, steps=(("prograde", 1.0), ("radial", 1.0), ("ut", 20.0)))
-    say(f"apoapsis to {ra - R:.0f} m: {node.delta_v:.1f} m/s")
-    _approve(node, dv, rp - R)
-    execute_node(node)
-
-    if abs(v.orbit.periapsis - rp) > 0.01 * rp:  # Polar Relay 1 came out 13 % low: fix it at the apoapsis
-        change_periapsis(rp - R)
+    # the argPe as KSP's contract measures it; turn the apsides if it is still off
     o = v.orbit
+    tol = max(1.0, 0.3 * window / 100 * 360)
+    off = _argpe_off(math.degrees(o.inclination), math.degrees(o.longitude_of_ascending_node),
+                     math.degrees(o.argument_of_periapsis), inc_d, lan_d, argpe_d)
+    if placed and o.eccentricity > 0.02 and off > tol:
+        _rotate_apsides(v, (u_pe(tgt_dir) - o.argument_of_periapsis + math.pi) % (2 * math.pi) - math.pi, off, tol,
+                        (inc_d, lan_d, argpe_d))
+
+    # trims (pe at the apoapsis, then ap at the periapsis): Polar Relay 1 came out 13 % low
+    for which in ("pe", "ap"):
+        o = v.orbit
+        now, want = (o.periapsis, rp) if which == "pe" else (o.apoapsis, ra)
+        if abs(now - want) <= 0.01 * (want - R):
+            continue
+        at = o.apoapsis if which == "pe" else o.periapsis
+        t = ut() + (o.time_to_apoapsis if which == "pe" else o.time_to_periapsis)
+        if t < ut() + 60:
+            t += o.period
+        dv = math.sqrt(mu * (2 / at - 2 / (at + want))) - math.sqrt(mu * (2 / at - 1 / o.semi_major_axis))
+        if abs(dv) < 0.3:
+            continue  # below the burn accuracy
+        node = v.control.add_node(t, dv, 0, 0)
+        say(f"{which} trim {now - R:.0f} -> {want - R:.0f} m: {dv:+.1f} m/s")
+        _approve(node, abs(dv), rp - R)
+        execute_node(node, tol=0.05)
+    o = v.orbit
+    off = _argpe_off(math.degrees(o.inclination), math.degrees(o.longitude_of_ascending_node),
+                     math.degrees(o.argument_of_periapsis), inc_d, lan_d, argpe_d)
     say(f"orbit pe {o.periapsis_altitude:.0f} (want {rp - R:.0f}) ap {o.apoapsis_altitude:.0f} (want {ra - R:.0f}) "
-        f"inc {math.degrees(o.inclination):.2f} (want {math.degrees(inc):.2f}) "
-        f"lan {math.degrees(o.longitude_of_ascending_node):.1f} (want {math.degrees(lan):.1f}) "
-        f"argpe {math.degrees(o.argument_of_periapsis):.1f} (want {math.degrees(argpe):.1f})")
+        f"inc {math.degrees(o.inclination):.2f} (want {inc_d:.2f}) "
+        f"lan {math.degrees(o.longitude_of_ascending_node):.1f} (want {lan_d:.1f}) "
+        f"argpe {math.degrees(o.argument_of_periapsis):.1f} (want {argpe_d:.1f}): argPe off {off:.1f} deg as KSP "
+        f"measures it (window {window / 100 * 360:.1f}" + (", not checked at e <= 0.05)" if ecc <= 0.05 else ")"))
+
+
+def _rotate_apsides(v, dw, off, tol, target):
+    """Turn the line of apsides by dw (rad, forward) with the shape kept: a radial burn at one of the two points
+    where the old and new orbits cross (_apsides_turns). Uncrewed away from Kerbin: the first one whose burn has
+    the direct line to Kerbin (_link_forecast; Mun Sat 1's pe-side point was behind the Mun and `node` refused),
+    over the next 3 orbits; else the first one. target: (inc, lan, argpe) deg for the printout."""
+    o = v.orbit
+    body = o.body
+    mu = body.gravitational_parameter
+    frame = body.non_rotating_reference_frame
+    p = o.semi_major_axis * (1 - o.eccentricity ** 2)
+    turns = _apsides_turns(mu, p, o.eccentricity, dw)
+    cands = []
+    for nu, dvr in turns:
+        t = o.ut_at_true_anomaly(nu)
+        while t < ut() + 60:
+            t += o.period
+        cands += [(t + k * o.period, nu, dvr) for k in range(3)]
+    cands.sort()
+    link, why = None, "crewed: no link check" if _crewed(v) else \
+        ("around Kerbin: no link check" if body.name == "Kerbin" else "link clear")
+    if why == "link clear":
+        par = body.orbit.body
+        link = _link_forecast(o, [body] + ([par] if par.orbit is not None and par.name != "Kerbin" else []))
+    pick, notes = None, []
+    for t, nu, dvr in cands:
+        if link is None:
+            pick = (t, nu, dvr)
+            break
+        start = t - burn_lead(v, abs(dvr))
+        tb, worst = _blackout(link, start, start + burn_time(v, abs(dvr)) + 25.0)
+        if tb is None:
+            pick = (t, nu, dvr)
+            break
+        notes.append(f"nu {math.degrees(nu):.0f} in {t - ut():.0f} s: Kerbin behind {worst[1]}")
+    if pick is None:
+        pick, why = cands[0], "no forecast link in 3 orbits (relays not counted): the first point; " \
+                               "`node` waits for a link"
+    t, nu, dvr = pick
+    r = o.position_at(t, frame)
+    node = v.control.add_node(t, 0, 0, 0)
+    _set_node_dv(node, tuple(dvr * x for x in _norm(r)), frame)
+    no = node.orbit
+    after = _argpe_off(math.degrees(no.inclination), math.degrees(no.longitude_of_ascending_node),
+                       math.degrees(no.argument_of_periapsis), *target)
+    say(f"argPe off {off:.1f} deg (> {tol:.1f}): apsides rotation {math.degrees(dw):+.1f} deg, radial {dvr:+.1f} m/s "
+        f"at true anomaly {math.degrees(nu):.0f} in {t - ut():.0f} s ("
+        + why + ") -> argPe "
+        f"{math.degrees(no.argument_of_periapsis):.1f} (off {after:.1f}), pe {no.periapsis_altitude:.0f} "
+        f"ap {no.apoapsis_altitude:.0f}" + ("; " + "; ".join(notes) if notes else ""))
+    _approve(node, abs(dvr))
+    execute_node(node, tol=0.05)
 
 
 def return_to_parent(pe_alt=30000):

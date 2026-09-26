@@ -450,7 +450,7 @@ PHASES = {
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "depart": lambda a: flight.depart_planet(a.body, a.pe, a.at, a.max_arrival, a.horizon),
-    "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
+    "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc, a.window),
     "wait-plane": lambda a: flight.wait_plane(a.inc, a.lan),
     "reentry": _reentry,
     "deorbit": lambda a: flight.deorbit(a.pe, a.at, a.under, a.sunward, a.ignore_link),
@@ -577,6 +577,9 @@ def main(argv=None):
     p = add("match-orbit", PHASES["match-orbit"], help="reach an orbit given by elements (a contract's specific orbit)")
     for k in ("inc", "lan", "argpe", "sma", "ecc"):
         p.add_argument("--" + k, type=float, required=True)
+    p.add_argument("--window", type=float, default=3.0,
+                   help="the contract's deviation window (%%): the apsides are turned when the argPe is off by more "
+                        "than max(1 deg, 0.3 x window x 3.6)")
     p = add("wait-plane", PHASES["wait-plane"], help="on the pad: warp until launch into plane --inc/--lan, print heading")
     p.add_argument("--inc", type=float, required=True)
     p.add_argument("--lan", type=float, required=True)

@@ -205,6 +205,270 @@ class AimPointTurn(unittest.TestCase):
         self.assertLess(dv, 10.0)
 
 
+class MatchOrbit(unittest.TestCase):
+    MUN = 6.5138398e10
+
+    def test_argpe_off_like_ksp(self):
+        # Mun Sat 1 after match-orbit: 17.8 deg off (window 3 % = 10.8)
+        self.assertAlmostEqual(F._argpe_off(146.05, 275.9, 195.7, 146.04, 275.87, 177.93), 17.77, places=2)
+        self.assertAlmostEqual(F._argpe_off(146.0, 275.9, 359.0, 146.0, 275.9, 1.0), 2.0, places=6)
+        # the Eve contract (inc 0, LAN 0, argPe 330.23): KSP compares LAN + argPe; our LAN 100 is fine
+        self.assertAlmostEqual(F._argpe_off(0.3, 100.0, 230.23, 0.0, 0.0, 330.23), 0.0, places=6)
+        self.assertAlmostEqual(F._argpe_off(0.3, 100.0, 330.23, 0.0, 0.0, 330.23), 100.0, places=6)
+        # retrograde equatorial: LAN - argPe
+        self.assertAlmostEqual(F._argpe_off(179.6, 50.0, 20.0, 180.0, 0.0, 330.0), 0.0, places=6)
+
+    def test_target_periapsis_on_our_orbit(self):
+        pe = lambda i, l, w: F.kepler.Orbit(1.0, 1.0, 0.1, *map(math.radians, (i, l, w)), 0.0, 0.0).P
+        # same plane: the argument of latitude is the target's argPe
+        u = F._arg_of(math.radians(146.04), math.radians(275.87), pe(146.04, 275.87, 177.93))
+        self.assertAlmostEqual(math.degrees(u) % 360, 177.93, places=6)
+        # near the equator with our LAN at 100: 330.23 - 100, not 330.23 (the Eve 2 plan's gap 9)
+        u = F._arg_of(math.radians(0.3), math.radians(100.0), pe(0.0, 0.0, 330.23))
+        self.assertAlmostEqual(math.degrees(u) % 360, 230.23, delta=0.01)
+
+    def test_apsides_turn_keeps_the_shape(self):
+        # Mun Sat 1's hand fix: 457.9 x 746.7 km, argPe 195.7 -> 177.93: ~16 m/s radial at either crossing
+        R, mu = 200e3, self.MUN
+        rp, ra = R + 457.9e3, R + 746.7e3
+        a, e = (rp + ra) / 2, (ra - rp) / (ra + rp)
+        o = F.kepler.Orbit(mu, a, e, math.radians(146.05), math.radians(275.9), math.radians(195.7), 0.0, 0.0)
+        dw = math.radians(177.93 - 195.7)
+        turns = F._apsides_turns(mu, a * (1 - e * e), e, dw)
+        self.assertEqual(len(turns), 2)
+        for nu, dvr in turns:
+            self.assertAlmostEqual(abs(dvr), 16.0, delta=1.0)
+            r, v = o.state_at_nu(nu)
+            n = F.kepler.Orbit.from_state(mu, r, tuple(x + dvr * y for x, y in zip(v, F._norm(r))), 0.0)
+            self.assertAlmostEqual(math.degrees(n.argpe), 177.93, places=4)
+            self.assertAlmostEqual(n.e, e, places=9)
+            self.assertAlmostEqual(n.a, a, delta=1e-3)
+            self.assertAlmostEqual(math.degrees(n.lan), 275.9, places=6)
+
+    def test_placement_plans(self):
+        # Eve 2's capture orbit, periapsis longitude 140 vs the contract's 330.23: our apoapsis + a turn is cheapest
+        mu, R = 8.1717302e12, 700e3
+        rp0, ra0 = R + 120e3, R + 19131e3
+        sma, ecc = 18868437.0, 0.05102
+        plans = F._placement_plans(mu, (rp0 + ra0) / 2, (ra0 - rp0) / (ra0 + rp0), math.radians(140.0),
+                                   sma * (1 - ecc), sma * (1 + ecc), math.radians(330.23), True)
+        self.assertEqual(plans[0][5], "at our apoapsis")
+        self.assertLess(plans[0][0], 550)
+        direct = [p for p in plans if p[5] == "at the target's periapsis"][0]
+        self.assertGreater(direct[0], 800)
+        self.assertEqual(direct[4], 0.0)
+        # argPe ignored (e <= 0.05): no turn is costed
+        plans = F._placement_plans(mu, (rp0 + ra0) / 2, (ra0 - rp0) / (ra0 + rp0), math.radians(140.0),
+                                   sma * 0.97, sma * 1.03, math.radians(330.23), False)
+        self.assertTrue(all(p[4] == 0.0 for p in plans))
+
+    def placed(self, mu, R, ours, target):
+        """match_orbit's burns 1 and 2 on two-body orbits: horizontal at the target's apoapsis and periapsis
+        directions (found on our orbit by _arg_of). ours: (pe alt, ap alt, inc, lan, argpe); target: (inc, lan,
+        argpe, sma, ecc)."""
+        rp0, ra0 = R + ours[0], R + ours[1]
+        o = F.kepler.Orbit(mu, (rp0 + ra0) / 2, (ra0 - rp0) / (ra0 + rp0), *map(math.radians, ours[2:]), 0.0, 0.0)
+        ti, tl, tw, sma, ecc = target
+        rp, ra = sma * (1 - ecc), sma * (1 + ecc)
+        P = F.kepler.Orbit(mu, sma, ecc, *map(math.radians, (ti, tl, tw)), 0.0, 0.0).P
+        for off, far in ((math.pi, rp), (0.0, ra)):
+            nu = F._arg_of(o.inc, o.lan, P) + off - o.argpe
+            r, v = o.state_at_nu(nu)
+            rr = math.sqrt(F._dot(r, r))
+            dv = F._horizontal_dv(r, v, math.sqrt(mu * (2 / rr - 2 / (rr + far))))
+            o = F.kepler.Orbit.from_state(mu, r, tuple(x + y for x, y in zip(v, dv)), 0.0)
+        return o, rp, ra
+
+    def test_burns_place_the_periapsis(self):
+        # Mun Sat 1 from its capture orbit (429 x 778 km) in the contract plane
+        tgt = (146.04, 275.87, 177.93, 803347.0, 0.181)
+        o, rp, ra = self.placed(self.MUN, 200e3, (429e3, 778e3, 146.04, 275.87, 150.0), tgt)
+        self.assertAlmostEqual(o.periapsis, rp, delta=1.0)
+        self.assertAlmostEqual(o.apoapsis, ra, delta=1.0)
+        self.assertLess(F._argpe_off(*map(math.degrees, (o.inc, o.lan, o.argpe)), *tgt[:3]), 0.01)
+        # the Eve 2 contract from a 120 x 19,131 km capture orbit at inc 0.3, LAN 100 (gap 9: LAN + argPe)
+        tgt = (0.0, 0.0, 330.23, 18868437.0, 0.05102)
+        o, rp, ra = self.placed(8.1717302e12, 700e3, (120e3, 19131e3, 0.3, 100.0, 40.0), tgt)
+        self.assertAlmostEqual(o.periapsis, rp, delta=1.0)
+        self.assertAlmostEqual(o.apoapsis, ra, delta=1.0)
+        self.assertLess(F._argpe_off(*map(math.degrees, (o.inc, o.lan, o.argpe)), *tgt[:3]), 0.01)
+
+    def fly_match(self, mu, R, ours, target, window):
+        """match_orbit end to end on a fake KSP (two-body patches, kRPC's left-handed frame, burns exact at the
+        node). ours: (pe alt, ap alt, inc, lan, argpe, true anomaly now); returns (final orbit, burns in m/s)."""
+        K = lambda p: (p[0], p[2], p[1])
+        body = NS(name="Body", gravitational_parameter=mu, equatorial_radius=R, non_rotating_reference_frame="f",
+                  orbit=NS(body=NS(name="Kerbin", orbit=None)), has_atmosphere=False)
+        clock = [0.0]
+
+        class Orb:
+            def __init__(self, k):
+                self.k, self.body = k, body
+                self.inclination, self.longitude_of_ascending_node = k.inc, k.lan
+                self.argument_of_periapsis, self.eccentricity, self.semi_major_axis = k.argpe, k.e, k.a
+                self.period, self.periapsis, self.apoapsis = k.period, k.periapsis, k.apoapsis
+                self.periapsis_altitude, self.apoapsis_altitude = k.periapsis - R, k.apoapsis - R
+                self.time_to_periapsis = k.time_of_nu(0.0, after=clock[0]) - clock[0]
+                self.time_to_apoapsis = k.time_of_nu(math.pi, after=clock[0]) - clock[0]
+
+            def ut_at_true_anomaly(self, nu):
+                return self.k.time_of_nu(nu, after=clock[0])
+
+            def radius_at(self, t):
+                return self.k.radius_at(t)
+
+            def position_at(self, t, frame):
+                return K(self.k.position(t))
+
+        rp0, ra0 = R + ours[0], R + ours[1]
+        k0 = F.kepler.Orbit(mu, (rp0 + ra0) / 2, (ra0 - rp0) / (ra0 + rp0), *map(math.radians, ours[2:5]), 0.0, 0.0)
+        state = {"o": Orb(F.kepler.Orbit.from_state(mu, *k0.state_at_nu(math.radians(ours[5])), 0.0))}
+
+        class Node:
+            def __init__(self, t, p=0.0, n=0.0, r=0.0):
+                self.ut, self.prograde, self.normal, self.radial = t, p, n, r
+                self.base = state["o"]
+
+            def dv(self):
+                r, v = self.base.k.state(self.ut)
+                pg, nm = F._norm(v), F._norm(F._cross(r, v))
+                return tuple(self.prograde * x + self.normal * y + self.radial * z
+                             for x, y, z in zip(pg, nm, F._cross(pg, nm)))
+
+            def burn_vector(self, frame):
+                return K(self.dv())
+
+            def remove(self):
+                pass
+
+            delta_v = property(lambda self: math.sqrt(F._dot(self.dv(), self.dv())))
+
+            @property
+            def orbit(self):
+                r, v = self.base.k.state(self.ut)
+                return Orb(F.kepler.Orbit.from_state(mu, r, tuple(x + y for x, y in zip(v, self.dv())), self.ut))
+
+        burns = []
+
+        def execute(node, **kw):
+            burns.append(node.delta_v)
+            clock[0] = node.ut
+            state["o"] = node.orbit
+        names = ("ut", "vessel", "_crewed", "_approve", "execute_node", "burn_lead", "burn_time")
+        saved = [getattr(F, n) for n in names]
+        class Vessel:
+            control = NS(add_node=Node)
+            orbit = property(lambda self: state["o"])
+        v = Vessel()
+        F.ut, F.vessel, F._crewed = lambda: clock[0], lambda: v, lambda v: True
+        F._approve, F.execute_node = (lambda node, expect, *a, **kw: None), execute
+        F.burn_lead, F.burn_time = lambda v, dv: 0.0, lambda v, dv: 1.0
+        try:
+            F.match_orbit(*target, window=window)
+        finally:
+            for n, f in zip(names, saved):
+                setattr(F, n, f)
+        return state["o"], burns
+
+    def test_match_orbit_on_a_fake_ksp(self):
+        # Mun Sat 1 after its plane change (429 x 778 km in the contract plane): the argPe lands without a rotation
+        tgt = (146.04, 275.87, 177.93, 803347.0, 0.181)
+        o, burns = self.fly_match(self.MUN, 200e3, (429e3, 778e3, 146.04, 275.87, 150.0, 20.0), tgt, 3.0)
+        self.assertAlmostEqual(o.periapsis_altitude, 457.9e3, delta=500)
+        self.assertAlmostEqual(o.apoapsis_altitude, 748.8e3, delta=0.01 * 748.8e3)  # burn 2 < 2 m/s: skipped
+        self.assertLess(F._argpe_off(*map(math.degrees, (o.inclination, o.longitude_of_ascending_node,
+                                                         o.argument_of_periapsis)), *tgt[:3]), 0.5)
+        self.assertLessEqual(len(burns), 2)  # no rotation needed
+        # the Eve contract from 120 x 19,131 km at inc 0.1 (no plane change), LAN 100: LAN + argPe on 330.23
+        tgt = (0.0, 0.0, 330.23, 18868437.0, 0.05102)
+        o, burns = self.fly_match(8.1717302e12, 700e3, (120e3, 19131e3, 0.1, 100.0, 40.0, 200.0), tgt, 5.0)
+        self.assertLess(sum(burns), 550)  # our apoapsis + a 10 deg turn, not ~860 at the target's direction
+        self.assertEqual(len(burns), 3)
+        self.assertAlmostEqual(o.periapsis_altitude, 17206e3, delta=0.01 * 17206e3)
+        self.assertAlmostEqual(o.apoapsis_altitude, 19131e3, delta=0.01 * 19131e3)
+        self.assertLess(F._argpe_off(*map(math.degrees, (o.inclination, o.longitude_of_ascending_node,
+                                                         o.argument_of_periapsis)), *tgt[:3]), 0.5)
+
+    def test_rotation_skips_the_blocked_point(self):
+        # _rotate_apsides on a fake KSP (kRPC's left-handed frame): the first crossing is behind the Mun, the
+        # burn goes to the other one and lands the argPe on the target
+        K = lambda p: (p[0], p[2], p[1])
+        mu, R = self.MUN, 200e3
+        mun = NS(name="Mun", gravitational_parameter=mu, equatorial_radius=R, non_rotating_reference_frame="f",
+                 orbit=NS(body=NS(name="Kerbin", orbit=None)))
+
+        class Orb:
+            def __init__(self, k, t0=0.0):
+                self.k, self.body, self.t0 = k, mun, t0
+                self.inclination, self.longitude_of_ascending_node = k.inc, k.lan
+                self.argument_of_periapsis, self.eccentricity, self.semi_major_axis = k.argpe, k.e, k.a
+                self.period = k.period
+                self.periapsis_altitude, self.apoapsis_altitude = k.periapsis - R, k.apoapsis - R
+
+            def ut_at_true_anomaly(self, nu):
+                return self.k.time_of_nu(nu, after=self.t0)
+
+            def position_at(self, t, frame):
+                return K(self.k.position(t))
+
+        rp, ra = R + 457.9e3, R + 746.7e3
+        a, e = (rp + ra) / 2, (ra - rp) / (ra + rp)
+        now = Orb(F.kepler.Orbit(mu, a, e, math.radians(146.05), math.radians(275.9), math.radians(195.7), 0.0,
+                                 0.0))
+
+        class Node:
+            prograde = normal = radial = 0.0
+
+            def __init__(self, t, *c):
+                self.ut = t
+
+            def dv(self):
+                r, v = now.k.state(self.ut)
+                pg, nm = F._norm(v), F._norm(F._cross(r, v))
+                return tuple(self.prograde * x + self.normal * y + self.radial * z
+                             for x, y, z in zip(pg, nm, F._cross(pg, nm)))
+
+            def burn_vector(self, frame):
+                return K(self.dv())
+
+            delta_v = property(lambda self: math.sqrt(F._dot(self.dv(), self.dv())))
+
+            @property
+            def orbit(self):
+                r, v = now.k.state(self.ut)
+                return Orb(F.kepler.Orbit.from_state(mu, r, tuple(x + y for x, y in zip(v, self.dv())), self.ut))
+
+        dw = math.radians(177.93 - 195.7)
+        first = min(now.ut_at_true_anomaly(nu) for nu, _ in F._apsides_turns(mu, a * (1 - e * e), e, dw))
+        burned = []
+        names = ("ut", "_crewed", "_link_forecast", "burn_lead", "burn_time", "_approve", "execute_node")
+        saved = [getattr(F, n) for n in names]
+        F.ut, F._crewed = lambda: -100.0, lambda v: False
+        F._link_forecast = lambda o, occ: (lambda t: (-1.0 if abs(t - first) < 600 else 1e5, occ[0].name))
+        F.burn_lead, F.burn_time = lambda v, dv: 1.0, lambda v, dv: 2.0
+        F._approve = lambda node, expect, *a, **kw: None
+        F.execute_node = lambda node, **kw: burned.append(node)
+        try:
+            v = NS(orbit=now, control=NS(add_node=Node))
+            F._rotate_apsides(v, dw, 17.8, 3.2, (146.04, 275.87, 177.93))
+            # never a link in the forecast (relays are not counted): the first point anyway
+            F._link_forecast = lambda o, occ: (lambda t: (-1.0, occ[0].name))
+            F._rotate_apsides(v, dw, 17.8, 3.2, (146.04, 275.87, 177.93))
+            self.assertAlmostEqual(burned.pop().ut, first, delta=1e-6)
+        finally:
+            for n, f in zip(names, saved):
+                setattr(F, n, f)
+        self.assertEqual(len(burned), 1)
+        n = burned[0]
+        self.assertGreater(abs(n.ut - first), 600)
+        self.assertLess(n.ut, first + now.period)  # the other crossing of the same orbit
+        self.assertAlmostEqual(n.delta_v, 16.0, delta=1.0)
+        o = n.orbit
+        self.assertLess(F._argpe_off(*map(math.degrees, (o.inclination, o.longitude_of_ascending_node,
+                                                         o.argument_of_periapsis)), 146.04, 275.87, 177.93), 0.1)
+        self.assertAlmostEqual(o.periapsis_altitude, 457.9e3, delta=100)
+
+
 class CaptureLink(unittest.TestCase):
     def test_ray_clearance(self):
         R = 700e3
