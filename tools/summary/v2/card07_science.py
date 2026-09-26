@@ -40,7 +40,7 @@ css = '''
 .ab .t b{font-family:'JetBrains Mono',monospace;font-size:30px;color:var(--sci);line-height:1.1}
 .ab .t span{font-size:17px;color:var(--muted);white-space:nowrap}
 .badge{font-size:17px;font-weight:700;letter-spacing:.08em;color:#1a1033;background:var(--tech);border-radius:999px;padding:4px 12px}
-.tg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px 10px;margin-top:12px}
+.tg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 10px;margin-top:12px}
 .tn{display:flex;align-items:center;gap:8px;height:48px}
 .tn .hx{width:38px;height:38px;border-radius:11px;background:linear-gradient(160deg,#3b2c6e,#241a47);border:1.5px solid #7c62d6;display:flex;align-items:center;justify-content:center;flex:none}
 .tn .t{font-size:17px;color:#c3cbe3;line-height:1.12;font-weight:500;letter-spacing:-.01em}

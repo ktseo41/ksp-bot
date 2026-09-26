@@ -3,14 +3,14 @@
  "career_now": {
   "date": "2026-09-26",
   "real_days": 3,
-  "ut": 27263324,
-  "ut_note": "game UT at the last update (main session, 2026-09-26, just after the Jool 1 mid-course)",
-  "funds": 2038738,
-  "science": 330.5,
+  "ut": 29550000,
+  "ut_note": "game UT at the last update (main session, 2026-09-26, just after the third Minmus Lab visit following Duna 1's Kerbin recovery)",
+  "funds": 2534973,
+  "science": 2118.0,
   "reputation": 458.2,
   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 2, "AstronautComplex": 2, "R&D": 3},
   "funds_start": 25000,
-  "funds_peak": 2840000,
+  "funds_peak": 3526795,
   "funds_peak_note": "after Rescue 4 (#36), LOG \"Rescue Mitbro done: funds 2.84M\"",
   "funds_spent_on_facilities": "MC2 75k, TS2 + Pad2, VAB2 225k, AC2, R&D2 451k, R&D3 1.69M",
   "funds_timeline_note": "funds after the launch (tick \"#n\") or after a facility purchase (tick \"facility\"); funds null = purchase with no balance in the LOG (marker only). Sources: LOG.md mission entries",
@@ -42,7 +42,8 @@
     {"tick": "#40", "funds": 1440000, "label": null},
     {"tick": "#42", "funds": 1810000, "label": null},
     {"tick": "#43", "funds": 2190000, "label": "2.19M"},
-    {"tick": "#45", "funds": 2038738, "label": "2.04M"}
+    {"tick": "#45", "funds": 2038738, "label": "2.04M"},
+    {"tick": "R30", "funds": 2534973, "label": "2.53M"}, {"tick": "Ike", "funds": 3526795, "label": "3.53M"}
    ]
  },
  "firsts": [
@@ -91,7 +92,7 @@
    {"n":27,"craft":"Polar Relay 1","slug":"polar-relay-1","dest":"kerbin-orbit","stat":"polar relay","crew":"-","goal":"contract polar orbit (inc 90, LAN 205, 1259 x 1883 km) with RA-2 relay + Science Jr","result":"success","note":"launch timed on the pad's inertial longitude (LAN 204.1 on arrival); first match-orbit: plane 198 + 489 + 573 m/s, periapsis came out 13 % low and the plane burn dipped it into the air; fixed with a 30 m/s periapsis burn; contract done, first relay satellite","date":"2026-09-25"},
    {"n":28,"craft":"Salvage 1","slug":"salvage-1","dest":"minmus","stat":"no grab","crew":"Jeb","goal":"Klaw-grab the contract's loose Thud (Module 761V7) in Minmus orbit and bring it home","result":"failed","note":"crewed (CommNet signal required); arrival flipped from retrograde to prograde with correct --inc-to (7.7 m/s); rendezvous held 28 m; hours of engine-only grab attempts bounced off, the Thud spun up to 160 deg/s (stopped with a moment of rails warp); raycast face maps; Jeb home, science 62.7 -> 95.2 -> RCS researched","date":"2026-09-25"},
    {"n":29,"craft":"Salvage 2","slug":"salvage-2","dest":"minmus","stat":"no grab","crew":"Jeb","goal":"second try with RCS (4x RV-105)","result":"failed","note":"a 90 deg plane change tuned itself onto a Minmus escape (cost ignored the orbit's energy) and a recovery burn went the wrong way (orbital_speed_at is wrong on a hyperbola); recaptured by a closed-loop retrograde burn; RCS held the Klaw square to the Thud's flat face within 0.03-0.09 m at 0.15 m/s, yet every contact bounced (0.5 m/s back) until the monopropellant ran out; Klaw diagnostics (KspBot GrappleDebug) show it armed and Ready; Jeb home","date":"2026-09-25"},
-   {"n":30,"craft":"Duna 1","slug":"duna-1","dest":"duna","stat":"landed","crew":"Valentina","goal":"first Duna landing and return (orbit + surface science kept aboard, orbital EVA report)","result":"in progress","note":"first launch reverted at Duna (arrival v_inf 1364 m/s: ejection sized for Duna's mean radius, the tuner twisted the path); relaunch v_inf 1037, elliptical capture 59 x 1007 km (539 m/s), orbit science + EVA report, land_atmo died at 28 km on a kRPC chute error -> emergency script, powered landing in the Midlands at 1.4 m/s; ~2800 m/s left, waiting 600 days for the Kerbin window","date":"2026-09-25"},
+   {"n":30,"craft":"Duna 1","slug":"duna-1","dest":"duna","stat":"landed, returned","crew":"Valentina","goal":"first Duna landing and return (orbit + surface science kept aboard, orbital EVA report)","result":"success","note":"FIRST CREWED PLANETARY LANDING & RETURN (Valentina). First launch reverted at Duna (arrival v_inf 1364 m/s: ejection sized for Duna's mean radius, the tuner twisted the path); relaunch v_inf 1037, elliptical capture 59 x 1007 km (539 m/s), orbit science + EVA report, land_atmo died at 28 km on a kRPC chute error -> emergency script, powered landing in the Midlands at 1.4 m/s. Return: Kerbin SOI pe 204 km, a 2,200 km Mun flyby to dodge the moon-penalty tuner block, reentry, splashdown at UT ~29,356,394; Valentina recovered: funds 2.35 -> 2.53M, sci 1,329 -> 1,626 (+297); \"Explore Duna\" done. ~80 of the ~378 sci aboard was lost because the Duna surface goo/thermometer sat on the lander stage the old reentry code jettisons (fixed: StoreScience + collect_science before jettison); the \"surface science from Duna\" contract stayed open","date":"2026-09-25"},
    {"n":31,"craft":"Keo Relay 1","slug":"keo-relay-1","dest":"kerbin-orbit","stat":"keo relay","crew":"-","goal":"keosynchronous contract orbit (inc 34, e 0.10) with RA-2 relay","result":"success","note":"launch timed into the plane (wait-plane); match-orbit 92 + 643 + 523 m/s; contract done; spent Kickbacks rode to 70 km (fixed)","date":"2026-09-25"},
    {"n":32,"craft":"Keo Relay 2","slug":"keo-relay-2","dest":"kerbin-orbit","stat":"keo relay","crew":"-","goal":"second keosynchronous contract orbit (inc 22, near-circular)","result":"success","note":"match-orbit flipped it retrograde chasing a meaningless argPe; recovered with a bi-elliptic reversal (9,000 km apoapsis, 1150 m/s) and a capture burn; contract done","date":"2026-09-25"},
    {"n":33,"craft":"Rescue 2","slug":"rescue-2","dest":"kerbin-orbit","stat":"no grab","crew":"-","goal":"rescue Gwenbro (Mk1 Lander Can, LKO), engine-only Klaw craft","result":"reverted","note":"rendezvous held 60 m; every square contact bounced; user: revert and use RCS","date":"2026-09-25"},
@@ -106,7 +107,7 @@
    {"n":42,"craft":"Keo Relay 3","slug":"keo-relay-3","dest":"kerbin-orbit","stat":"contract","crew":"-","goal":"keosynchronous satellite with a gravioli detector and a thermometer (contract)","result":"success","note":"Keo Relay 2 with a gravimeter; match-orbit 13 + 647 + 457 m/s, all elements within 0.1 %; 4617 m/s left as a spare relay","date":"2026-09-26"},
    {"n":43,"craft":"Rescue 6","slug":"rescue-6","dest":"minmus-orbit","stat":"rescue","crew":"- (brought home Elfry, Barzor)","goal":"two rescue contracts in one flight: Elfry from LKO, then Barzor and his Mk1 lander can from a 7 km Minmus orbit","result":"success","note":"first try reverted: SAS/RCS left on by a back-off script fought the grab autopilot and emptied the monopropellant and battery; transfer-crew mixed up two identical Mk1-3 pods; the lander can rode home on the Klaw behind the heat shield; +309k","date":"2026-09-26"},
    {"n":44,"craft":"Jool 1","slug":"jool-1","dest":"jool","stat":"probe","crew":"-","goal":"first Jool mission: uncrewed Nerv orbiter with three big dishes and a science set","result":"en route","note":"the ejection stopped 601 m/s short (the burn-time estimate used the first of two stages); finished right away with 601 + 278 m/s; Jool arrival about 1,180 days later","date":"2026-09-26"},
-   {"n":45,"craft":"Ike Station 1","slug":"ike-station-1","dest":"duna","stat":"contract","crew":"-","goal":"a station with nine seats, a cupola and an ISRU unit in orbit of Ike (contract, 905.6k)","result":"en route","note":"first Twin-Boar flight; reached orbit with the transfer stage still full; ejection 1085 + 27 m/s","date":"2026-09-26"}
+   {"n":45,"craft":"Ike Station 1","slug":"ike-station-1","dest":"duna","stat":"contract","crew":"-","goal":"a station with nine seats, a cupola and an ISRU unit in orbit of Ike (contract, 905.6k)","result":"success","note":"first Twin-Boar flight; ejection 1085 + 27 m/s, Duna capture 586, Ike transfer 310; the capture burn at Ike never fired (the probe lost its link behind Duna), so it waited for the signal and braked a minute later: Ike orbit 34 x 524 km, contract +905.6k","date":"2026-09-26"}
   ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
@@ -122,8 +123,8 @@
    ],
   "note": "Normal difficulty: lost veterans respawn later, so Jeb and Bill are flying again",
   "roster": [
-    {"name": "Jebediah", "trait": "Pilot", "status_ko": "Eve 궤도 대기", "flights": [5, 6, 11, 18, 19, 20, 21, 22, 25, 28, 29, 37], "deaths_stood": [6, 11], "deaths_reverted": [13, 13]},
-    {"name": "Valentina", "trait": "Pilot", "status_ko": "Duna → Kerbin 귀환 중", "flights": [30], "deaths_stood": [], "deaths_reverted": [13], "first_n": 30},
+    {"name": "Jebediah", "trait": "Pilot", "status_ko": "Eve → Kerbin 귀환 중", "flights": [5, 6, 11, 18, 19, 20, 21, 22, 25, 28, 29, 37], "deaths_stood": [6, 11], "deaths_reverted": [13, 13]},
+    {"name": "Valentina", "trait": "Pilot", "status_ko": "KSC (Duna 귀환)", "flights": [30], "deaths_stood": [], "deaths_reverted": [13], "first_n": 30},
     {"name": "Bob", "trait": "Scientist", "status_ko": "Minmus Lab 1", "flights": [16, 23, 38, 39, 41], "deaths_stood": [], "deaths_reverted": [13, 41, 41, 41], "first_n": 16},
     {"name": "Bill", "trait": "Engineer", "status_ko": "KSC", "flights": [7, 8, 10, 12], "deaths_stood": [12], "deaths_reverted": [8], "first_n": 10}
    ],
@@ -226,19 +227,21 @@
     {"ut": 24293116, "n": 44, "label_ko": "Jool 1 출발", "approx": true},
     {"ut": 25054465, "n": 45, "label_ko": "Ike Station 1 출발", "approx": true},
     {"ut": 26854269, "n": 30, "label_ko": "Duna 1 중간 보정", "approx": true},
-    {"ut": 27263628, "n": 44, "label_ko": "Jool 1 중간 보정", "approx": true}
+    {"ut": 27263628, "n": 44, "label_ko": "Jool 1 중간 보정", "approx": true},
+    {"ut": 29029189, "n": 37, "label_ko": "Eve 1 귀환 출발"},
+    {"ut": 29087752, "n": 37, "label_ko": "Eve 1 Eve 이탈", "approx": true},
+    {"ut": 29356394, "n": 30, "label_ko": "Duna 1 귀환", "approx": true}
    ],
   "future": [
-    {"ut": 29029189, "n": 37, "label_ko": "Eve 1 귀환 출발"},
-    {"ut": 29268764, "n": 30, "label_ko": "Duna 1 Kerbin 도착"},
     {"ut": 30679045, "n": 45, "label_ko": "Ike Station 1 Duna 도착"},
+    {"ut": 35460000, "n": 37, "label_ko": "Eve 1 Kerbin 도착", "approx": true},
     {"ut": 52787080, "n": 44, "label_ko": "Jool 도착"}
    ]
  },
  "real_days": [
    {"date": "2026-09-24", "n_first": 1, "n_last": 20, "ut_end": 1790000, "approx": true, "src": "LOG 09-24 entry: Duna window computed \"from UT 1.79M\" after #18 (lower bound)"},
    {"date": "2026-09-25", "n_first": 21, "n_last": 34, "ut_end": 11790000, "approx": true, "src": "LOG 09-26 Eve 1 entry: \"now ~11,790,000\" early on day 3 (upper bound)"},
-   {"date": "2026-09-26", "n_first": 35, "n_last": 45, "ut_end": 27263324, "approx": true, "src": "career_now.ut"}
+   {"date": "2026-09-26", "n_first": 35, "n_last": 45, "ut_end": 30752200, "approx": true, "src": "career_now.ut"}
   ],
  "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation"},
  "landings_by_body": {"_note": "crewed/landing MISSIONS that landed and came home (launch numbers), not touchdowns", "minmus": [10, 18, 20, 22, 25, 38], "mun": [16, 23], "duna": [30]},
@@ -276,9 +279,8 @@
   ],
  "live_missions": [
    {"slug": "jool-1", "n": 44, "type": "probe", "body": "jool", "crew": [], "where_ko": "Jool로 이동 중", "next_ko": "Jool 도착", "next_ut": 52787080, "from": "kerbin", "to": "jool"},
-   {"slug": "ike-station-1", "n": 45, "type": "probe", "body": "duna", "crew": [], "where_ko": "Duna로 이동 중", "next_ko": "Duna 도착", "next_ut": 30679045, "from": "kerbin", "to": "duna"},
-   {"slug": "duna-1", "n": 30, "type": "crewed", "body": "duna", "crew": ["Valentina"], "where_ko": "Duna → Kerbin", "next_ko": "Kerbin 도착", "next_ut": 29268764, "sci_aboard": 378, "from": "duna", "to": "kerbin"},
-   {"slug": "eve-1", "n": 37, "type": "crewed", "body": "eve", "crew": ["Jeb"], "where_ko": "Eve 궤도 142×40,000 km", "next_ko": "귀환 출발", "next_ut": 29029189, "sci_aboard": 1017},
+   {"slug": "ike-station-1", "n": 45, "type": "probe", "body": "ike", "crew": [], "where_ko": "Ike 궤도 (정거장)", "next_ko": "계약 완료", "next_ut": 30752200},
+   {"slug": "eve-1", "n": 37, "type": "crewed", "body": "eve", "crew": ["Jeb"], "where_ko": "Eve → Kerbin", "next_ko": "Kerbin 도착", "next_ut": 35460000, "sci_aboard": 1017, "from": "eve", "to": "kerbin"},
    {"slug": "minmus-lab-1", "n": 41, "type": "station", "body": "minmus", "crew": ["Bob", "Gwenbro"], "where_ko": "Minmus 극궤도 14 km", "next_ko": "실험실 방문", "sci_per_day": 9.3},
    {"slug": "polar-relay-1", "n": 27, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-1", "n": 31, "type": "satellite", "body": "kerbin"},
@@ -287,15 +289,17 @@
   ],
  "science_hauls": [
    {"n": 25, "gain": 565, "how": "회수"},
+   {"n": 30, "gain": 297, "how": "회수"},
    {"n": 38, "gain": 1166, "how": "회수"},
    {"n": 39, "gain": 1601, "how": "회수"},
    {"n": 41, "gain": 143, "how": "전송"},
    {"n": 41, "gain": 498, "how": "실험실 전송"},
-   {"n": 41, "gain": 273, "how": "실험실 전송"}
+   {"n": 41, "gain": 273, "how": "실험실 전송"},
+   {"n": 41, "gain": 485, "how": "실험실 전송"},
+   {"n": 41, "gain": 492, "how": "실험실 전송"}
   ],
  "science_aboard": [
    {"slug": "eve-1", "sci": 1017, "approx": true},
-   {"slug": "duna-1", "sci": 378, "approx": true},
    {"slug": "minmus-lab-1", "data": "730/750"}
   ]
 }

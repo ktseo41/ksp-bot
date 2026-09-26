@@ -35,12 +35,12 @@ marked `approx` get a `~`.
   `hidden` to keep one off card 09), `landings_by_body`.
 
 ## Pad photos still missing (cards 04/05 show a placeholder)
-mun-tanker-1, rescue-2, salvage-1, salvage-2, minmus-science-2, survey-1, and jool-1 + ike-station-1 (their 1280×720
-pad screenshots are too small for card 06's tall column: blurry, nose cut off). Take them with `shoot_crafts.py` when
-the game is free, crop into `docs/media/summary/crafts/<slug>.jpg`, and add the slug to `_OLD` in `v2/common2.py`.
+minmus-science-2, survey-1. Take them with `shoot_crafts.py` when the game is free, crop into
+`docs/media/summary/crafts/<slug>.jpg` (`tools/summary/crop.py`), and add the slug to `_OLD` in `v2/common2.py`.
 Stand-ins in use: keo-relay-2/3 show keo-relay-1, rescue-5/6 show rescue-3 (same design); eve-1, minmus-lab-1,
-minmus-science-1, polar-relay-1, keo-relay-1, rescue-1/3/4 use in-flight shots, jool-1 and ike-station-1 are cropped
-from their pad screenshots.
+minmus-science-1, polar-relay-1, keo-relay-1, rescue-1/3/4 use in-flight shots. jool-1, ike-station-1, mun-tanker-1,
+rescue-2, salvage-1 and salvage-2 now have proper sandbox pad photos (`crop.py`), replacing the earlier
+too-small/HUD-cropped stand-ins.
 
 ## Record, pad photos, portraits (both sets)
 - `docs/record/career.json` → `career_launches`: append one entry per career launch right after it ends

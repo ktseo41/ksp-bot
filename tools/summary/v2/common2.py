@@ -147,12 +147,11 @@ def orbit_ring(cx, cy, r, dashed=False, color='rgba(255,255,255,.14)', width=1.6
 # ---------------------------------------------------------------- photos
 # slug -> picture, relative to docs/media/summary/v2/*.html. None = no photo yet (placeholder, README list).
 _OLD = ['hopper-1', 'sounding-2', 'orbiter-1', 'minmus-flyby-1', 'minmus-lander-1', 'mun-lander-1', 'sounding-3',
-        'pad-lab', 'mun-lander-2', 'mun-lander-3', 'mun-lander-5', 'mun-lander-6', 'mun-lander-7', 'duna-1']
+        'pad-lab', 'mun-lander-2', 'mun-lander-3', 'mun-lander-5', 'mun-lander-6', 'mun-lander-7', 'duna-1',
+        'jool-1', 'ike-station-1', 'mun-tanker-1', 'rescue-2', 'salvage-1', 'salvage-2']
 PHOTOS = {s: f'../crafts/{s}.jpg' for s in _OLD}
 # crop table (plan §5.3): out name -> (source in docs/media, box x0, y0, x1, y1 on the 1280x720 original)
 CROPS = {
-    'jool-1': ('2026-09-26_jool-1_pad.png', (500, 82, 780, 480)),
-    'ike-station-1': ('2026-09-26_ike-station-1_pad.png', (500, 82, 780, 480)),
     'eve-1': ('2026-09-26_eve-1_eve-pass.png', (400, 0, 880, 690)),
     'minmus-lab-1': ('2026-09-26_minmus-lab-1_orbit.png', (440, 150, 840, 560)),
     'minmus-science-1': ('2026-09-25_minmus-science-1_midlands.png', (420, 120, 840, 600)),

@@ -640,6 +640,20 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Progress cards v2 (user request: fable leads, opus builds): docs/summary-cards-plan.md, tools/summary/v2/,
   docs/media/summary/v2/ (10 cards), career.json extended.
 
+## 2026-09-26 — Ike Station 1 in Ike orbit: contract done (+905.6k)
+- Lab visit UT 29.55M: +492, **sci 1,626 -> 2,118**, 736/750.
+- Duna SOI (UT 30.68M): `correct Duna --pe 60000 --inc-to 0 --plan` 16.0 m/s (expected ~10) -> pe 60.3, inc 1.3.
+  Capture **586 m/s** (hand estimate 586: v_inf 770) -> 58 x 63 km, 1,243 m/s left (plan ~1,060).
+- `transfer Ike --pe 50000 --plan` **310 m/s** (plan ~300), Ike v_inf 48, arrival retrograde (165 deg; fine for the
+  contract) -> Ike pe 47.5 km.
+- **Ike capture never fired**: "burn is taking far too long", residual 135.8 = the whole burn. The probe had control
+  "none", signal 0: the uncrewed station lost its CommNet link near the Ike periapsis (Kerbin hidden; the guard only
+  checks at the start). Recovery (checkpoint: escaping Ike, SOI exit 4,381 s away; v_inf only 48 so ~5-15 m/s binds it;
+  worst case a Duna orbit with 933 m/s and a second try): scratch script warped in 60 s steps until the link came back
+  (at 82 km, a minute later) and burned retrograde to ecc 0.6 -> **Ike orbit 33.7 x 523.5 km**. The contract completed
+  at once: **funds 2.53 -> 3.53M**. Tooling: before an uncrewed burn, predict the link over the burn window (or at
+  least fail loudly and retry when the link returns, instead of timing out).
+
 ### Next steps (plan)
 State (2026-09-26, after Duna 1's return): KSP running at the space center, UT ~29.36M, funds 2.53M, sci 1,626,
 rep ~458. Timeline (UT): lab visit before ~29.57M (then every <= 50 days); **Ike Station 1 Duna SOI 30,679,045**;
@@ -649,8 +663,7 @@ Jool 1 (uncrewed, ~4,540 m/s): Jool pe -655 km inc 15.9 after the mid-course: tr
 Eve 1 (Jeb, ~1,017 sci now in the pod container, ~3,440 m/s): see above; reentry at ~3.9 km/s, `reentry` collects
 science first.
 Minmus Lab 1 (Bob, Gwenbro) lab 734/750, ~9.5 sci/day. Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
-Ike Station 1 (uncrewed, Poodle ~1,850 m/s) cruising to Duna: at the SOI `correct Duna --pe 60000 --inc-to 0 --plan`,
-`capture` (~640), `transfer Ike --pe 50000 --plan` (docs/ike-station-plan.md).
+Ike Station 1 in Ike orbit 33.7 x 523.5 km (contract done), ~920 m/s left: a future crew/fuel depot (ISRU, docking).
 Active contracts: **Ike station** (Ike Station 1 en route), Duna x2 (complete on recovery),
 Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
 Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
@@ -692,6 +705,9 @@ Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pil
    n. (done: `transfer` to a moon refuses when the moon will be > 0.8 SOI out of our plane at arrival and names the
       day offset of the next good departure; Rescue 6's tuner had planned a 1094 m/s escape path)
    o. (done: kill_relative / approach / grab call _ensure_control first)
+   p. Uncrewed burns: the link can drop during the wait/burn (Ike capture): re-check control right before ignition,
+      and if it's lost, wait for it (warp in small steps) up to a deadline instead of burning into the timeout.
+   q. `lab transmit`: check EC >= ~2,000 first and wait until science rises (a transmit with 1,793 EC did nothing).
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
 6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).
