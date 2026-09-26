@@ -106,6 +106,22 @@ def auto_stage(v):
 
 
 def burn_time(v, dv):
+    """Seconds to burn dv, through the stages KSP's delta-v readout lists (Jool 1: the Skipper had 480 m/s of a
+    1954 m/s ejection, the estimate used its thrust alone (54 s), and the guard stopped the Nerv 601 m/s short)."""
+    try:
+        stages = sorted((st for st in v.stages if st.vacuum_delta_v > 0.5), key=lambda st: -st.number)
+        left, t = dv, 0.0
+        for st in stages:
+            if st.vacuum_delta_v >= left:
+                return t + st.burn_time * left / st.vacuum_delta_v
+            left -= st.vacuum_delta_v
+            t += st.burn_time
+    except Exception:
+        pass
+    return _burn_time_now(v, dv)
+
+
+def _burn_time_now(v, dv):
     thrust = v.available_thrust
     isp = v.specific_impulse * G0
     if thrust <= 0 or isp <= 0:
