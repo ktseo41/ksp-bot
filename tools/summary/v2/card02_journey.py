@@ -19,6 +19,8 @@ def by_body(body, types):
 
 def eta(ut):
     d = days_from_now(ut)
+    if d < 0:  # the event already happened (e.g. a contract completed): how long ago
+        return f'~{fmt_ydays(-d) if -d >= YEAR_D else num(-d) + "d"} 전'
     return f'~d+{num(d)}' if d < YEAR_D else f'~{fmt_ydays(d)}'  # from the current UT: approximate
 
 

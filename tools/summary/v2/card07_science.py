@@ -25,7 +25,8 @@ TECH_ICON = {'start': 'dot', 'basicRocketry': 'rocket', 'engineering101': 'wrenc
              'nuclearPropulsion': 'bolt', 'advFlightControl': 'gyro', 'advExploration': 'planet', 'advElectrics': 'bolt',
              'electronics': 'sat', 'specializedConstruction': 'wrench', 'scienceTech': 'flask', 'advLanding': 'leg',
              'fieldScience': 'flask', 'advScienceTech': 'flask', 'largeVolumeContainment': 'tank',
-             'commandModules': 'kerbal', 'largeElectrics': 'bolt', 'aviation': 'air', 'automation': 'sat'}
+             'commandModules': 'kerbal', 'largeElectrics': 'bolt', 'aviation': 'air', 'automation': 'sat',
+             'heavyLanding': 'leg', 'veryHeavyRocketry': 'rocket', 'advancedMotors': 'rocket', 'specializedElectrics': 'bolt'}
 HOW_COL = {'회수': '#56c8ff', '전송': '#b28cff', '실험실 전송': '#a8e8cf'}
 
 css = '''

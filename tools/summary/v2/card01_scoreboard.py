@@ -60,7 +60,7 @@ css = '''
 TL = CN['funds_timeline']
 W, H = 968 - 48, 250
 x0, x1, ytop, ybot = 44, W - 30, 36, H - 42
-ymax = 3_000_000
+ymax = -(-max(p['funds'] or 0 for p in TL) // 1_000_000) * 1_000_000  # next whole million: points stay under the header
 
 
 def X(i):
