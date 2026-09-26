@@ -828,6 +828,15 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   accepted now (VesselLaunchedAfterID), and a re-accept would pay the advances twice: both Mun contracts skipped, the
   70.9k windfall noted here. Mun Sat 1 stays as a Mun relay (RA-2, 4,264 m/s). Fix: `accept` now compares the save's
   Active count with kRPC's and errors on a mismatch.
+- Merged (opus): `correct` near-path seed (rotation about the line to the target, both ways, capped; Mun 174->146 now
+  ~82 m/s offline instead of the 370 flip) and `match-orbit` argPe placement by the target periapsis direction + a final
+  shape-keeping apsides turn at the intersection that has the link; `match-orbit --window` (Eve contract: 5).
+- **Dres 1 launched** (UT 43.09M): ascent clean (ap 47 km at 3:00, AoA <= 3.0 at staging), 79.4 x 79.6 km, **Poodle
+  1,759** (plan 1,500-1,650), Terrier 3,683. `transfer Dres --pe 40000 --plan`: 1,590 (plan 1,600-1,620), T 744 d,
+  arrival v_inf 1,490, Dres +1,332 Mm out of plane (by design), mid-course ~116 m/s at **UT 56,159,878**. Burned on
+  the Poodle alone (160 left). Sun orbit 13.34 x 42.70 Gm (plan 42.74). Arrival ~UT 59.19M.
+- Lab visit UT 43.37M +441 (sci 6,022; storage unit empty: `lab process` added nothing). Research unmannedTech,
+  composites, advMetalworks, ionPropulsion -> sci 4,572. Contract sync check after the scene switch: 6 = 6.
 ### Next steps (plan)
 **State (2026-09-27, session end): KSP at the space center, UT ~41.40M, funds 3.30M, sci 5,270, rep 543.
 In flight: Eve 2 (#49) cruising to Eve: SOI ~UT 45.20M, pe ~45.30M; Eve pe 10,358 km, inc 2.8, Poodle 2,390, lander
