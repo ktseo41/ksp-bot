@@ -2094,19 +2094,180 @@ def _chute_deployed(c, default=False):
         return default
 
 
-def _deorbit_now(v, pe_alt):
-    """Retrograde burn right now until the periapsis is at pe_alt."""
+def _deorbit_now(v, pe_alt, bt=None):
+    """Retrograde burn right now until the periapsis is at pe_alt. Refused without thrust: with the engine gone
+    (Eve 2's lander drops its Terrier) the old loop sat at throttle 1 forever; also stops when the thrust ends
+    mid-burn or the burn runs 3x its estimate (no link = throttle locked)."""
+    if v.available_thrust <= 0:
+        raise Refused(f"no thrust on {v.name} (stage {v.control.current_stage}): stage the engine first")
+    if bt is None:
+        est = _retro_dv(v.orbit, ut(), pe_alt)
+        bt = burn_time(v, est[0]) if est else 0.0
     ap = v.auto_pilot
     ap.reference_frame = v.orbital_reference_frame
     ap.target_direction = (0, -1, 0)
     ap.engaged = True
     _wait_pointing(ap)
     say(f"deorbit to pe {pe_alt:.0f} m")
+    t_end = time.time() + 3 * bt + 60
+    no_thrust = None
     while v.orbit.periapsis_altitude > pe_alt:
-        err = v.orbit.periapsis_altitude - pe_alt
-        v.control.throttle = min(1.0, max(0.05, err / 20000))
+        pe = v.orbit.periapsis_altitude
+        if v.available_thrust <= 0:
+            no_thrust = no_thrust or time.time()
+            if time.time() - no_thrust > 3:
+                v.control.throttle = 0.0
+                raise Refused(f"out of thrust at pe {pe:.0f} m (wanted {pe_alt:.0f})")
+        else:
+            no_thrust = None
+        if time.time() > t_end:
+            v.control.throttle = 0.0
+            raise Refused(f"deorbit burn still running after {3 * bt + 60:.0f} s (control {v.control.state.name}), "
+                          f"pe {pe:.0f} m: stopped")
+        v.control.throttle = min(1.0, max(0.05, (pe - pe_alt) / 20000))
         time.sleep(0.05)
     v.control.throttle = 0.0
+
+
+def _peri(mu, r, vel):
+    """(periapsis radius, eccentricity vector) of the state r, vel."""
+    R, V2, rv = math.sqrt(_dot(r, r)), _dot(vel, vel), _dot(r, vel)
+    ev = tuple(((V2 - mu / R) * x - rv * y) / mu for x, y in zip(r, vel))
+    e = math.sqrt(_dot(ev, ev))
+    h2 = _dot(_cross(r, vel), _cross(r, vel))
+    return h2 / mu / (1 + e), ev
+
+
+def _state(o, t, frame):
+    r = o.position_at(t, frame)
+    a, b = o.position_at(t - 0.5, frame), o.position_at(t + 0.5, frame)
+    return r, tuple(y - x for x, y in zip(a, b))
+
+
+def _retro_dv(o, t, pe_alt):
+    """(Δv, new periapsis direction) of a pure retrograde burn at UT t that puts the periapsis at pe_alt
+    (bisection on the speed, body's non-rotating frame); None if the periapsis is already there."""
+    mu = o.body.gravitational_parameter
+    r, vel = _state(o, t, o.body.non_rotating_reference_frame)
+    want = o.body.equatorial_radius + pe_alt
+    if _peri(mu, r, vel)[0] <= want:
+        return None
+    lo, hi = 0.0, 1.0
+    for _ in range(50):
+        k = (lo + hi) / 2
+        if _peri(mu, r, tuple(x * (1 - k) for x in vel))[0] > want:
+            lo = k
+        else:
+            hi = k
+    return hi * math.sqrt(_dot(vel, vel)), _peri(mu, r, tuple(x * (1 - hi) for x in vel))[1]
+
+
+def _in_plane(d, h):
+    return _norm(tuple(x - _dot(d, h) * y for x, y in zip(d, h)))
+
+
+def _plane_angle(a, b, h):
+    """Angle (deg, -180..180) from a to b about h, positive in the direction of motion when h = r x v."""
+    return math.degrees(math.atan2(_dot(h, _cross(a, b)), _dot(a, b)))
+
+
+def release_ut(v, under, sunward=0.0, pe_alt=0.0, angle=180.0, lead=180.0):
+    """Next UT (>= now + lead) at which the vessel is `angle` deg (along its motion) from the direction of body
+    `under` seen from our body, rotated `sunward` deg towards the Sun, both projected into our orbit plane
+    (non-rotating frame; the directions are taken when the entry comes, half an orbit of pe_alt later). A
+    retrograde burn there (angle 180) puts the new periapsis under that direction (within ~e x (1-e') rad:
+    < 1 deg from a near-circular orbit). Eve 2's lander: `under` Kerbin, 30 deg sunward (Kerbin up at the
+    entry and for hours after the landing, daylight). Returns (UT, deg from the target to the new periapsis)."""
+    o, body = v.orbit, v.orbit.body
+    s = sc()
+    other, sun = s.bodies[under], s.bodies["Sun"]
+    frame, sframe = body.non_rotating_reference_frame, sun.non_rotating_reference_frame
+    t0 = ut() + lead
+    r0, v0 = _state(o, t0, frame)
+    h = _norm(_cross(r0, v0))
+    # coast from the release to the entry: half an orbit of (r, R + pe_alt)
+    coast = math.pi * math.sqrt(((math.sqrt(_dot(r0, r0)) + body.equatorial_radius + pe_alt) / 2) ** 3
+                                / body.gravitational_parameter)
+    bo, oo = body.orbit, other.orbit
+
+    def target(t):
+        pb = bo.position_at(t + coast, sframe)
+        d_o = s.transform_direction(tuple(b - a for a, b in zip(pb, oo.position_at(t + coast, sframe))), sframe, frame)
+        d_s = s.transform_direction(tuple(-a for a in pb), sframe, frame)
+        k, sd = _in_plane(d_o, h), _in_plane(d_s, h)
+        return kepler.rotate(k, h, math.copysign(math.radians(sunward), _plane_angle(k, sd, h)))
+
+    def g(t):
+        return (_plane_angle(target(t), o.position_at(t, frame), h) - angle + 180) % 360 - 180
+
+    n = 72
+    step = o.period / n
+    ta, ga = t0, g(t0)
+    for i in range(1, n + 2):
+        tb = t0 + i * step
+        gb = g(tb)
+        if ga < 0 <= gb and gb - ga < 90:
+            break
+        ta, ga = tb, gb
+    else:
+        raise Refused(f"no point {angle:.0f} deg from {under} found on this orbit")
+    for _ in range(40):
+        tm = (ta + tb) / 2
+        if g(tm) < 0:
+            ta = tm
+        else:
+            tb = tm
+    est = _retro_dv(o, tb, pe_alt)
+    off = _plane_angle(target(tb), _in_plane(est[1], h), h) if est else float("nan")
+    return tb, off
+
+
+def deorbit(pe_alt, at=None, under=None, sunward=0.0):
+    """Retrograde burn until the periapsis is at pe_alt: now, at UT `at`, or at release_ut(under, sunward) (the new
+    periapsis under that body's direction). Node-less: the burn stops on the periapsis itself. Then coast: nothing
+    warps to the atmosphere here (Eve 2: drop the deorbit stage, `inflate`, arm the chutes first; `reentry`)."""
+    v = vessel()
+    o = v.orbit
+    if at is not None and under is not None:
+        raise Refused("give --at or --under, not both")
+    if under is not None:
+        at, off = release_ut(v, under, sunward, pe_alt)
+        say(f"release point: 180 deg from {under}" + (f" rotated {sunward:.0f} deg sunward" if sunward else "")
+            + f", UT {at:.0f} (in {(at - ut()) / 3600:.2f} h); the new periapsis lies {off:+.1f} deg from that direction")
+    t = ut() if at is None else at
+    if t < ut() - 10:
+        raise Refused(f"UT {t:.0f} is {ut() - t:.0f} s in the past")
+    est = _retro_dv(o, max(t, ut()), pe_alt)
+    if est is None:
+        say(f"periapsis {o.periapsis_altitude:.0f} m is already below {pe_alt:.0f} m: nothing to burn")
+        return
+    dv = est[0]
+    if v.available_thrust <= 0:
+        raise Refused(f"no thrust on {v.name} (stage {v.control.current_stage}): stage the engine first "
+                      f"({dv:.0f} m/s needed)")
+    bt = burn_time(v, dv)
+    say(f"deorbit: {dv:.0f} m/s retrograde, ~{bt:.0f} s, in {t - ut():.0f} s -> pe {pe_alt / 1000:.1f} km "
+        f"(now {o.periapsis_altitude / 1000:.1f} x {o.apoapsis_altitude / 1000:.1f} km around {o.body.name})")
+    if PLAN_ONLY:
+        raise Planned(f"deorbit {dv:.0f} m/s at UT {t:.0f} (in {t - ut():.0f} s) to pe {pe_alt:.0f} m")
+    _ensure_control(v)
+    if at is not None:
+        ap = v.auto_pilot
+        ap.reference_frame = v.orbital_reference_frame
+        ap.target_direction = (0, -1, 0)
+        ap.engaged = True
+        warp_to(t - bt / 2, lead=60)
+        _wait_pointing(ap)
+        warp_to(t - bt / 2, lead=5)
+        while ut() < t - bt / 2:
+            time.sleep(0.05)
+    if not _await_link(v, ut() + 120):
+        raise Refused(f"no CommNet link at the burn time (control {v.control.state.name})")
+    _deorbit_now(v, pe_alt, bt)
+    v.auto_pilot.engaged = False
+    o = v.orbit
+    say(f"deorbited: {o.periapsis_altitude / 1000:.1f} x {o.apoapsis_altitude / 1000:.1f} km, "
+        f"periapsis in {o.time_to_periapsis / 3600:.2f} h")
 
 
 def liftoff(target_alt=15000, heading=90.0):
@@ -2218,14 +2379,124 @@ def _coast_clear(v, margin=500.0, steps=24):
     return True
 
 
+# ---------------------------------------------------------------- vessel switch, inflatable heat shield
+
+def _has_command(v):
+    return bool(v.parts.with_module("ModuleCommand"))
+
+
+def switch_to(name):
+    """Make the loaded vessel `name` active in flight. Exact name first (case-insensitive), then a prefix, then a
+    substring: KSP names a separated part "<ship> Probe"/"Lander"/"Debris", and a part dropped from "Eve 2 Probe"
+    is again "Eve 2 Probe" (Vessel.AutoRename keeps a name that already says Probe). A decoupler leaves the ROOT's
+    side active (Part.decouple makes the far side the new vessel): the Eve 2 lander (root Terrier) stays on the
+    spent deorbit stage when that stage drops. Among several matches the one with a command part (probe core,
+    pod) wins; the stage left behind has none. Only loaded vessels (~2.5 km): others via `scene` + `fly`."""
+    s = sc()
+    active = s.active_vessel
+    key = name.lower()
+    vs = list(s.vessels)
+    hits = [x for x in vs if x.name.lower() == key] or [x for x in vs if x.name.lower().startswith(key)] \
+        or [x for x in vs if key in x.name.lower()]
+    if not hits:
+        raise Refused(f"no vessel named like '{name}'")
+    if len(hits) == 1 and hits[0] == active:
+        say(f"{active.name} is already the active vessel")
+        return active
+    far = [x for x in hits if x != active and not x.loaded]
+    cand = [x for x in hits if x != active and x.loaded]
+    if not cand:
+        raise Refused(f"'{name}' matches {[x.name for x in far]}: not loaded (out of physics range); "
+                      "`scene space_center` + `fly NAME` (never leave a lander unloaded inside an atmosphere)")
+
+    def row(x):
+        d = math.dist(x.position(active.reference_frame), (0, 0, 0))
+        return (f"{x.name} ({x.type.name}, {len(x.parts.all)} parts, {d:.0f} m"
+                + (", command part" if _has_command(x) else ", NO command part") + ")")
+    if len(cand) > 1:
+        cmd = [x for x in cand if _has_command(x)]
+        if len(cmd) != 1:
+            raise Refused(f"'{name}' matches {len(cand)} loaded vessels: {'; '.join(row(x) for x in cand)}")
+        say(f"'{name}' matches {len(cand)} loaded vessels: taking the one with a command part")
+        cand = cmd
+    target = cand[0]
+    say(f"switching {active.name} -> {row(target)}")
+    s.active_vessel = target
+    for _ in range(30):
+        time.sleep(0.5)
+        if s.active_vessel == target:
+            break
+    else:
+        raise Refused(f"KSP did not switch to {target.name}")
+    time.sleep(1)
+    say(f"active: {target.name}, control {target.control.state.name}, signal {target.comms.signal_strength:.2f}, "
+        f"stage {target.control.current_stage}")
+    return target
+
+
+def packed_shields(v):
+    """Inflatable heat shields of v that are not inflated yet (ModuleAnimateGeneric animTime < 1)."""
+    out = []
+    for p in v.parts.with_name("InflatableHeatShield"):
+        for m in p.modules:
+            if m.name == "ModuleAnimateGeneric":
+                f = next((f for f in m.field_list if f.name == "animTime"), None)
+                if f is None or f.float_value < 0.99:
+                    out.append(p)
+    return out
+
+
+def inflate():
+    """Inflate the Heat Shield (10m) of the active vessel. It is not stageable: its ModuleAnimateGeneric event
+    ("Toggle", shown as "Inflate Heat Shield") is triggered here. KSP keeps that event inactive while a part sits
+    on the shield's top node (restrictedNode = top: the cone would open around it) and ignores it inside a
+    fairing/bay; one-shot (disableAfterPlaying, no deflating). Refused while an engine is still aboard (Eve 2:
+    drop the deorbit stage first)."""
+    v = vessel()
+    shields = v.parts.with_name("InflatableHeatShield")
+    if not shields:
+        raise Refused(f"{v.name} has no inflatable heat shield" + ("" if _has_command(v) else
+                      ": it has no command part either (a decoupler leaves the root's side active): `ksp switch NAME`"))
+    engines = sorted({e.part.title for e in v.parts.engines})
+    if engines:
+        raise Refused(f"{v.name} still carries {engines}: drop that stage first (`ksp stage`), the shield inflates "
+                      "around what sits on its top node")
+    for p in shields:
+        m = next((m for m in p.modules if m.name == "ModuleAnimateGeneric"), None)
+        if m is None:
+            raise Refused(f"{p.title}: no ModuleAnimateGeneric")
+        fields = {f.name: f for f in m.field_list}
+        anim = lambda: fields["animTime"].float_value if "animTime" in fields else float("nan")
+        if anim() > 0.99:
+            say(f"{p.title}: already inflated")
+            continue
+        ev = next((e for e in m.event_list if e.name == "Toggle"), None)
+        if ev is None or not ev.active:
+            raise Refused(f"{p.title}: the inflate event is not available ({m.events}): a part on its top node, "
+                          "or the animation is moving")
+        say(f"{p.title}: {ev.gui_name}")
+        ev.trigger()
+        for _ in range(40):
+            time.sleep(0.5)
+            if anim() > 0.99:
+                break
+        if not anim() > 0.99:
+            raise Refused(f"{p.title}: triggered, but animTime is {anim():.2f} after 20 s (shielded from the airstream?)")
+        say(f"{p.title}: inflated")
+
+
 # ---------------------------------------------------------------- reentry
 
 @_contained(_fallback_chutes)
-def reentry(main_alt=4000, main_speed=250, keep_until=None):
+def reentry(main_alt=4000, main_speed=250, keep_until=None, science=False):
     """Coast to the atmosphere, drop everything except the parachute stages, hold retrograde, arm drogues
     below 20 km, stage the main chutes once below main_alt and slower than main_speed (or at 2.5 km).
     keep_until=ALT (uncrewed pod whose probe core sits in the service module): keep the service module on,
-    engine first, deploy the chutes directly (no staging), decouple it under the chutes below ALT m."""
+    engine first, deploy the chutes directly (no staging), decouple it under the chutes below ALT m.
+    science (one-way probe, Eve 2's lander): nothing is collected into the root; at each new science situation
+    (flying high, flying low) the fresh experiments run and their data is queued for transmission without waiting
+    (_entry_science: the loop keeps its cadence); after the landing `do_science(transmit, all_)` sends the landed
+    set and whatever is still aboard, with its link and EC waits."""
     if keep_until is not None:
         return _reentry_keep(main_alt, main_speed, keep_until)
     v = vessel()
@@ -2240,7 +2511,8 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None):
         nu = -math.acos(max(-1.0, min(1.0, (p / r - 1) / o.eccentricity)))
         warp_to(o.ut_at_true_anomaly(nu), lead=60)
     _antennas(v, False)
-    collect_science(v)
+    if not science:
+        collect_science(v)
     # jettison stages until only parachutes remain in the next stage
     while v.control.current_stage > 0:
         nxt = _stage_parts(v, v.control.current_stage - 1)
@@ -2262,14 +2534,32 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None):
         drogue = all("drogue" in p.name.lower() for p in chutes)
         return drogue if kind == "drogue" else not drogue
 
+    done, queue = set(), {"mits": 0.0, "ut": ut()}
+    high = body.flying_high_altitude_threshold if science else 0.0
+
+    def sci():
+        """Once per new flying situation. Not in space: the entry starts ~60 s above the atmosphere."""
+        if science and v.situation.name == "flying":
+            sit = "flying high" if fl.mean_altitude > high else "flying low"
+            if sit not in done:
+                done.add(sit)
+                try:
+                    _entry_science(v, sit, queue)
+                except Exception as ex:  # science must never end the entry (-> _fallback_chutes)
+                    say(f"{sit} science failed: {ex.__class__.__name__}: {str(ex).splitlines()[0][:80]}")
+
     while True:
         alt, spd = fl.mean_altitude, fl.speed
+        sci()
         if next_is("drogue") and alt < 20000:
             v.control.activate_next_stage()
             say(f"drogues armed at {alt:.0f} m, {spd:.0f} m/s")
-        if next_is("main") and ((alt < main_alt and spd < main_speed) or alt < 2500):
+        low = (alt < main_alt and spd < main_speed) or alt < 2500
+        if next_is("main") and low:
             break
-        if v.control.current_stage == 0 or v.situation.name in ("landed", "splashed"):
+        # nothing left to stage (chutes armed before the entry: Eve 2's lander) used to end the retrograde hold
+        # right at the atmosphere's edge, before the heat pulse: hold it until the main-chute point instead
+        if (v.control.current_stage == 0 and low) or v.situation.name in ("landed", "splashed"):
             break
         time.sleep(0.2)
     ap.engaged = False
@@ -2284,8 +2574,12 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None):
             say(f"chute deploy skipped: {e}")
     say("chutes deployed")
     while v.situation.name not in ("landed", "splashed"):
+        sci()
         time.sleep(1)
     say(f"{v.situation.name}! {v.name}")
+    if science:
+        _await_queue(v, queue)
+        do_science(transmit=True, all_=True)
 
 
 def _reentry_keep(main_alt, main_speed, keep_until):
@@ -2376,38 +2670,11 @@ def do_science(transmit=False, min_single=15.0, all_=False):
     so a low-value situation (LKO, orbit before landing) doesn't spend them. transmit keeps their data for
     recovery; all_ transmits it too (one-way probes: Jool 1 lost its goo and Science Jr data)."""
     v = vessel()
-    out = []
-    ran = set()
-    started = []
-    for e in v.parts.experiments:
-        if e.has_data and e.data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
-            e.reset()  # worthless old data (e.g. a repeated orbit crew report) would block the new situation
-            time.sleep(0.3)
-        if e.inoperable or e.has_data or not e.available:
-            continue
-        if e.science_subject.title in ran:
-            continue  # a second copy of the same subject is worth almost nothing (two Science Jrs ran in orbit)
-        if not e.rerunnable:
-            sub = e.science_subject
-            left = sub.science_cap - sub.science
-            if left < min_single:
-                out.append((e.title, sub.title, f"kept (only {left:.1f} left)"))
-                continue
-        try:
-            e.run()
-            ran.add(e.science_subject.title)
-            started.append(e)
-        except Exception as ex:
-            out.append((e.title, f"error {ex}"))
-    # the magnetometer boom takes ~7 s to report: collecting after 1.5 s missed it, and the next run reset the
-    # half-done experiment as "worthless" (Survey 1 lost the Mun low-orbit magnetometer that way)
-    for _ in range(40):
-        time.sleep(0.5)
-        if all(e.has_data and e.data for e in started):
-            break
+    out = _run_fresh(v, min_single)
     send_ok = transmit
     if transmit:
-        _antennas(v, True)
+        if v.situation.name != "flying":  # opening dishes/panels in the airflow tears them off
+            _antennas(v, True)
         # no link (Kerbin below the horizon): warp until it rises, up to ~7 h
         for _ in range(40):
             if v.comms.signal_strength > 0.05:
@@ -2434,6 +2701,107 @@ def do_science(transmit=False, min_single=15.0, all_=False):
     for row in out:
         print(row)
     return out
+
+
+def _run_fresh(v, min_single=15.0, wait=20.0, keep_last=False):
+    """Run every available experiment without data (one per subject; single-use ones only if the subject has
+    min_single left) and wait up to `wait` s for their reports. Returns the rows of what was kept/failed.
+    keep_last (entry science): never spend the last fresh copy of a single-use experiment (Eve 2's lander: one
+    Science Jr, three goo) before the landed set, where it is worth the most."""
+    out = []
+    ran = set()
+    started = []
+    exps = list(v.parts.experiments)
+    spare = {}
+    for e in exps:
+        if not e.rerunnable and not e.inoperable and not e.has_data:
+            spare[e.part.name] = spare.get(e.part.name, 0) + 1
+    for e in exps:
+        if e.has_data and e.data and not e.inoperable and sum(d.science_value for d in e.data) < 0.01:
+            e.reset()  # worthless old data (e.g. a repeated orbit crew report) would block the new situation
+            time.sleep(0.3)
+        if e.inoperable or e.has_data or not e.available:
+            continue
+        if e.science_subject.title in ran:
+            continue  # a second copy of the same subject is worth almost nothing (two Science Jrs ran in orbit)
+        if not e.rerunnable:
+            sub = e.science_subject
+            left = sub.science_cap - sub.science
+            if left < min_single:
+                out.append((e.title, sub.title, f"kept (only {left:.1f} left)"))
+                continue
+            if keep_last and spare.get(e.part.name, 0) <= 1:
+                out.append((e.title, sub.title, "kept for the landing (last one)"))
+                continue
+        try:
+            e.run()
+            ran.add(e.science_subject.title)
+            started.append(e)
+            if not e.rerunnable:
+                spare[e.part.name] = spare.get(e.part.name, 0) - 1
+        except Exception as ex:
+            out.append((e.title, f"error {ex}"))
+    # the magnetometer boom takes ~7 s to report: collecting after 1.5 s missed it, and the next run reset the
+    # half-done experiment as "worthless" (Survey 1 lost the Mun low-orbit magnetometer that way)
+    for _ in range(int(wait / 0.5)):
+        time.sleep(0.5)
+        if all(e.has_data and e.data for e in started):
+            break
+    return out
+
+
+def _entry_science(v, label, queue, margin=100.0):
+    """reentry --science at a new flying situation: run the fresh experiments (<= 8 s for their reports; the last
+    copy of a single-use one is kept for the landing) and hand every result to the transmitter WITHOUT waiting for
+    it to arrive. KSP queues transmissions (ModuleDataTransmitter.TransmitData while busy) and sends them in the
+    background, and the data leaves the experiment at once, so a rerunnable one is free for the next situation.
+    Blocking here (link waits that warp, EC charging, the arrival poll of _transmit: ~40 s a set) would stall the
+    chute logic. EC: the queue's cost (Mits x EC/Mit of the dearest antenna, what is still queued
+    included, estimated from the antenna's speed) must fit the battery minus margin, or a transmission stalls and
+    KSP never resumes it; what does not fit, or finds no link, stays aboard for the landed pass."""
+    out = _run_fresh(v, wait=8.0, keep_last=True)
+    rate, via = _ec_per_mit(v)
+    speed = min((a.packet_size / a.packet_interval for a in v.parts.antennas
+                 if a.can_transmit and a.packet_interval > 0), default=1.0)
+    backlog = max(0.0, queue["mits"] - (ut() - queue["ut"]) * speed)
+    room = v.resources.amount("ElectricCharge") - margin - backlog * (rate or 0)
+    sent, kept = [], [f"{r[0]} ({r[-1]})" for r in out]
+    link = v.comms.can_transmit_science
+    for e in v.parts.experiments:
+        if not (e.has_data and e.data and any(d.transmit_value > 0 for d in e.data)):
+            continue
+        mits = sum(d.data_amount for d in e.data)
+        if rate is None or not link or mits * rate > room:
+            kept.append(e.title)
+            continue
+        val = sum(d.transmit_value for d in e.data)
+        try:
+            e.transmit()
+        except Exception as ex:
+            kept.append(f"{e.title} ({str(ex).splitlines()[0][:60]})")
+            continue
+        room -= mits * rate
+        backlog += mits
+        sent.append(f"{e.title} {val:.1f}")
+    queue.update(mits=backlog, ut=ut(), speed=speed)
+    say(f"{label} science at {v.flight().mean_altitude / 1000:.1f} km: queued {sent or 'nothing'}"
+        + (f"; kept {kept}" if kept else "") + ("" if link else " (no link)")
+        + (f" [{backlog:.0f} Mit queued via {via}, {room:.0f} EC spare]" if rate else " [no antenna]"))
+
+
+def _await_queue(v, queue, timeout=300):
+    """After the landing: let the queued transmissions finish (the queue's estimated time has passed and the
+    science total, streamed packet by packet, has not moved for 15 s) before do_science measures its own
+    arrivals and EC."""
+    left = max(0.0, queue["mits"] - (ut() - queue["ut"]) * queue.get("speed", 1.0)) / queue.get("speed", 1.0)
+    t_min, t_end = time.time() + 1.2 * left, time.time() + timeout
+    last, quiet = sc().science, time.time()
+    while time.time() < t_end and (time.time() < t_min or time.time() - quiet < 15):
+        time.sleep(2)
+        now = sc().science
+        if now != last:
+            last, quiet = now, time.time()
+    say(f"queued transmissions settled (science now {sc().science:.1f}, EC {v.resources.amount('ElectricCharge'):.0f})")
 
 
 def _ec_per_mit(v):
