@@ -722,6 +722,35 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   The user spotted the explosion on screen while I waited for the background notice: poll the background output
   every minute or two during an ascent (read the file), don't only wait for the end.
 
+## 2026-09-27 — Moho 1 flies (#47): ascent OK, ejection missed by 420,000 km (burn timing bug), fixed with 77 m/s
+- KSP start (after a PC restart): commit 20.1 -> 24.9 GB, nonpaged pool 1.20 -> 1.19 GB, available 3.5 -> 1.6 GB.
+  (`tools/install.sh` printed "KSP not ready" once: Steam was still starting; KSP came up a minute later.)
+- **Moho 1 launch #47 (UT 38,426,090)**: pad 1430 / 1198 / 3513 / 4218 (as planned). Ascent with the new t_apo guard:
+  pitch 27.7 at MET 120 (flight #46: 18.4), apoapsis 46.8 km at 3:00 (stop rule 45), Skipper out at 3:18 / 45 km; then
+  the guard held t_apo ~45 s by flying almost level at 45-51 km (pitch 1-6, the Poodle at TWR 0.7): OKTO skin peaked
+  **~880 K of 1200** at 51 km, then cooled on the coast. 79.3 x 79.6 km, **Poodle 2,961** (plan 2,950-3,050).
+  The guard works but keeps a low-TWR stage in the upper air for ~2 min: fine for this craft, watch skin temps.
+- Ejection (`transfer Moho --pe 25000 --plan`): T refined 113.3 -> 114.9 d, Moho **in our plane at arrival (no
+  mid-course plane change, the 200-400 of the plan saved)**, node 2,040 (plan 2,030-2,060), arrival v_inf 3,652, pass
+  retrograde (inc 142). Burned: Poodle 881 left, Sun pe/ap within 150 / 2,300 km of the plan, **but no Moho encounter**:
+  closest approach 331,674 km, the ship ~420,000 km behind Moho along its path at arrival.
+- **Cause (recorder): burn timing.** `burn_time` scaled the stage's burn time linearly with dv (2040/2961 x 253 = 174 s);
+  the real burn was 196-204 s, and the half-dv point comes ~113 s after ignition (the craft gets lighter), not bt/2 = 87:
+  the dv was centred ~26 s late, ~5 deg further round the 80 km orbit. **Fixed (1ccddd5):** mass-correct `burn_time`
+  (propellant fraction), `burn_lead` = time to half the dv, used by execute_node / manual_burn / the capture link wait.
+  Also a process miss: I read the command's "residual 0.2 m/s" as success and warped out of Kerbin's SOI before
+  checking the encounter; inside the SOI the fix would have cost a few m/s. After any ejection: read the target
+  encounter before leaving the SOI.
+- `correct Moho --pe 25000 --inc-to 0 --plan` (no encounter, far out) planned **390 m/s** (v_inf 3,174, inc 98): not
+  flown. The tuner has no dv term (old gap 4l). Scratch Lambert instead (projected onto our plane, like the planner):
+  in-plane 76 m/s now (+10 d: 90, +20 d: 107) + ~7 plane later; the plane at arrival is only -92 km off.
+  Built the node from the Lambert vector (almost pure radial-in, 76.95 m/s), fine grid +-0.12 m/s prograde/normal for
+  pe 25-40 km and the prograde side (normal barely moves the pass from here: inc 56 or 137 only). **Burned: Moho pe
+  1,056 km, inc 54 (prograde), Poodle 805.** Trim ~10 d before the SOI (~0.5-2 m/s, thrust-limited Poodle).
+  Moho SOI ~UT 40,929,000.
+- Minmus Lab visit (UT 38.48M): research drains EC (2,802 -> 1,150 in 1 h with the lab running): `lab stop`, charge
+  30 min to 3,810, transmit **+420 -> sci 4,057**, `lab start`. Next visit before UT ~39.55M (~10 sci/day, 500 cap).
+
 ### Next steps (plan)
 **State (2026-09-26, before a 2nd PC restart): KSP saved at the space center, UT 38,425,858, funds 3.18M, sci 3,636,
 rep 528. Nothing in flight needs attention; no burns pending. Moho 1 is NOT flying (reverted + recovered, craft file
