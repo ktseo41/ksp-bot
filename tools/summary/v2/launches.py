@@ -33,6 +33,12 @@ css = '''
 .sum .r{display:flex;flex-wrap:wrap;gap:8px 14px}
 .sum .r span{display:flex;align-items:center;gap:6px;font-size:24px;font-weight:700}
 .sum .t{font-size:17px;color:var(--muted)}
+/* compact cells when a half needs a 7th row (rows shrink to 132 px) */
+.tl.cmp .lc .bd{padding:6px 8px 6px 9px;gap:1px}
+.tl.cmp .lc .num{font-size:26px}
+.tl.cmp .lc .res{width:28px;height:28px}
+.tl.cmp .mn,.tl.cmp .kb,.tl.cmp .lc .cn{font-size:16px}
+.tl.cmp .lc .det{gap:1px}
 '''
 
 
@@ -108,7 +114,10 @@ def build(part, idx, seed):
     for l in ls:
         counts[code(l)] = counts.get(code(l), 0) + 1
     cells = [card(l) for l in ls]
-    spare = 24 - len(cells)
+    # 6 rows of 156 px fit the page; with more launches per half the rows shrink to keep the same grid height
+    rows = max(6, -(-len(cells) // 4))
+    row_h = (6 * 156 + 5 * 10 - (rows - 1) * 10) // rows
+    spare = rows * 4 - len(cells)
     if spare:
         r = ''.join(f'<span style="color:rgba({RES_TINT[k]},1)">{icon(RES[k][0], 22)}{counts[k]}</span>' for k in RES if k in counts)
         cells.append(f'<div class="sum" style="grid-column:span {spare}"><div class="t">#{a}–#{b}</div><div class="r">{r}</div></div>')
@@ -123,6 +132,6 @@ def build(part, idx, seed):
     body = f'''
 {header('rocket', f'Career launches · #{a} → #{b}', headline)}
 <div class="keys">{legend([k for k in RES if k in counts], size=22)}<div class="legend">{keys}</div></div>
-<div class="tl">{''.join(cells)}</div>
+<div class="tl{' cmp' if rows > 6 else ''}" style="grid-auto-rows:{row_h}px">{''.join(cells)}</div>
 '''
     write(f'0{idx}-launches-{"ab"[part]}.html', page(f'Launches #{a}-#{b}', css, body, idx, seed=seed))

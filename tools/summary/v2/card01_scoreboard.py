@@ -163,7 +163,9 @@ def pick(body):
     return fs[0] if fs else None
 
 
-SIZE = {'kerbin': 118, 'mun': 92, 'minmus': 76, 'duna': 104, 'eve': 112, 'moho': 80, 'jool': 132}
+SIZE = {'kerbin': 108, 'mun': 84, 'minmus': 70, 'duna': 96, 'eve': 104, 'moho': 72, 'dres': 70, 'jool': 118}
+# a probe on its way to a body with no first yet (Dres 1): EN ROUTE from live_missions
+EN_ROUTE = {m['to']: m['n'] for m in RECORD['live_missions'] if m['type'] == 'probe' and 'to' in m}
 bodies = []
 for b in BODY_ORDER:
     f = pick(b)
@@ -177,7 +179,10 @@ for b in BODY_ORDER:
         st = f'{icon("orbit", 20, "#8e98b6")}<b>#{f["n"]}</b>'
     else:
         badge = ''
-        st = f'<span class="enroute">EN ROUTE</span><b>#{f["n"]}</b>' if f else ''
+        # badge on the status line, launch number underneath (8 bodies: the two don't fit side by side)
+        n_en = f['n'] if f else EN_ROUTE.get(b)
+        st = '<span class="enroute">EN ROUTE</span>' if n_en else ''
+        who = f'<b style="color:var(--text)">#{n_en}</b>' if n_en else who
     dashed = b in live_bodies and not reached
     col = 'color:#c8f0a0' if dashed else ''
     bodies.append(f'<div class="body"><div class="pl">{planet(b, SIZE[b], dashed=dashed)}{badge}</div>'

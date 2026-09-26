@@ -5,7 +5,8 @@ RD = RECORD['real_days']
 now_d = ut_to_days(CN['ut'])
 headline = f'{CN["real_days"]}일 만에 게임 속 ~{round(now_d / YEAR_D)}년'
 end_d = max(ut_to_days(a['ut']) for a in UA['future'])
-jool = max(UA['future'], key=lambda a: a['ut'])
+jool = max(UA['future'], key=lambda a: a['ut'])  # the farthest future event (was Jool; now Dres 1's arrival)
+far_body = dest_body(BY_N[jool['n']]['dest'])[0]
 
 css = '''
 .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:22px}
@@ -96,7 +97,7 @@ body = f'''
 <div class="stats">
   <div class="st"><div class="l">{icon('clock', 20, '#8e98b6')} Real</div><div class="v">{CN['real_days']} days</div><div class="s">{RD[0]['date']} → {CN['date']}</div></div>
   <div class="st"><div class="l">{icon('planet', 20, '#8e98b6')} Game</div><div class="v" style="color:var(--gold)">~{fmt_ydays(now_d)}</div><div class="s">Kerbin day ~{num(now_d)} · 1y = {YEAR_D}d</div></div>
-  <div class="st"><div class="l">{icon('sat', 20, '#a8d97a')} {esc(jool['label_ko'])}</div><div class="v" style="color:var(--jool)">~{fmt_ydays(days_from_now(jool['ut']))} 뒤</div><div class="s">{BODY_NAME['jool']} · #{jool['n']}</div></div>
+  <div class="st"><div class="l">{icon('sat', 20, '#a8d97a')} {esc(jool['label_ko'])}</div><div class="v" style="color:var(--jool)">~{fmt_ydays(days_from_now(jool['ut']))} 뒤</div><div class="s">{BODY_NAME[far_body]} · #{jool['n']}</div></div>
 </div>
 <div class="tl">{''.join(svg)}{''.join(dls)}{''.join(labels)}</div>
 '''

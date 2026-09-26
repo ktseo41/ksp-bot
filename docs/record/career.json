@@ -3,13 +3,14 @@
  "career_now": {
   "date": "2026-09-27",
   "real_days": 4,
-  "ut": 40953431,
-  "ut_note": "game UT at the last update (main session, 2026-09-27: Moho 1 (#47) landed on Moho, surface science transmitted; recorder 2026-09-27_Moho_1.jsonl)",
-  "funds": 3400000,
-  "funds_note": "LOG 09-27 Moho 1 entry: \"Funds 3.10M -> 3.40M (Moho firsts)\" (rounded)",
-  "science": 6432.3,
-  "reputation": 528,
-  "reputation_note": "last value in the LOG (2026-09-26); the Moho firsts will have raised it, not read since",
+  "ut": 43370193,
+  "ut_note": "game UT of the last save (persistent.sfs, 2026-09-27 session 3: after Dres 1 (#51) left Kerbin and the lab visit at UT 43.37M)",
+  "funds": 3322930,
+  "funds_note": "persistent.sfs at UT 43,370,193 (funds = 3322930.18); the LOG has no balance for session 3",
+  "science": 4572.1,
+  "science_note": "after the research at UT 43.37M (LOG: \"-> sci 4,572\"; save sci = 4572.14)",
+  "reputation": 543,
+  "reputation_note": "persistent.sfs rep = 542.73 (LOG session-end state 2026-09-27: rep 543)",
   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 3, "AstronautComplex": 2, "R&D": 3},
   "funds_start": 25000,
   "funds_peak": 3638132,
@@ -47,7 +48,9 @@
     {"tick": "#45", "funds": 2038738, "label": "2.04M"},
     {"tick": "R30", "funds": 2534973, "label": "2.53M"}, {"tick": "Ike", "funds": 3526795, "label": "3.53M"}, {"tick": "R37", "funds": 3638132, "label": "3.64M"},
     {"tick": "facility", "funds": 3182231, "label": "3.18M", "facility": "TS3"},
-    {"tick": "#47", "funds": 3400000, "label": null}
+    {"tick": "#47", "funds": 3400000, "label": null},
+    {"tick": "#49", "funds": 3300000, "label": null},
+    {"tick": "#51", "funds": 3322930, "label": null}
    ]
  },
  "firsts": [
@@ -114,7 +117,11 @@
    {"n":44,"craft":"Jool 1","slug":"jool-1","dest":"jool","stat":"probe","crew":"-","goal":"first Jool mission: uncrewed Nerv orbiter with three big dishes and a science set","result":"en route","note":"the ejection stopped 601 m/s short (the burn-time estimate used the first of two stages); finished right away with 601 + 278 m/s; Jool arrival about 1,180 days later","date":"2026-09-26"},
    {"n":45,"craft":"Ike Station 1","slug":"ike-station-1","dest":"duna","stat":"contract","crew":"-","goal":"a station with nine seats, a cupola and an ISRU unit in orbit of Ike (contract, 905.6k)","result":"success","note":"first Twin-Boar flight; ejection 1085 + 27 m/s, Duna capture 586, Ike transfer 310; the capture burn at Ike never fired (the probe lost its CommNet link near the Ike periapsis, with Kerbin hidden), so it waited for the signal and braked a minute later: Ike orbit 34 x 524 km, contract +905.6k","date":"2026-09-26"},
    {"n":46,"craft":"Moho 1","slug":"moho-1","dest":"moho","stat":"1206 K","crew":"-","goal":"first Moho mission: uncrewed lander (OKTO) with a science set, chemical all the way (Twin-Boar / Skipper / Poodle / Terrier lander)","result":"reverted","note":"launch UT 38,425,025; the Skipper (TWR 0.85) kept following the altitude pitch program and flew level at 38 km, 2 km/s: the top OKTO reached 1206 of 1200 K and exploded at 3:58; reverted to launch and recovered (full refund). Ascent guidance had no time-to-apoapsis guard (added: pitch up when t_apo < 45 s)","date":"2026-09-26"},
-   {"n":47,"craft":"Moho 1","slug":"moho-1","dest":"moho","stat":"landed","crew":"-","goal":"first Moho mission: uncrewed lander (OKTO) with a science set, chemical all the way (Twin-Boar / Skipper / Poodle / Terrier lander)","result":"success","note":"FIRST MOHO LANDING. Launch UT 38,426,090; the new t_apo guard held (OKTO skin ~880 K). The 2,040 m/s ejection missed Moho by ~420,000 km: burn time scaled linearly with dv, so the burn was centred 26 s late (fixed); a 77 m/s Lambert correction put it back on course (the far-out tuner had offered 390). Capture started only 117 s before the periapsis (KSP had no stage delta-v, the estimate used the Poodle alone) and was finished by hand: 38.7 x 999.6 km, then 38 x 38 km. Landing site picked where Kerbin stays above the horizon (the link); landed in the Midlands at 55.50, -169.24 (UT ~40,953,400), Terrier 296 m/s left. Science ~1,516 transmitted (high +556, low +537, surface +423); funds 3.10 -> 3.40M","date":"2026-09-27"}
+   {"n":47,"craft":"Moho 1","slug":"moho-1","dest":"moho","stat":"landed","crew":"-","goal":"first Moho mission: uncrewed lander (OKTO) with a science set, chemical all the way (Twin-Boar / Skipper / Poodle / Terrier lander)","result":"success","note":"FIRST MOHO LANDING. Launch UT 38,426,090; the new t_apo guard held (OKTO skin ~880 K). The 2,040 m/s ejection missed Moho by ~420,000 km: burn time scaled linearly with dv, so the burn was centred 26 s late (fixed); a 77 m/s Lambert correction put it back on course (the far-out tuner had offered 390). Capture started only 117 s before the periapsis (KSP had no stage delta-v, the estimate used the Poodle alone) and was finished by hand: 38.7 x 999.6 km, then 38 x 38 km. Landing site picked where Kerbin stays above the horizon (the link); landed in the Midlands at 55.50, -169.24 (UT ~40,953,400), Terrier 296 m/s left. Science ~1,516 transmitted (high +556, low +537, surface +423); funds 3.10 -> 3.40M","date":"2026-09-27"},
+   {"n":48,"craft":"Eve 2","slug":"eve-2","dest":"eve","stat":"MET 55","crew":"-","goal":"Eve equatorial satellite contract (the carrier) + an uncrewed Eve surface lander with an inflatable heat shield, one launch","result":"reverted","note":"launch UT 41,150,016; at MET 55 (8 km, ~335 m/s, transonic, q 24 kPa) the nose pitched up against the command (AoA -1 -> -15 -> -39 deg in 6 s): the blunt 2.5 m heat-shield drum at the nose, the ascent risk the plan had named; reverted to launch and recovered (full refund). Fix: 4 x Tail Fin on the S3-3600 at 45 deg to the AV-R8s (+0.5 t, 137.05 t, 76 parts)","date":"2026-09-27"},
+   {"n":49,"craft":"Eve 2","slug":"eve-2","dest":"eve","stat":"1,026 m/s","crew":"-","goal":"Eve equatorial satellite contract (the carrier) + an uncrewed Eve surface lander with an inflatable heat shield, one launch","result":"en route","note":"relaunch with the four tail fins (UT ~41,150,089): transonic AoA <= 1.4 deg; 79.3 x 79.5 km with the Poodle's 3,321 m/s untouched (Skipper 99 left, plan 150-250: the fins' mass and drag). Ejection 1,026 m/s (T 190 d, arrival v_inf 1,103 vs plan 850-950); the Eve miss was read before leaving Kerbin's SOI this time (34,000 km). Outside: Eve pe 29,486 km; a far-out 7.71 m/s correction came out at pe 10,358 km, inc 2.8 instead of the predicted 120 km (KSP's node prediction 185 d out is off by thousands of km: the real trim is ~20 d before the SOI). Eve SOI ~UT 45.2M, pe ~45.30M; Poodle 2,390 left, lander attached","date":"2026-09-27"},
+   {"n":50,"craft":"Mun Sat 1","slug":"mun-sat-1","dest":"mun-orbit","stat":"contract lost","crew":"-","goal":"contract satellite in a specific Mun orbit (inc 146.04, e 0.181, sma 803 km, LAN 275.9, argPe 177.9, 3 %) with goo, magnetometer and accelerometer (Keo Relay 3 design)","result":"partial","note":"launch UT 42,350,284; LKO 85 x 87 km, transfer 874 m/s (plan 852); first capture with the link forecast in flight: Kerbin hidden from pe -183 s, so the burn moved 216 s earlier (225 m/s -> 429 x 778 km); match-orbit plane 34.6 deg + trims, then an apsides rotation by hand (16 m/s radial at the orbit intersection that had the link) and a 1 m/s pe trim: every element inside KSP's windows. The contract never completed: the save held both Mun contracts as Offered while kRPC listed them active and their advances (70.9k) had been paid, a stale ContractSystem after the lab flight's scene switch (a KSP restart cleared it). A contract accepted now can't count a vessel launched before it and re-accepting would pay the advances twice, so both were skipped; Mun Sat 1 stays as a Mun relay (RA-2, 4,264 m/s). `accept` now checks the save's active count against kRPC's","date":"2026-09-27"},
+   {"n":51,"craft":"Dres 1","slug":"dres-1","dest":"dres","stat":"1,590 m/s","crew":"-","goal":"first Dres mission: uncrewed orbiter + lander (OKTO), Moho 1's lander on Duna 1's launcher, one way, everything transmitted","result":"en route","note":"launch UT 43,090,014; clean ascent (ap 47 km at 3:00, AoA <= 3.0 at staging), 79.4 x 79.6 km, Poodle 1,759 m/s (plan 1,500-1,650); ejection 1,590 m/s (plan 1,600-1,620) on the Poodle alone (160 left), T 744 d, arrival v_inf 1,490; Sun orbit 13.34 x 42.70 Gm (plan 42.74). Mid-course ~116 m/s at UT 56,159,878, Dres arrival ~UT 59.19M","date":"2026-09-27"}
   ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
@@ -190,7 +197,14 @@
    "heavyLanding",
    "veryHeavyRocketry",
    "advancedMotors",
-   "specializedElectrics"
+   "specializedElectrics",
+   "experimentalElectrics",
+   "highPerformanceFuelSystems",
+   "propulsionSystems",
+   "unmannedTech",
+   "composites",
+   "advMetalworks",
+   "ionPropulsion"
   ],
  "sandbox_test_crafts": [
    {"craft": "Sandbox Minmus Test / Sandbox Lander Test", "purpose": "first landing-code tests on Minmus", "crafts": [{"slug": "sandbox-minmus-test", "name": "Sandbox Minmus Test"}, {"slug": "sandbox-lander-test", "name": "Sandbox Lander Test"}]},
@@ -245,19 +259,23 @@
     {"ut": 30679045, "n": 45, "label_ko": "Ike Station 1 Duna 도착"},
     {"ut": 34500000, "n": 37, "label_ko": "Eve 1 귀환", "approx": true},
     {"ut": 38450305, "n": 47, "label_ko": "Moho 1 출발", "approx": true},
-    {"ut": 40953394, "n": 47, "label_ko": "Moho 착륙"}
+    {"ut": 40953394, "n": 47, "label_ko": "Moho 착륙"},
+    {"ut": 41166458, "n": 49, "label_ko": "Eve 2 출발", "approx": true},
+    {"ut": 43122839, "n": 51, "label_ko": "Dres 1 출발", "approx": true}
    ],
   "future": [
-    {"ut": 52787080, "n": 44, "label_ko": "Jool 도착"}
+    {"ut": 45300000, "n": 49, "label_ko": "Eve 도착", "approx": true},
+    {"ut": 52787080, "n": 44, "label_ko": "Jool 도착"},
+    {"ut": 59190000, "n": 51, "label_ko": "Dres 도착", "approx": true}
    ]
  },
  "real_days": [
    {"date": "2026-09-24", "n_first": 1, "n_last": 20, "ut_end": 1790000, "approx": true, "src": "LOG 09-24 entry: Duna window computed \"from UT 1.79M\" after #18 (lower bound)"},
    {"date": "2026-09-25", "n_first": 21, "n_last": 34, "ut_end": 11790000, "approx": true, "src": "LOG 09-26 Eve 1 entry: \"now ~11,790,000\" early on day 3 (upper bound)"},
    {"date": "2026-09-26", "n_first": 35, "n_last": 46, "ut_end": 38425858, "src": "LOG 09-26 \"Next steps\": state before the 2nd PC restart, UT 38,425,858"},
-   {"date": "2026-09-27", "n_first": 47, "n_last": 47, "ut_end": 40953431, "src": "career_now.ut"}
+   {"date": "2026-09-27", "n_first": 47, "n_last": 51, "ut_end": 43370193, "src": "career_now.ut"}
   ],
- "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation", "heavyLanding": "Heavy Landing", "veryHeavyRocketry": "Very Heavy Rocketry", "advancedMotors": "Adv. Motors", "specializedElectrics": "Specialized Electrics"},
+ "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation", "heavyLanding": "Heavy Landing", "veryHeavyRocketry": "Very Heavy Rocketry", "advancedMotors": "Adv. Motors", "specializedElectrics": "Specialized Electrics", "experimentalElectrics": "Experimental Electrics", "highPerformanceFuelSystems": "High-Perf. Fuel Systems", "propulsionSystems": "Propulsion Systems", "unmannedTech": "Unmanned Tech", "composites": "Composites", "advMetalworks": "Adv. MetalWorks", "ionPropulsion": "Ion Propulsion"},
  "landings_by_body": {"_note": "landing MISSIONS (launch numbers), not touchdowns: the crewed ones landed and came home; Moho 1 (#47) is an uncrewed one-way lander", "minmus": [10, 18, 20, 22, 25, 38], "mun": [16, 23], "duna": [30], "moho": [47]},
  "crafts": [
    {"slug": "hopper-1", "name": "Hopper 1", "first_n": 1},
@@ -272,15 +290,17 @@
    {"slug": "minmus-science-1", "name": "Minmus Science 1", "parts": 52, "funds": 30300},
    {"slug": "minmus-science-2", "name": "Minmus Science 2", "mass_t": 85.9, "funds": 56500},
    {"slug": "minmus-lab-1", "name": "Minmus Lab 1", "mass_t": 87, "funds": 75000},
-   {"slug": "ike-station-1", "name": "Ike Station 1", "mass_t": 134, "funds": 72000}
+   {"slug": "ike-station-1", "name": "Ike Station 1", "mass_t": 134, "funds": 72000},
+   {"slug": "eve-2", "name": "Eve 2", "parts": 76, "mass_t": 137.05},
+   {"slug": "dres-1", "name": "Dres 1", "parts": 50, "mass_t": 93.2, "funds": 105000, "funds_note": "docs/dres-1-plan.md offline estimate incl. fuel"}
   ],
  "how": {"stack": ["Claude Code (WSL)", "uv run ksp <phase>", "kRPC 0.6.0 + KspBot mod (C#)", "KSP 1.12.5"], "commands": ["ascent --alt 80000", "circularize", "transfer Minmus --pe 15000", "soi", "capture", "land", "science", "liftoff", "return", "reentry"], "rules_ko": ["오토파일럿 모드 없음", "비행 코드 직접 작성", "Normal 난이도, 전부 정상 결제", "revert는 게임이 허용하는 만큼"]},
  "incidents": [
    {"n": 6, "cause": "design", "text_ko": "SRB 추력축 0.4° 틀어져 발사 1초부터 회전"},
-   {"n": 8, "cause": "code", "text_ko": "착륙 15 m/s, 넘어짐 (피드포워드 없음)"},
+   {"n": 8, "cause": "code", "text_ko": "착륙 15 m/s, 넘어짐 (피드포워드 없음)", "hidden": true},
    {"n": 9, "cause": "design", "text_ko": "측면 autostrut → t=0 분해 (×6)"},
    {"n": 11, "cause": "pilot", "text_ko": "밸러스트로 피치오버 흉내 → 최대 동압에서 뒤집힘", "hidden": true},
-   {"n": 17, "cause": "code", "text_ko": "Minmus를 겨눴는데 Mun에 포획"},
+   {"n": 17, "cause": "code", "text_ko": "Minmus를 겨눴는데 Mun에 포획", "hidden": true},
    {"n": 19, "cause": "game", "text_ko": "지표 EVA에서 Jeb이 1,400 m/s로 튕김"},
    {"n": 23, "cause": "pilot", "text_ko": "호핑에 1,434 m/s, Bob 고립 → 급유선"},
    {"n": 28, "cause": "code", "text_ko": "Klaw 4연속 튕김 — MODULE 노드 누락"},
@@ -291,16 +311,21 @@
    {"n": 42, "cause": "code", "text_ko": "저장 NRE로 엉뚱한 계약(Ike 정거장) 수락", "hidden": true},
    {"n": 44, "cause": "code", "text_ko": "탈출 분사 601 m/s 부족: 첫 단만 계산", "hidden": true},
    {"n": 46, "cause": "code", "text_ko": "38 km 수평 비행, OKTO 과열 폭발"},
-   {"n": 47, "cause": "code", "text_ko": "탈출 점화 26초 늦어 Moho를 놓침"}
+   {"n": 47, "cause": "code", "text_ko": "탈출 점화 26초 늦어 Moho를 놓침"},
+   {"n": 48, "cause": "design", "text_ko": "뭉툭한 방열판 머리, 음속 근처에서 뒤집힘"},
+   {"n": 50, "cause": "game", "text_ko": "낡은 계약 목록: 궤도는 맞췄는데 계약 불발"}
   ],
  "live_missions": [
    {"slug": "jool-1", "n": 44, "type": "probe", "body": "jool", "crew": [], "where_ko": "Jool로 이동 중", "next_ko": "Jool 도착", "next_ut": 52787080, "from": "kerbin", "to": "jool"},
+   {"slug": "eve-2", "n": 49, "type": "probe", "body": "eve", "crew": [], "where_ko": "Eve로 이동 중", "next_ko": "Eve 도착", "next_ut": 45300000, "from": "kerbin", "to": "eve"},
+   {"slug": "dres-1", "n": 51, "type": "probe", "body": "dres", "crew": [], "where_ko": "Dres로 이동 중", "next_ko": "Dres 도착", "next_ut": 59190000, "from": "kerbin", "to": "dres"},
    {"slug": "ike-station-1", "n": 45, "type": "probe", "body": "ike", "crew": [], "where_ko": "Ike 궤도 (정거장)", "next_ko": "계약 완료", "next_ut": 30752200},
    {"slug": "minmus-lab-1", "n": 41, "type": "station", "body": "minmus", "crew": ["Bob", "Gwenbro"], "where_ko": "Minmus 극궤도 14 km", "next_ko": "실험실 방문", "sci_per_day": 9.3},
    {"slug": "polar-relay-1", "n": 27, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-1", "n": 31, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-2", "n": 32, "type": "satellite", "body": "kerbin"},
-   {"slug": "keo-relay-3", "n": 42, "type": "satellite", "body": "kerbin"}
+   {"slug": "keo-relay-3", "n": 42, "type": "satellite", "body": "kerbin"},
+   {"slug": "mun-sat-1", "n": 50, "type": "satellite", "body": "mun"}
   ],
  "science_hauls": [
    {"n": 25, "gain": 565, "how": "회수"},
@@ -314,7 +339,8 @@
    {"n": 41, "gain": 485, "how": "실험실 전송"},
    {"n": 41, "gain": 492, "how": "실험실 전송"}, {"n": 41, "gain": 498, "how": "실험실 전송"}, {"n": 41, "gain": 495, "how": "실험실 전송"}, {"n": 41, "gain": 475, "how": "실험실 전송"}, {"n": 37, "gain": 620, "how": "회수"}, {"n": 41, "gain": 500, "how": "실험실 전송"},
    {"n": 41, "gain": 417, "how": "실험실 전송"}, {"n": 41, "gain": 456, "how": "실험실 전송"}, {"n": 41, "gain": 420, "how": "실험실 전송"}, {"n": 41, "gain": 444, "how": "실험실 전송"}, {"n": 41, "gain": 412, "how": "실험실 전송"},
-   {"n": 47, "gain": 1516, "how": "전송", "note": "Moho high orbit +556, low orbit +537, surface +423"}
+   {"n": 47, "gain": 1516, "how": "전송", "note": "Moho high orbit +556, low orbit +537, surface +423"},
+   {"n": 41, "gain": 400, "how": "실험실 전송", "note": "UT 42.35M"}, {"n": 41, "gain": 441, "how": "실험실 전송", "note": "UT 43.37M"}
   ],
  "science_aboard": [
    {"slug": "minmus-lab-1", "data": "723/750"}

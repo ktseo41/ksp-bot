@@ -78,9 +78,9 @@ def legend(items=('ok', 'rev', 'dead', 'fail', 'live'), size=24):
 
 # ---------------------------------------------------------------- bodies
 BODY_NAME = {'kerbin': 'Kerbin', 'mun': 'Mun', 'minmus': 'Minmus', 'duna': 'Duna', 'eve': 'Eve', 'moho': 'Moho',
-             'jool': 'Jool', 'ike': 'Ike', 'kerbol': 'Kerbol'}
-# display order (the order they were reached); Jool last = farthest (Jool 1 is still on its way)
-BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'moho', 'jool']
+             'dres': 'Dres', 'jool': 'Jool', 'ike': 'Ike', 'kerbol': 'Kerbol'}
+# display order (the order they were reached); Dres/Jool last = farthest (Dres 1, Jool 1 are still on their way)
+BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'moho', 'dres', 'jool']
 
 
 def dest_body(dest):
@@ -110,6 +110,10 @@ EXTRA = {
     'moho': (('#d8a88a', '#9a5f45', '#3c2016'),
              '<circle cx="34" cy="38" r="9" fill="#7e4a34"/><circle cx="62" cy="62" r="11" fill="#84503a"/>'
              '<circle cx="66" cy="30" r="5" fill="#7e4a34"/><circle cx="30" cy="68" r="4" fill="#84503a"/>'),
+    'dres': (('#d6cfc4', '#8f877b', '#35312b'),
+             '<path d="M6 40 Q30 34 52 44 T98 40" fill="none" stroke="#5f584e" stroke-width="5" opacity=".8"/>'
+             '<path d="M10 62 Q40 56 60 64 T96 60" fill="none" stroke="#6b6358" stroke-width="3" opacity=".7"/>'
+             '<circle cx="36" cy="26" r="6" fill="#7a7266"/><circle cx="66" cy="76" r="8" fill="#7a7266"/>'),
     'ike': (('#b8b6b2', '#77746f', '#35332f'),
             '<circle cx="36" cy="40" r="10" fill="#6a6762"/><circle cx="64" cy="64" r="8" fill="#6d6a65"/>'
             '<circle cx="60" cy="28" r="5" fill="#6d6a65"/>'),
@@ -170,8 +174,8 @@ CROPS = {
 for _s in CROPS:
     PHOTOS[_s] = f'img/{_s}.jpg'
 # same design as a photographed sibling
-for _s, _same in {'keo-relay-2': 'keo-relay-1', 'keo-relay-3': 'keo-relay-1', 'rescue-5': 'rescue-3',
-                  'rescue-6': 'rescue-3'}.items():
+for _s, _same in {'keo-relay-2': 'keo-relay-1', 'keo-relay-3': 'keo-relay-1', 'mun-sat-1': 'keo-relay-1',
+                  'rescue-5': 'rescue-3', 'rescue-6': 'rescue-3'}.items():
     PHOTOS[_s] = PHOTOS[_same]
 
 

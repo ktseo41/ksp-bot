@@ -48,8 +48,9 @@ css = '''
 
 # ---- schematic solar system: Kerbol off the left edge, orbits as arcs (scale ignored)
 SX, SY = -150, 300
-ORB = {'moho': (205, 36), 'eve': (260, -38), 'kerbin': (420, 14), 'duna': (600, -14), 'jool': (930, 10)}  # radius, angle (deg)
-SIZE = {'moho': 50, 'eve': 76, 'kerbin': 84, 'duna': 72, 'jool': 124}
+ORB = {'moho': (205, 36), 'eve': (260, -38), 'kerbin': (420, 14), 'duna': (600, -14), 'dres': (760, -4),
+       'jool': (930, 10)}  # radius, angle (deg)
+SIZE = {'moho': 50, 'eve': 76, 'kerbin': 84, 'duna': 72, 'dres': 44, 'jool': 124}
 
 
 def pos(b):
@@ -59,7 +60,8 @@ def pos(b):
 
 svg = [f'<svg class="bg" width="968" height="600" viewBox="0 0 968 600">']
 for b, (r, a) in ORB.items():
-    svg.append(orbit_ring(SX, SY, r, dashed=(b == 'jool'), color='rgba(168,217,122,.35)' if b == 'jool' else 'rgba(255,255,255,.13)'))
+    far = b in ('jool', 'dres')  # not reached yet: dashed, green
+    svg.append(orbit_ring(SX, SY, r, dashed=far, color='rgba(168,217,122,.35)' if far else 'rgba(255,255,255,.13)'))
 kx, ky = pos('kerbin')
 dx, dy = pos('duna')
 # moons: rings and positions around their planet (layout)
@@ -127,7 +129,7 @@ def body_lines(b):
 
 # label anchor per body (layout): dx, dy from the body centre, alignment, name colour
 LAB = {'moho': (-24, 30, 'left', '#e8b89c'), 'eve': (46, -44, 'left', '#d9b8f2'), 'kerbin': (-44, 48, 'left', '#8fd0ff'), 'mun': (-24, -8, 'right', '#d3d6dc'),
-       'minmus': (-24, -90, 'right', '#a8e8cf'), 'duna': (44, -50, 'left', '#ffb08e'), 'jool': (-2, 76, 'left', '#c8f0a0')}
+       'minmus': (-24, -90, 'right', '#a8e8cf'), 'duna': (44, -50, 'left', '#ffb08e'), 'dres': (28, -14, 'left', '#d6cfc4'), 'jool': (-2, 76, 'left', '#c8f0a0')}
 nodes = [pb(SX + 90, SY, planet('kerbol', 260))]
 nodes += [pb(*pos(b), planet(b, SIZE[b], dashed=any(t[0]['to'] == b and t[0]['type'] == 'probe' for t in travel) and b not in LB))
           for b in ORB]
