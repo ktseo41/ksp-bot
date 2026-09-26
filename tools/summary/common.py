@@ -164,7 +164,8 @@ RESULT_CODE = {'success': 'ok', 'reverted': 'rev', 'crew lost': 'dead', 'strande
 
 # n, craft slug, result, destination, short stat blurb, crew note -- straight from docs/record/career.json
 LAUNCHES = [
-    (l['n'], l['slug'], RESULT_CODE[l['result']], l['dest'], l.get('stat', ''), l.get('crew', ''))
+    # unknown results pass through (v2 imports this module; the day-1 scripts only know #1-#20)
+    (l['n'], l['slug'], RESULT_CODE.get(l['result'], l['result']), l['dest'], l.get('stat', ''), l.get('crew', ''))
     for l in RECORD['career_launches']
 ]
 

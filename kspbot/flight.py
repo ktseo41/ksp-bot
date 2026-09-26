@@ -598,6 +598,10 @@ def _moon_penalty(patch, target):
     moon = patch.next_orbit
     if moon is None or moon.body.name == target.name or moon.body.name in _ancestors(target):
         return 0.0
+    b = patch.body
+    if b.has_atmosphere and patch.periapsis_altitude < b.atmosphere_depth \
+            and patch.time_to_periapsis < patch.time_to_soi_change:
+        return 0.0  # the moon comes after an atmospheric periapsis (Duna 1's return: a Mun pass we never reach)
     return 1000.0 + (moon.body.sphere_of_influence - moon.periapsis) / 1000.0
 
 
@@ -2107,6 +2111,7 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None):
         nu = -math.acos(max(-1.0, min(1.0, (p / r - 1) / o.eccentricity)))
         warp_to(o.ut_at_true_anomaly(nu), lead=60)
     _antennas(v, False)
+    collect_science(v)
     # jettison stages until only parachutes remain in the next stage
     while v.control.current_stage > 0:
         nxt = _stage_parts(v, v.control.current_stage - 1)
@@ -2202,6 +2207,25 @@ def _reentry_keep(main_alt, main_speed, keep_until):
 
 
 # ---------------------------------------------------------------- science
+
+def collect_science(v=None):
+    """Move all experiment data into the root part's science container (KspBot StoreScience: the Mk1 pod's own
+    "Collect All" is disabled), so data on stages about to be dropped comes home (Duna 1 jettisoned its lander
+    with the Duna surface goo and thermometer data: the surface science contract stayed open)."""
+    import json
+    from .core import bot
+    v = v or vessel()
+    try:
+        r = json.loads(bot().store_science())
+    except Exception as ex:
+        say(f"science not collected: {str(ex).splitlines()[0]}")
+        return 0
+    stored = [x for x in r["items"] if x["result"] == "stored"]
+    other = [f"{x['subject']} ({x['result']})" for x in r["items"] if x["result"] != "stored"]
+    say(f"science into {v.parts.root.title}: {len(stored)} stored, {r['held']} held"
+        + (f"; left: {other}" if other else ""))
+    return len(stored)
+
 
 def _antennas(v, extend, panels_only=False):
     """Extend (before transmitting: a stowed Communotron can't) or retract (before atmosphere/liftoff) antennas,

@@ -788,6 +788,34 @@ namespace KspBot
             return Json.Write(new Obj { ["items"] = rows, ["dataStored"] = lab.dataStored });
         }
 
+        /// <summary>Move every experiment/container data item on the active vessel into the root part's science
+        /// container (what "Collect All" does; the Mk1 pod has canTransferInVessel = false, so stock hides it).
+        /// Duplicated subjects stay where they are. Duna 1 lost its surface goo/thermometer data with the lander.</summary>
+        [KRPCProcedure]
+        public static string StoreScience()
+        {
+            var v = FlightGlobals.ActiveVessel;
+            var to = v.rootPart.Modules.OfType<ModuleScienceContainer>().FirstOrDefault()
+                     ?? throw new InvalidOperationException("the root part has no science container");
+            var rows = new List<object>();
+            foreach (var p in v.parts.ToList())
+            foreach (var c in p.Modules.OfType<IScienceDataContainer>().ToList())
+            {
+                if (ReferenceEquals(c, to) || c is ModuleScienceLab) continue;
+                foreach (var d in c.GetData())
+                {
+                    string why = to.HasData(d) ? "duplicate" : !to.AddData(d) ? "refused" : null;
+                    if (why == null)
+                    {
+                        if (c is ModuleScienceExperiment e) e.DumpData(d);
+                        else if (c is ModuleScienceContainer k) k.RemoveData(d);
+                    }
+                    rows.Add(new Obj { ["subject"] = d.subjectID, ["part"] = p.partInfo.name, ["result"] = why ?? "stored" });
+                }
+            }
+            return Json.Write(new Obj { ["items"] = rows, ["held"] = to.GetScienceCount() });
+        }
+
         /// <summary>start | stop research, transmit stored science, clean (reset) the vessel's used experiments.</summary>
         [KRPCProcedure]
         public static string LabAction(string action)

@@ -1,0 +1,230 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Crew</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+KR:wght@500;700&display=block" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b17; --bg2:#0d1428; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.10); --text:#eef2ff; --muted:#8e98b6; --dim:#5c6684;
+  --ok:#35d67c; --rev:#ff9a2e; --dead:#ff4d5e; --pad:#7d879c; --sci:#56c8ff; --fund:#f7d75c; --tech:#b28cff;
+  --kerbin:#3f9be0; --mun:#a9adb5; --minmus:#a8e8cf; --duna:#d9663e; --gold:#ffcf4a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1350px;overflow:hidden}
+body{background:radial-gradient(1200px 800px at 85% -10%, #1a2550 0%, rgba(26,37,80,0) 60%),
+  radial-gradient(900px 700px at -10% 110%, #1a1440 0%, rgba(26,20,64,0) 60%), var(--bg);
+  color:var(--text); font-family:'Space Grotesk',system-ui,sans-serif; position:relative;
+  -webkit-font-smoothing:antialiased}
+.stars{position:absolute;inset:0;z-index:0;pointer-events:none}
+.page{position:absolute;inset:0;padding:52px 56px 0;z-index:1}
+.ic{display:inline-block;vertical-align:middle;flex:none}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.kicker{display:flex;align-items:center;gap:10px;font-size:19px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.kicker b{color:var(--text);font-weight:700}
+.title{font-size:76px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:10px}
+.footer{position:absolute;left:56px;right:56px;bottom:30px;display:flex;justify-content:space-between;align-items:center;
+  font-size:17px;color:var(--dim);letter-spacing:.06em;z-index:2}
+.footer .dots{display:flex;gap:8px}
+.footer .dots i{width:9px;height:9px;border-radius:50%;background:#2a3350;display:block}
+.footer .dots i.on{background:var(--muted)}
+.legend{display:flex;gap:22px;align-items:center;font-size:19px;color:var(--muted);font-weight:500}
+.legend span{display:flex;align-items:center;gap:8px}
+.chip{display:inline-flex;align-items:center;justify-content:center;border-radius:9px;color:#fff;font-weight:700}
+.c-ok{background:var(--ok);color:#06240f}
+.c-rev{background:var(--rev);color:#2b1400}
+.c-dead{background:var(--dead);color:#fff}
+.c-pad{background:var(--pad)}
+
+:root{--fail:#8e98b6;--live:#56c8ff;--eve:#b487d6;--jool:#a8d97a}
+body{font-family:'Space Grotesk','Noto Sans KR',system-ui,sans-serif;word-break:keep-all}
+.mono{font-family:'JetBrains Mono','Noto Sans KR',ui-monospace,monospace}
+.c-fail{background:var(--fail);color:#12172a}
+.c-live{background:var(--live);color:#04222f}
+.hdr{display:flex;justify-content:space-between;align-items:center}
+.datechip{font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 14px;letter-spacing:.04em;white-space:nowrap}
+.headline{font-weight:700;letter-spacing:-.02em;line-height:1.12;margin-top:14px;white-space:nowrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:22px}
+.sec{margin-top:24px}
+.lbl{font-size:18px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ph0{background:rgba(255,255,255,.035);border:1.5px dashed rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center}
+
+.sum{display:flex;gap:12px;margin-top:18px}
+.sum div{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 16px 6px 10px;font-size:30px;font-weight:700}
+.sum div span{font-size:17px;color:var(--muted);font-weight:500;margin-left:2px}
+.crew{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+.kc{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:10px;position:relative}
+.kc .top{display:flex;gap:16px;align-items:center}
+.kc .top img{width:104px;height:126px;object-fit:cover;border-radius:15px;border:2px solid rgba(255,255,255,.18);flex:none}
+.kc .nm{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+.kc .tr{display:flex;align-items:center;gap:7px;font-size:17px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:5px}
+.kc .now{display:inline-flex;align-items:center;gap:7px;margin-top:9px;background:rgba(86,200,255,.12);color:#bfe8ff;border-radius:999px;padding:4px 12px 4px 8px;font-size:18px;font-weight:600;white-space:nowrap}
+.kc .rs{position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:4px;color:#9ccc3c;font-size:20px;font-weight:700}
+.kc .first{position:absolute;top:14px;right:16px;display:flex;align-items:center;gap:5px;background:var(--gold);color:#2b2000;font-weight:700;font-size:17px;border-radius:999px;padding:3px 10px 3px 7px}
+.row{display:flex;align-items:center;gap:12px;min-height:44px;border-top:1px solid var(--line);padding-top:9px;flex-wrap:nowrap}
+.row .ri{width:22px;display:flex;justify-content:center;color:var(--dim);flex:none}
+.vs{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#dfe6f7}
+.vs .x{color:var(--muted);font-weight:500}
+.sk{display:flex;align-items:center;gap:2px;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;color:#ff8e98}
+.sk.fd{opacity:.4}
+.none{color:var(--dim);font-size:18px}
+.resc{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:14px 16px 12px}
+.resc .t{display:flex;align-items:center;gap:10px}
+.resc .g{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+.rk{display:flex;flex-direction:column;align-items:center;gap:3px}
+.rk .nm{font-size:19px;font-weight:700}
+.rk .tr{font-size:17px;color:var(--muted);display:flex;align-items:center;gap:5px;min-height:22px}
+.rk .n{font-family:'JetBrains Mono',monospace;font-size:17px;color:#9ccc3c}
+.photos{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.ph{height:196px;border-radius:20px;overflow:hidden;position:relative;border:1px solid var(--line)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .tg{position:absolute;left:12px;bottom:12px;}
+.ph .tg.up{bottom:auto;top:12px}
+.ph .tg{display:flex;align-items:center;gap:8px;background:rgba(7,11,23,.82);border-radius:999px;padding:5px 14px 5px 10px;font-size:19px;font-weight:700}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+<defs>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.8l4.3 4.2L19 7.2" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-revert" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 4.5l-4 4 4 4"/><path d="M4.8 8.5H14a5.5 5.5 0 0 1 0 11H8.5"/></g></symbol>
+<symbol id="i-skull" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2.2c-4.6 0-8.3 3.5-8.3 8 0 2.7 1.3 4.6 3 5.8v3.3c0 .9.7 1.5 1.5 1.5h7.6c.8 0 1.5-.6 1.5-1.5V16c1.7-1.2 3-3.1 3-5.8 0-4.5-3.7-8-8.3-8zM6.6 10.8a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0-4.6 0zM12.8 10.8a2.3 2.3 0 1 0 4.6 0a2.3 2.3 0 1 0-4.6 0zM12 13.4l-1.3 2.3h2.6zM9.6 17.6h1.1v2.6H9.6zM11.45 17.6h1.1v2.6h-1.1zM13.3 17.6h1.1v2.6h-1.1z"/></symbol>
+<symbol id="i-rocket" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 1.5c3.1 2.6 4.6 6.2 4.6 10.3v4.4H7.4v-4.4c0-4.1 1.5-7.7 4.6-10.3zM10.3 9a1.7 1.7 0 1 0 3.4 0a1.7 1.7 0 1 0-3.4 0z"/><path fill="currentColor" d="M7.4 12.6L4 15.8v3.7l3.4-1.9zM16.6 12.6l3.4 3.2v3.7l-3.4-1.9z"/><path fill="#ffb347" d="M9.6 17.4h4.8L12 22.5z"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 2.8h7"/><path d="M10 2.8v6.4L4.6 18.6A1.8 1.8 0 0 0 6.2 21.4h11.6a1.8 1.8 0 0 0 1.6-2.8L14 9.2V2.8"/></g><path fill="currentColor" d="M7.2 15.2h9.6l2 3.6a1 1 0 0 1-.9 1.5H6.1a1 1 0 0 1-.9-1.5z"/></symbol>
+<symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M6.8 12.6l2.2 4.2 4.6-10h3.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-building" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M2.5 21h19"/><path d="M4.5 21V9.5L12 4l7.5 5.5V21"/><path d="M9.5 21v-6h5v6"/></g></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.1l-6.1 3.5 1.5-6.8-5.2-4.6 6.9-.7z"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M6 21.5V3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path fill="currentColor" d="M6.5 3.5h12l-2.6 4.5 2.6 4.5h-12z"/></symbol>
+<symbol id="i-boom" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.5l2 5.6 5.2-3-1.9 5.6 5.2 1.3-4.9 2.4 3.4 4.6-5.6-.9-.4 5.9-3-4.9-3 4.9-.4-5.9-5.6.9 3.4-4.6L1.5 11l5.2-1.3-1.9-5.6 5.2 3z"/></symbol>
+<symbol id="i-respawn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.8 3.8v4.6h-4.6"/></g><circle cx="12" cy="12" r="2.6" fill="currentColor"/></symbol>
+<symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4.6" transform="rotate(-25 12 12)" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-chute" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 10.5a9.5 8 0 0 1 19 0"/><path d="M2.5 10.5L12 19.5l9.5-9M12 10.5v9M7.5 10.5 12 19.5l4.5-9"/></g><rect x="9.8" y="18.6" width="4.4" height="3.6" rx="1" fill="currentColor"/></symbol>
+<symbol id="i-pad" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M6 21V5M6 8h4M6 12h4M6 16h4"/></g><path fill="currentColor" d="M15 4c1.6 1.4 2.3 3.2 2.3 5.3V17h-4.6V9.3C12.7 7.2 13.4 5.4 15 4z"/></symbol>
+<symbol id="i-air" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 8.5h11a3 3 0 1 0-3-3"/><path d="M3 13h16a3 3 0 1 1-3 3"/><path d="M3 17.5h7"/></g></symbol>
+<symbol id="i-wrench" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" d="M14.5 6.5a4 4 0 0 0 5.3 4.9l-9.4 9.4a2.1 2.1 0 0 1-3-3l9.4-9.4a4 4 0 0 0-4.9-5.3l2.9 2.9z"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" d="M12 2.8l7.5 3v5.5c0 4.8-3.2 8.3-7.5 9.9-4.3-1.6-7.5-5.1-7.5-9.9V5.8z"/><path fill="currentColor" d="M12 6.5l4.5 1.8v3c0 3-1.9 5.3-4.5 6.4z"/></symbol>
+<symbol id="i-fin" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2.5h3.5v19H9zM12.5 9l7 9v3.5h-7z"/><path fill="currentColor" opacity=".55" d="M9 9l-4.5 7v5.5H9z"/></symbol>
+<symbol id="i-tank" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2.3"/><path fill="currentColor" d="M8.3 12h7.4v5.2a1.6 1.6 0 0 1-1.6 1.6H9.9a1.6 1.6 0 0 1-1.6-1.6z"/></symbol>
+<symbol id="i-leg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8v7H8z"/><path d="M8 8.5L3.5 19M16 8.5l4.5 10.5"/><path d="M1.5 20.5h4M18.5 20.5h4"/></g></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.8 1.8L4.5 13.6h6.3l-1.3 8.6 9.3-11.8h-6.3z"/></symbol>
+<symbol id="i-planet" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.4" fill="currentColor"/><ellipse cx="12" cy="12" rx="10.5" ry="3.3" transform="rotate(-20 12 12)" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor"/><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+<symbol id="i-gyro" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="12" r="3.3" fill="currentColor"/><path d="M12 3v4.5M12 16.5V21M3 12h4.5M16.5 12H21" stroke="currentColor" stroke-width="2.2"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10.5" rx="2.2" fill="currentColor"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.3"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-kerbal" viewBox="0 0 24 24"><ellipse cx="12" cy="12.5" rx="9.5" ry="8.2" fill="currentColor"/><circle cx="8.3" cy="10.8" r="2.7" fill="#fff"/><circle cx="15.7" cy="10.8" r="2.7" fill="#fff"/><circle cx="8.8" cy="11" r="1.2" fill="#111"/><circle cx="15.2" cy="11" r="1.2" fill="#111"/><path d="M8 16c2.3 1.8 5.7 1.8 8 0" fill="none" stroke="#111" stroke-width="1.3" stroke-linecap="round"/></symbol>
+</defs></svg>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-cross" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+<symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" opacity=".6"/></symbol>
+<symbol id="i-bug" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 7.5l-2-2.5M16 7.5l2-2.5M4 12.5h3.5M16.5 12.5H20M5 18.5l2.8-1.8M19 18.5l-2.8-1.8"/></g><path fill="currentColor" d="M12 6.2c2.6 0 4.6 2.2 4.6 5v3.6c0 2.8-2 5-4.6 5s-4.6-2.2-4.6-5v-3.6c0-2.8 2-5 4.6-5z"/><path d="M12 9.5v9.5" stroke="#070b17" stroke-width="1.6"/></symbol>
+<symbol id="i-sat" viewBox="0 0 24 24"><rect x="9" y="9" width="6" height="6" rx="1.2" fill="currentColor"/><path fill="currentColor" opacity=".75" d="M1.5 10h6v4h-6zM16.5 10h6v4h-6z"/><path d="M12 9V4.5M9.5 4.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="i-station" viewBox="0 0 24 24"><rect x="8.5" y="4" width="7" height="16" rx="2.5" fill="currentColor"/><path fill="currentColor" opacity=".7" d="M1 8h6.5v8H1zM16.5 8H23v8h-6.5z"/></symbol>
+<symbol id="i-term" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M11.5 15h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 6.8V12l3.6 2.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+</defs></svg><svg class="stars" width="1080" height="1350" viewBox="0 0 1080 1350"><circle cx="42" cy="940" r="0.6" fill="#fff" opacity="0.58"/><circle cx="399" cy="943" r="0.5" fill="#fff" opacity="0.35"/><circle cx="538" cy="26" r="0.8" fill="#fff" opacity="0.41"/><circle cx="674" cy="1279" r="0.8" fill="#fff" opacity="0.33"/><circle cx="62" cy="145" r="0.5" fill="#fff" opacity="0.32"/><circle cx="103" cy="692" r="0.8" fill="#fff" opacity="0.21"/><circle cx="418" cy="1321" r="0.7" fill="#fff" opacity="0.41"/><circle cx="407" cy="66" r="0.5" fill="#fff" opacity="0.23"/><circle cx="66" cy="224" r="0.7" fill="#fff" opacity="0.55"/><circle cx="564" cy="139" r="1.0" fill="#fff" opacity="0.44"/><circle cx="702" cy="82" r="1.0" fill="#fff" opacity="0.36"/><circle cx="699" cy="977" r="0.7" fill="#fff" opacity="0.39"/><circle cx="757" cy="225" r="0.5" fill="#fff" opacity="0.50"/><circle cx="54" cy="798" r="0.7" fill="#fff" opacity="0.48"/><circle cx="726" cy="95" r="1.0" fill="#fff" opacity="0.45"/><circle cx="321" cy="1214" r="1.2" fill="#fff" opacity="0.58"/><circle cx="772" cy="56" r="0.8" fill="#fff" opacity="0.42"/><circle cx="90" cy="172" r="0.5" fill="#fff" opacity="0.54"/><circle cx="790" cy="775" r="0.7" fill="#fff" opacity="0.20"/><circle cx="578" cy="598" r="0.5" fill="#fff" opacity="0.22"/><circle cx="114" cy="1068" r="0.5" fill="#fff" opacity="0.21"/><circle cx="18" cy="1043" r="0.7" fill="#fff" opacity="0.20"/><circle cx="575" cy="350" r="1.2" fill="#fff" opacity="0.36"/><circle cx="367" cy="1283" r="0.5" fill="#fff" opacity="0.47"/><circle cx="100" cy="278" r="1.2" fill="#fff" opacity="0.33"/><circle cx="740" cy="777" r="0.7" fill="#fff" opacity="0.42"/><circle cx="441" cy="1081" r="0.8" fill="#fff" opacity="0.31"/><circle cx="201" cy="240" r="0.6" fill="#fff" opacity="0.47"/><circle cx="1042" cy="904" r="0.7" fill="#fff" opacity="0.25"/><circle cx="203" cy="292" r="0.8" fill="#fff" opacity="0.52"/><circle cx="420" cy="82" r="1.0" fill="#fff" opacity="0.18"/><circle cx="29" cy="737" r="1.0" fill="#fff" opacity="0.53"/><circle cx="959" cy="680" r="1.0" fill="#fff" opacity="0.58"/><circle cx="625" cy="356" r="0.6" fill="#fff" opacity="0.35"/><circle cx="422" cy="336" r="0.5" fill="#fff" opacity="0.46"/><circle cx="134" cy="840" r="0.6" fill="#fff" opacity="0.32"/><circle cx="114" cy="252" r="0.5" fill="#fff" opacity="0.30"/><circle cx="282" cy="181" r="1.0" fill="#fff" opacity="0.22"/><circle cx="262" cy="319" r="0.5" fill="#fff" opacity="0.27"/><circle cx="755" cy="369" r="1.2" fill="#fff" opacity="0.51"/><circle cx="520" cy="459" r="0.7" fill="#fff" opacity="0.25"/><circle cx="788" cy="641" r="1.2" fill="#fff" opacity="0.22"/><circle cx="615" cy="600" r="1.2" fill="#fff" opacity="0.37"/><circle cx="480" cy="1232" r="1.2" fill="#fff" opacity="0.40"/><circle cx="913" cy="824" r="1.2" fill="#fff" opacity="0.35"/><circle cx="880" cy="95" r="1.0" fill="#fff" opacity="0.57"/><circle cx="690" cy="1106" r="1.0" fill="#fff" opacity="0.49"/><circle cx="698" cy="1079" r="1.2" fill="#fff" opacity="0.46"/><circle cx="977" cy="1206" r="0.6" fill="#fff" opacity="0.23"/><circle cx="213" cy="1071" r="1.0" fill="#fff" opacity="0.18"/><circle cx="183" cy="1347" r="0.8" fill="#fff" opacity="0.28"/><circle cx="369" cy="598" r="0.7" fill="#fff" opacity="0.37"/><circle cx="124" cy="434" r="0.7" fill="#fff" opacity="0.31"/><circle cx="846" cy="943" r="0.8" fill="#fff" opacity="0.30"/><circle cx="903" cy="285" r="0.8" fill="#fff" opacity="0.23"/><circle cx="325" cy="587" r="1.0" fill="#fff" opacity="0.28"/><circle cx="688" cy="1280" r="0.7" fill="#fff" opacity="0.55"/><circle cx="852" cy="288" r="0.6" fill="#fff" opacity="0.46"/><circle cx="693" cy="685" r="1.2" fill="#fff" opacity="0.56"/><circle cx="282" cy="675" r="1.0" fill="#fff" opacity="0.23"/><circle cx="275" cy="1190" r="1.2" fill="#fff" opacity="0.38"/><circle cx="144" cy="1125" r="0.7" fill="#fff" opacity="0.38"/><circle cx="1065" cy="129" r="1.0" fill="#fff" opacity="0.46"/><circle cx="425" cy="508" r="0.8" fill="#fff" opacity="0.43"/><circle cx="607" cy="733" r="0.5" fill="#fff" opacity="0.15"/><circle cx="775" cy="650" r="0.5" fill="#fff" opacity="0.28"/><circle cx="720" cy="278" r="1.2" fill="#fff" opacity="0.19"/><circle cx="729" cy="575" r="0.6" fill="#fff" opacity="0.58"/><circle cx="387" cy="111" r="0.7" fill="#fff" opacity="0.56"/><circle cx="96" cy="751" r="0.7" fill="#fff" opacity="0.23"/><circle cx="679" cy="277" r="0.5" fill="#fff" opacity="0.34"/><circle cx="64" cy="857" r="0.5" fill="#fff" opacity="0.25"/><circle cx="113" cy="272" r="0.6" fill="#fff" opacity="0.26"/><circle cx="837" cy="53" r="0.5" fill="#fff" opacity="0.19"/><circle cx="29" cy="831" r="1.0" fill="#fff" opacity="0.45"/><circle cx="873" cy="887" r="0.6" fill="#fff" opacity="0.27"/><circle cx="430" cy="251" r="0.6" fill="#fff" opacity="0.43"/><circle cx="347" cy="1080" r="0.8" fill="#fff" opacity="0.58"/><circle cx="762" cy="549" r="0.7" fill="#fff" opacity="0.36"/><circle cx="638" cy="275" r="0.8" fill="#fff" opacity="0.44"/><circle cx="984" cy="1113" r="1.0" fill="#fff" opacity="0.52"/><circle cx="167" cy="44" r="1.0" fill="#fff" opacity="0.23"/><circle cx="937" cy="102" r="0.5" fill="#fff" opacity="0.36"/><circle cx="133" cy="849" r="0.7" fill="#fff" opacity="0.59"/><circle cx="708" cy="1098" r="0.8" fill="#fff" opacity="0.25"/><circle cx="824" cy="15" r="0.7" fill="#fff" opacity="0.31"/><circle cx="423" cy="175" r="1.0" fill="#fff" opacity="0.42"/><circle cx="708" cy="1174" r="0.5" fill="#fff" opacity="0.46"/><circle cx="219" cy="887" r="1.0" fill="#fff" opacity="0.40"/><circle cx="465" cy="688" r="0.5" fill="#fff" opacity="0.31"/><circle cx="956" cy="433" r="0.7" fill="#fff" opacity="0.45"/><circle cx="586" cy="592" r="1.2" fill="#fff" opacity="0.19"/><circle cx="662" cy="80" r="0.8" fill="#fff" opacity="0.27"/><circle cx="912" cy="727" r="0.5" fill="#fff" opacity="0.31"/><circle cx="332" cy="169" r="1.2" fill="#fff" opacity="0.33"/><circle cx="845" cy="1019" r="0.5" fill="#fff" opacity="0.31"/><circle cx="857" cy="292" r="0.5" fill="#fff" opacity="0.34"/><circle cx="389" cy="606" r="0.5" fill="#fff" opacity="0.37"/><circle cx="543" cy="252" r="0.5" fill="#fff" opacity="0.35"/><circle cx="468" cy="234" r="1.2" fill="#fff" opacity="0.42"/><circle cx="288" cy="667" r="0.8" fill="#fff" opacity="0.20"/><circle cx="340" cy="390" r="1.0" fill="#fff" opacity="0.38"/><circle cx="763" cy="1018" r="0.8" fill="#fff" opacity="0.48"/><circle cx="839" cy="892" r="0.8" fill="#fff" opacity="0.50"/><circle cx="927" cy="48" r="1.2" fill="#fff" opacity="0.49"/><circle cx="182" cy="257" r="0.7" fill="#fff" opacity="0.54"/><circle cx="703" cy="209" r="1.0" fill="#fff" opacity="0.38"/><circle cx="994" cy="782" r="0.7" fill="#fff" opacity="0.56"/><circle cx="270" cy="423" r="1.0" fill="#fff" opacity="0.48"/><circle cx="10" cy="1332" r="0.6" fill="#fff" opacity="0.18"/><circle cx="768" cy="176" r="0.5" fill="#fff" opacity="0.35"/><circle cx="805" cy="345" r="1.2" fill="#fff" opacity="0.25"/><circle cx="736" cy="123" r="0.7" fill="#fff" opacity="0.23"/><circle cx="476" cy="677" r="0.5" fill="#fff" opacity="0.57"/><circle cx="100" cy="404" r="1.2" fill="#fff" opacity="0.46"/><circle cx="146" cy="1110" r="0.7" fill="#fff" opacity="0.49"/><circle cx="75" cy="832" r="1.2" fill="#fff" opacity="0.31"/><circle cx="87" cy="1252" r="1.0" fill="#fff" opacity="0.18"/><circle cx="119" cy="172" r="0.8" fill="#fff" opacity="0.28"/><circle cx="293" cy="533" r="1.2" fill="#fff" opacity="0.60"/><circle cx="642" cy="933" r="1.0" fill="#fff" opacity="0.56"/><circle cx="1079" cy="764" r="0.7" fill="#fff" opacity="0.29"/><circle cx="1010" cy="784" r="0.6" fill="#fff" opacity="0.52"/><circle cx="969" cy="1210" r="0.7" fill="#fff" opacity="0.19"/><circle cx="591" cy="1276" r="1.2" fill="#fff" opacity="0.44"/><circle cx="412" cy="1243" r="1.0" fill="#fff" opacity="0.22"/><circle cx="215" cy="744" r="1.0" fill="#fff" opacity="0.32"/><circle cx="355" cy="850" r="0.7" fill="#fff" opacity="0.25"/><circle cx="959" cy="388" r="0.5" fill="#fff" opacity="0.54"/><circle cx="752" cy="168" r="0.5" fill="#fff" opacity="0.16"/><circle cx="1069" cy="285" r="0.5" fill="#fff" opacity="0.33"/><circle cx="920" cy="1000" r="0.7" fill="#fff" opacity="0.56"/><circle cx="63" cy="641" r="0.5" fill="#fff" opacity="0.26"/><circle cx="142" cy="78" r="1.2" fill="#fff" opacity="0.48"/><circle cx="615" cy="1092" r="0.5" fill="#fff" opacity="0.59"/><circle cx="268" cy="1080" r="0.5" fill="#fff" opacity="0.35"/><circle cx="847" cy="441" r="1.2" fill="#fff" opacity="0.37"/><circle cx="455" cy="747" r="1.2" fill="#fff" opacity="0.54"/><circle cx="381" cy="506" r="0.5" fill="#fff" opacity="0.35"/><circle cx="337" cy="1090" r="0.7" fill="#fff" opacity="0.43"/><circle cx="507" cy="1189" r="1.2" fill="#fff" opacity="0.43"/><circle cx="51" cy="127" r="0.7" fill="#fff" opacity="0.24"/><circle cx="492" cy="1318" r="0.6" fill="#fff" opacity="0.48"/><circle cx="789" cy="691" r="0.5" fill="#fff" opacity="0.55"/><circle cx="1006" cy="222" r="0.8" fill="#fff" opacity="0.26"/><circle cx="18" cy="440" r="0.7" fill="#fff" opacity="0.23"/><circle cx="449" cy="632" r="0.5" fill="#fff" opacity="0.20"/><circle cx="852" cy="1127" r="0.8" fill="#fff" opacity="0.15"/><circle cx="767" cy="381" r="1.2" fill="#fff" opacity="0.48"/><circle cx="292" cy="1084" r="0.7" fill="#fff" opacity="0.25"/><circle cx="944" cy="517" r="1.0" fill="#fff" opacity="0.54"/><circle cx="623" cy="979" r="1.0" fill="#fff" opacity="0.53"/><circle cx="415" cy="456" r="0.7" fill="#fff" opacity="0.57"/><circle cx="388" cy="176" r="1.0" fill="#fff" opacity="0.49"/><circle cx="1028" cy="684" r="0.5" fill="#fff" opacity="0.60"/><circle cx="172" cy="37" r="0.8" fill="#fff" opacity="0.15"/><circle cx="614" cy="1239" r="1.2" fill="#fff" opacity="0.22"/><circle cx="35" cy="1197" r="0.8" fill="#fff" opacity="0.36"/><circle cx="1035" cy="203" r="1.0" fill="#fff" opacity="0.35"/><circle cx="235" cy="238" r="1.0" fill="#fff" opacity="0.27"/><circle cx="96" cy="126" r="0.7" fill="#fff" opacity="0.27"/><circle cx="1010" cy="418" r="0.5" fill="#fff" opacity="0.35"/><circle cx="36" cy="98" r="0.5" fill="#fff" opacity="0.15"/><circle cx="322" cy="114" r="1.2" fill="#fff" opacity="0.41"/><circle cx="285" cy="22" r="0.7" fill="#fff" opacity="0.48"/><circle cx="1013" cy="1310" r="0.5" fill="#fff" opacity="0.21"/><circle cx="234" cy="1100" r="1.0" fill="#fff" opacity="0.59"/><circle cx="211" cy="356" r="0.7" fill="#fff" opacity="0.17"/><circle cx="86" cy="948" r="0.6" fill="#fff" opacity="0.51"/><circle cx="1078" cy="288" r="0.8" fill="#fff" opacity="0.52"/></svg><div class="page">
+<div class="hdr"><div class="kicker"><svg class="ic " width="26" height="26" style="color:#8e98b6;"><use href="#i-kerbal"/></svg><span>Crew</span></div><div class="datechip">2026-09-26 · day 3</div></div><div class="headline" style="font-size:66px;color:var(--text)">사망 3번, 구조 6명</div>
+<div class="sum">
+  <div style="color:var(--dead)"><svg class="ic " width="30" height="30" style="color:#ff4d5e;"><use href="#i-skull"/></svg>3<span>확정</span></div>
+  <div style="color:rgba(255,77,94,.55)"><svg class="ic " width="30" height="30" style="color:rgba(255,77,94,.5);"><use href="#i-skull"/></svg>11<span>revert로 되돌림</span></div>
+  <div style="color:#9ccc3c"><svg class="ic " width="30" height="30" style="color:#9ccc3c;"><use href="#i-respawn"/></svg>3<span>respawn</span></div>
+</div>
+<div class="crew"><div class="kc"><div class="rs"><svg class="ic " width="24" height="24" style="color:#9ccc3c;"><use href="#i-respawn"/></svg>×2</div>
+<div class="top"><img src="../crew/jebediah.png"><div><div class="nm">Jebediah</div>
+<div class="tr"><svg class="ic " width="20" height="20" style="color:#8e98b6;"><use href="#i-gyro"/></svg>Pilot</div>
+<div class="now"><svg class="ic " width="16" height="16" style="color:#56c8ff;"><use href="#i-live"/></svg>Eve 궤도 대기</div></div></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-rocket"/></svg></span><span class="none" style="color:var(--muted)">12회</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="p69g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#e6fff4"/><stop offset=".55" stop-color="#a5e6cc"/><stop offset="1" stop-color="#4f8f7b"/></radialGradient><radialGradient id="p69s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="p69c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#p69g)"/><g clip-path="url(#p69c)" opacity=".9"><path d="M14 44c10-8 26-6 34 0s20 4 26 10-6 12-20 10-22 2-32-2-14-12-8-18z" fill="#f2fffa" opacity=".85"/><path d="M40 16c8-2 16 2 16 6s-10 6-16 4-6-8 0-10z" fill="#d6fbee"/><path d="M30 78c8-3 20-2 22 3s-10 7-18 5-9-6-4-8z" fill="#d6fbee"/></g><circle cx="50" cy="50" r="46" fill="url(#p69s)"/></svg><span class="x">×</span>7</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="q14g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#c9a2ea"/><stop offset=".55" stop-color="#7a3fa6"/><stop offset="1" stop-color="#2a1238"/></radialGradient><radialGradient id="q14s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="q14c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#q14g)"/><g clip-path="url(#q14c)" opacity=".9"><path d="M14 36c10-6 22-2 30-6s18 0 22 6-8 10-20 9-18 5-26 1-12-6-6-10z" fill="#9a5fc8" opacity=".8"/><path d="M48 62c8-3 18 0 20 5s-9 8-17 6-8-8-3-11z" fill="#5c2a86" opacity=".9"/><path d="M22 70c5-2 11 0 12 3s-6 5-10 4-5-5-2-7z" fill="#6c3596"/></g><circle cx="50" cy="50" r="46" fill="url(#q14s)"/></svg><span class="x">×</span>1</span></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-skull"/></svg></span><span class="sk"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#6</span><span class="sk"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#11</span><span class="sk fd"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#13×2</span></div>
+</div><div class="kc"><div class="first"><svg class="ic " width="16" height="16" style="color:#2b2000;"><use href="#i-star"/></svg>#30</div>
+<div class="top"><img src="../crew/valentina.png"><div><div class="nm">Valentina</div>
+<div class="tr"><svg class="ic " width="20" height="20" style="color:#8e98b6;"><use href="#i-gyro"/></svg>Pilot</div>
+<div class="now"><svg class="ic " width="16" height="16" style="color:#56c8ff;"><use href="#i-live"/></svg>Duna → Kerbin 귀환 중</div></div></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-rocket"/></svg></span><span class="none" style="color:var(--muted)">1회</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="p70g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#f09a6c"/><stop offset=".55" stop-color="#c4552c"/><stop offset="1" stop-color="#5e2210"/></radialGradient><radialGradient id="p70s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="p70c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#p70g)"/><g clip-path="url(#p70c)" opacity=".9"><path d="M16 40c10-6 20 0 28-4s18 2 20 8-10 10-20 8-16 6-24 2-12-10-4-14z" fill="#a8411f"/><path d="M52 66c8-2 16 2 16 7s-10 7-16 5-6-10 0-12z" fill="#b24823"/><ellipse cx="50" cy="5" rx="20" ry="7" fill="#fff3ea"/></g><circle cx="50" cy="50" r="46" fill="url(#p70s)"/></svg><span class="x">×</span>1</span></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-skull"/></svg></span><span class="sk fd"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#13</span></div>
+</div><div class="kc"><div class="first"><svg class="ic " width="16" height="16" style="color:#2b2000;"><use href="#i-star"/></svg>#16</div>
+<div class="top"><img src="../crew/bob.png"><div><div class="nm">Bob</div>
+<div class="tr"><svg class="ic " width="20" height="20" style="color:#8e98b6;"><use href="#i-flask"/></svg>Scientist</div>
+<div class="now"><svg class="ic " width="16" height="16" style="color:#56c8ff;"><use href="#i-live"/></svg>Minmus Lab 1</div></div></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-rocket"/></svg></span><span class="none" style="color:var(--muted)">5회</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="p71g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#e6fff4"/><stop offset=".55" stop-color="#a5e6cc"/><stop offset="1" stop-color="#4f8f7b"/></radialGradient><radialGradient id="p71s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="p71c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#p71g)"/><g clip-path="url(#p71c)" opacity=".9"><path d="M14 44c10-8 26-6 34 0s20 4 26 10-6 12-20 10-22 2-32-2-14-12-8-18z" fill="#f2fffa" opacity=".85"/><path d="M40 16c8-2 16 2 16 6s-10 6-16 4-6-8 0-10z" fill="#d6fbee"/><path d="M30 78c8-3 20-2 22 3s-10 7-18 5-9-6-4-8z" fill="#d6fbee"/></g><circle cx="50" cy="50" r="46" fill="url(#p71s)"/></svg><span class="x">×</span>2</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="p72g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#d3d6dc"/><stop offset=".55" stop-color="#9a9ea7"/><stop offset="1" stop-color="#4b4f58"/></radialGradient><radialGradient id="p72s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="p72c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#p72g)"/><g clip-path="url(#p72c)" opacity=".9"><circle cx="34" cy="36" r="9" fill="#7f838c"/><circle cx="62" cy="58" r="12" fill="#858992"/><circle cx="44" cy="72" r="6" fill="#7b7f88"/><circle cx="70" cy="28" r="5" fill="#80848d"/><circle cx="24" cy="60" r="4" fill="#80848d"/></g><circle cx="50" cy="50" r="46" fill="url(#p72s)"/></svg><span class="x">×</span>3</span></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-skull"/></svg></span><span class="sk fd"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#13</span><span class="sk fd"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#41×3</span></div>
+</div><div class="kc"><div class="rs"><svg class="ic " width="24" height="24" style="color:#9ccc3c;"><use href="#i-respawn"/></svg>×1</div>
+<div class="top"><img src="../crew/bill.png"><div><div class="nm">Bill</div>
+<div class="tr"><svg class="ic " width="20" height="20" style="color:#8e98b6;"><use href="#i-wrench"/></svg>Engineer</div>
+<div class="now"><svg class="ic " width="16" height="16" style="color:#56c8ff;"><use href="#i-live"/></svg>KSC</div></div></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-rocket"/></svg></span><span class="none" style="color:var(--muted)">4회</span><span class="vs"><svg width="34" height="34" viewBox="0 0 100 100" class="planet"><defs><radialGradient id="p73g" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#e6fff4"/><stop offset=".55" stop-color="#a5e6cc"/><stop offset="1" stop-color="#4f8f7b"/></radialGradient><radialGradient id="p73s" cx="30%" cy="28%" r="85%"><stop offset=".45" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".65"/></radialGradient><clipPath id="p73c"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#p73g)"/><g clip-path="url(#p73c)" opacity=".9"><path d="M14 44c10-8 26-6 34 0s20 4 26 10-6 12-20 10-22 2-32-2-14-12-8-18z" fill="#f2fffa" opacity=".85"/><path d="M40 16c8-2 16 2 16 6s-10 6-16 4-6-8 0-10z" fill="#d6fbee"/><path d="M30 78c8-3 20-2 22 3s-10 7-18 5-9-6-4-8z" fill="#d6fbee"/></g><circle cx="50" cy="50" r="46" fill="url(#p73s)"/></svg><span class="x">×</span>1</span></div>
+<div class="row"><span class="ri"><svg class="ic " width="20" height="20" style=""><use href="#i-skull"/></svg></span><span class="sk"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#12</span><span class="sk fd"><svg class="ic " width="24" height="24" style="color:#ff4d5e;"><use href="#i-skull"/></svg>#8</span></div>
+</div></div>
+<div class="resc"><div class="t lbl"><svg class="ic " width="22" height="22" style="color:#9ccc3c;"><use href="#i-kerbal"/></svg> 구조된 6명</div><div class="g"><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr0" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr0" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr0"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr0)"/>
+<g clip-path="url(#cr0)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr0)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="62" cy="73" r="6.5" fill="#15190e"/><circle cx="98" cy="73" r="6.5" fill="#15190e"/>
+<path d="M62 99 Q80 110 98 99" fill="none" stroke="#2c3d0c" stroke-width="3.5" stroke-linecap="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Gwenbro</div><div class="tr"><svg class="ic " width="17" height="17" style="color:#8e98b6;"><use href="#i-flask"/></svg>Scientist</div><div class="n">#40</div></div><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr1" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr1" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr1"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr1)"/>
+<g clip-path="url(#cr1)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr1)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="60" cy="70" r="6.5" fill="#15190e"/><circle cx="96" cy="70" r="6.5" fill="#15190e"/>
+<path d="M68 104 Q80 97 92 104" fill="none" stroke="#2c3d0c" stroke-width="3.5" stroke-linecap="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Mitbro</div><div class="tr"><svg class="ic " width="17" height="17" style="color:#8e98b6;"><use href="#i-gyro"/></svg>Pilot</div><div class="n">#36</div></div><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr2" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr2" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr2"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr2)"/>
+<g clip-path="url(#cr2)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr2)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="63" cy="72" r="6.5" fill="#15190e"/><circle cx="99" cy="72" r="6.5" fill="#15190e"/>
+<path d="M60 97 Q80 113 100 97" fill="none" stroke="#2c3d0c" stroke-width="3.5" stroke-linecap="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Daphrick</div><div class="tr"><svg class="ic " width="17" height="17" style="color:#8e98b6;"><use href="#i-flask"/></svg>Scientist</div><div class="n">#40</div></div><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr3" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr3" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr3"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr3)"/>
+<g clip-path="url(#cr3)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr3)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="64" cy="72" r="6.5" fill="#15190e"/><circle cx="100" cy="72" r="6.5" fill="#15190e"/>
+<path d="M52 95 Q80 124 108 95 Q80 104 52 95Z" fill="#fff" stroke="#2c3d0c" stroke-width="3" stroke-linejoin="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Jedgard</div><div class="tr"><svg class="ic " width="17" height="17" style="color:#8e98b6;"><use href="#i-gyro"/></svg>Pilot</div><div class="n">#40</div></div><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr4" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr4" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr4"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr4)"/>
+<g clip-path="url(#cr4)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr4)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="62" cy="73" r="6.5" fill="#15190e"/><circle cx="98" cy="73" r="6.5" fill="#15190e"/>
+<path d="M62 99 Q80 110 98 99" fill="none" stroke="#2c3d0c" stroke-width="3.5" stroke-linecap="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Elfry</div><div class="tr"><svg class="ic " width="17" height="17" style="color:#8e98b6;"><use href="#i-wrench"/></svg>Engineer</div><div class="n">#43</div></div><div class="rk"><svg width="62" height="62" viewBox="0 0 160 160">
+<defs><radialGradient id="hr5" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#c3ef5c"/><stop offset="1" stop-color="#7fb526"/></radialGradient>
+<radialGradient id="gr5" cx="35%" cy="25%" r="80%"><stop offset="0" stop-color="#2a3d6e"/><stop offset="1" stop-color="#0f1730"/></radialGradient>
+<clipPath id="cr5"><circle cx="80" cy="80" r="74"/></clipPath></defs>
+<circle cx="80" cy="80" r="74" fill="url(#gr5)"/>
+<g clip-path="url(#cr5)">
+<path d="M24 170 C28 132 52 118 80 118 C108 118 132 132 136 170Z" fill="#f07d2a"/>
+<path d="M60 120 h40 v10 h-40z" fill="#c9ced8"/>
+<ellipse cx="80" cy="76" rx="48" ry="42" fill="url(#hr5)"/>
+<circle cx="62" cy="70" r="15" fill="#fff"/><circle cx="98" cy="70" r="15" fill="#fff"/>
+<circle cx="60" cy="70" r="6.5" fill="#15190e"/><circle cx="96" cy="70" r="6.5" fill="#15190e"/>
+<path d="M68 104 Q80 97 92 104" fill="none" stroke="#2c3d0c" stroke-width="3.5" stroke-linecap="round"/></g>
+<circle cx="80" cy="80" r="74" fill="none" stroke="rgba(200,225,255,.55)" stroke-width="3"/></svg><div class="nm">Barzor</div><div class="tr">&nbsp;</div><div class="n">#43</div></div></div></div>
+<div class="photos">
+  <div class="ph"><img src="../crafts/photo-pad-explosion.jpg"><div class="tg"><svg class="ic " width="22" height="22" style="color:#ff9a2e;"><use href="#i-boom"/></svg>t=0 · #9 · #13</div></div>
+  <div class="ph"><img src="img/rescue-3-grab-wide.jpg"><div class="tg up"><svg class="ic " width="20" height="20" style="color:#ffcf4a;"><use href="#i-star"/></svg>#35 · Klaw · 첫 구조</div></div>
+</div>
+</div><div class="footer"><span>KSP 1.12 · career · flown by Claude</span><span class="dots"><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class="on"></i><i class=""></i><i class=""></i></span></div></body></html>
