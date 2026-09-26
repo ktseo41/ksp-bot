@@ -32,6 +32,24 @@ def status():
     return json.loads(bot().status())
 
 
+class SaveFailed(RuntimeError):
+    pass
+
+
+def check_save(r):
+    """Raise SaveFailed for a failed KspBot Save() result: a scene change after it would roll the career back
+    to the last good save."""
+    if not r["ok"]:
+        raise SaveFailed(f"save '{r['name']}' failed in {r['scene']}: {r['error']} (FlightGlobals.ready={r['ready']}, "
+                         f"activeVessel={r['activeVessel']}); don't change scenes until a save works")
+    return r
+
+
+def save(name="persistent"):
+    """Save through the mod, which first clears the stale FlightGlobals state that makes KSP's save throw."""
+    return check_save(json.loads(bot().save(name)))
+
+
 def wait_ready(timeout=300):
     """Wait until KSP is up with a save loaded (after tools/install.sh)."""
     global _conn

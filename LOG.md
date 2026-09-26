@@ -506,13 +506,49 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   **contract done**, funds 1.72 -> 1.81M, sci 146 -> 154. `--plan` stopped on sub-1 m/s trims of the first burn
   over and over: match_orbit now skips trims < 2 m/s. Keo Relay 3 keeps 4617 m/s (spare relay / tug).
 
+## 2026-09-26 — Minmus Lab visit, Duna 1 liftoff, the save NRE diagnosed and fixed (then a PC restart)
+- Lab visit at UT 22.85M: "Science Full" 497.9 (40 days) -> `lab transmit` (~2,000 EC, ~1 min): **sci 154 -> 652**;
+  topped up with materials 125 from the storage unit (745/750 data).
+- Ike Station 1 designed offline by fable: crafts/ike-station-1.json + docs/ike-station-plan.md (134 t, 72k, Twin-Boar
+  + S3-3600 / Skipper / Poodle transfer stage that stays on; cupola + 2 Hitchhikers = 9 seats, Convert-O-Tron 125,
+  2 HG-55 + RA-15, Clamp-O-Tron). **Window Kerbin -> Duna UT 25,054,465**; budget ~2250 of ~2900 m/s after LKO.
+  Not flown yet. Tooling gaps it lists: solar panel deployment, moon transfer from an elliptical orbit.
+- **Duna 1 liftoff** (Valentina): `liftoff --alt 60000 --heading 90` -> 59.2 x 59.5 km, inc 15.7, used 1421 m/s
+  (expected ~1450), 1386 left. `transfer Kerbin --pe 30000 --plan` then sat warping toward the window (UT 22,895,340,
+  2.1 days) at ~4x effective: 5,800 game s in 25 real minutes (60 km Duna orbit warp cap), killed by its timeout.
+  Lesson (next step 4b): wait for a far window from the space center (`scene space_center`, `warp-sc`, `fly`).
+- **The save NRE** (user: find the cause first, fix only if needed; fable diagnosed, opus fixed; full write-up:
+  docs/save-nre-diagnosis.md): kRPC switches scenes from inside a physics FixedUpdate; when that frame has a second
+  physics step, FlightGlobals.FixedUpdate re-arms `FlightGlobals.ready` after OnSceneChange cleared it, and the
+  space center keeps `ready == true` with no active vessel. Every SaveGame then throws in FlightState..ctor (IL 0x2a6:
+  ActiveVessel.protoVessel), and a scene change after a failed save rolls the career back to the last good save
+  (Game.Updated fails before refreshing the scenarios). That was the contract mix-up at 09:25-09:50 and it happened
+  again after the Duna 1 flight (`fly` saves first -> NRE). 2 of 6 flight -> space center switches today. Log
+  signature: "Reference Frame: Rotating" right after "Scene Change : From FLIGHT to SPACECENTER". Recovery without the
+  fix: tracking station -> space center bounce (resets the flag; loses what was done since the last good save).
+  Fix (KspBot + CLI): SceneGuard addon clears the stale flag every Update outside flight; `Save` procedure (never
+  throws, JSON ok/error) used by every CLI save, failures stop the command; `SwitchScene` saves and loads the space
+  center / tracking station from a coroutine in the Update phase; `ksp scene` waits for the load and test-saves.
+  `recover` still switches from FixedUpdate (the guard repairs the flag at the space center).
+- Recovered with the bounce (UT back to 22,856,293, only a KSC warp lost), save OK, installed the fix: install.sh
+  saved persistent ("saved persistent") and killed KSP, but **KSP didn't come back up** (second time today; the
+  Steam launch after taskkill sometimes does nothing). The user is restarting the PC (Windows memory: available
+  5.4 GB, commit 20.3 / 33.8 GB, nonpaged pool 1.81 GB - high again, see memory note).
+
 ### Next steps (plan)
-State (2026-09-26, after Keo Relay 3): KSP at the space center, UT ~19,437,400, funds 1.81M, sci 154, rep 424, R&D 3.
-Active: Ike station contract (see above), Duna contracts, Minmus temperature survey (500 m sites, will lapse).
-Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna,
-~2800 m/s, ~378 sci aboard (+ contracts "Explore Duna", "Science data from surface of Duna" complete on recovery).
-Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 720/750 data, ~10 sci/day, storage unit full of
-top-up data; Terrier 1774 m/s. Crew at KSC: Daphrick (scientist), Bill (engineer), Mitbro, Jedgard (pilots).
+State (2026-09-26, before a PC restart): KSP closed; save 'kspbot' written at the space center, UT ~22,856,300,
+funds 1.81M, sci 652, rep 424, R&D 3. Everything committed. The new KspBot (Save / SwitchScene / SceneGuard) is
+installed but NOT yet verified live: after `tools/install.sh kspbot` + `ksp wait`, check `ksp status` shows
+"loaded": "SPACECENTER", "flightGlobalsReady": false, and `ksp scene tracking_station` / `ksp scene space_center`
+print "test save ok" (docs/save-nre-diagnosis.md + LOG entry above).
+Duna 1 (Valentina, pilot) in a 59 x 60 km Duna orbit, inc 15.7, 1386 m/s, ~378 sci aboard: return window UT 22,895,340
+(~39,000 s after the save; warp there from the space center, then `fly "Duna 1"`, `transfer Kerbin --pe 30000 --plan`).
+Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
+Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 745/750 data, ~10 sci/day; next transmit before
+UT ~23.9M (500 cap). Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
+Active contracts: **Ike station** (crafts/ike-station-1.json, window UT 25,054,465), Duna x2 (complete on recovery),
+Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
+Crew at KSC: Daphrick (scientist), Bill (engineer), Mitbro, Jedgard (pilots).
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. **Duna 1 return** at UT 22,895,340 (flight 297 d): liftoff from Duna (thin air; sandbox: ~1450 m/s), then
    `transfer Kerbin --pe 30000 --plan` (Duna inc 0.06: little plane change), correct, reentry. ~2800 m/s aboard.
@@ -542,6 +578,7 @@ top-up data; Terrier 1774 m/s. Crew at KSC: Daphrick (scientist), Bill (engineer
    h. burn_at with control "none" (no CommNet link) waited out the whole burn at throttle 1 / thrust 0 (Minmus Lab 1):
       refuse before the burn, extend antennas automatically after launch (deployable HG-55/DTS need extending).
    i. capture from a hyperbola just after the periapsis: time_to_periapsis points to the past -> burn now instead.
+   k. Solar panel deployment in the flight code (after LKO, like the antennas); Ike Station 1 needs its Gigantors.
    j. EVA kicks from the MPL (~0.08 m/s, 6 deg/s): eva out should turn the station's SAS on first and wait; near an
       apoapsis re-check the periapsis after every EVA.
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted

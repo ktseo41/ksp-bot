@@ -6,7 +6,7 @@ import sys
 import time
 
 from . import flight
-from .core import bot, sc, say, screenshot, status, wait_ready
+from .core import SaveFailed, bot, check_save, save, sc, say, screenshot, status, wait_ready
 
 
 def _j(s):
@@ -127,11 +127,11 @@ def cmd_accept(a):
     print("accepted:" if ok else "ACCEPT FAILED:", c.title)
     if ok:
         try:
-            sc().save("persistent")  # see cmd_launch
-        except Exception as e:
+            save()  # see cmd_launch
+        except SaveFailed as e:
             # 2026-09-26: the save threw an NRE (FlightState ctor) right after a flight; the accept had worked, the
             # error made me retry "accept 4", the list had shifted and a second contract (Ike station) got accepted
-            print(f"WARNING: accepted, but saving failed ({str(e).splitlines()[0]}); don't retry the accept")
+            raise SystemExit(f"accepted, but {e}; don't retry the accept")
 
 
 def cmd_decline(a):
@@ -172,8 +172,8 @@ def cmd_launch(a):
         print("pad check skipped:", str(e).splitlines()[0])
     # kRPC's LaunchVessel goes to the flight scene without saving: contracts accepted at the space center since
     # the last save came back as merely offered in flight (the three accepted 2026-09-25 were lost, advances kept).
-    if status().get("scene") == "SPACECENTER":
-        sc().save("persistent")
+    if status().get("scene") != "FLIGHT":
+        save()
     sc().launch_vessel("VAB", a.craft, "LaunchPad", a.crew or [])
     time.sleep(5)
     try:
@@ -197,16 +197,37 @@ def cmd_recover(a):
           f"science {before.get('science', 0):.1f} -> {after.get('science', 0):.1f}")
 
 
+SCENE_OF = {"space_center": "SPACECENTER", "tracking_station": "TRACKSTATION", "editor_vab": "EDITOR",
+            "editor_sph": "EDITOR", "flight": "FLIGHT"}  # other kRPC scenes are space-center facilities
+
+
 def cmd_scene(a):
-    sc_mod = __import__("krpc").client  # noqa
-    conn = __import__("kspbot.core", fromlist=["conn"]).conn()
-    names = {s.name: s for s in conn.krpc.GameScene}
-    if status()["scene"] == "FLIGHT":
-        sc().save("persistent")  # kRPC's scene switch doesn't save: leaving flight would roll back to the last autosave
-        time.sleep(1)
-    conn.krpc.game_scene = names[a.name]
-    time.sleep(3)
-    print(status())
+    """Every switch saves first (KSP's buildings do; a switch without a save drops everything since the last one)
+    and nothing switches if that save fails. The space center and the tracking station are loaded by the mod from
+    the Update phase: kRPC switches from FixedUpdate, which once left FlightGlobals broken at the space center
+    and every save throwing (2026-09-26)."""
+    want = SCENE_OF.get(a.name, "SPACECENTER")
+    if a.name in ("space_center", "tracking_station") and status()["scene"] != want:
+        check_save(_j(bot().switch_scene(a.name))["save"])
+    else:  # also closes an open space-center facility
+        save()
+        conn = __import__("kspbot.core", fromlist=["conn"]).conn()
+        conn.krpc.game_scene = {s.name: s for s in conn.krpc.GameScene}[a.name]
+    end = time.time() + 180
+    while True:
+        time.sleep(2)
+        try:
+            s = status()  # the mod's Status() also clears a stale FlightGlobals.ready
+        except Exception:
+            s = {}
+        if s.get("scene") == want and s.get("loaded") == want:
+            break
+        if time.time() > end:
+            raise SystemExit(f"scene {want} did not load within 180 s: {s}")
+    print(json.dumps(s))
+    if want != "FLIGHT":  # right after a flight loads, FlightGlobals may not be ready: the save would lose the focus
+        r = save()
+        print(f"test save ok (ready={r['ready']}, cleared stale flag={r['fixedReady']})")
 
 
 def cmd_warp_any(a):

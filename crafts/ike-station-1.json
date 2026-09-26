@@ -1,0 +1,207 @@
+{
+ "name": "Ike Station 1",
+ "description": "Uncrewed orbital station for the 'Build a new orbital station around Ike' contract (9 seats: cupola 1 + 2 Hitchhikers 8; stack from the top: Clamp-O-Tron, OKTO, reaction wheel, Convert-O-Tron 125 on the cupola's top node, then the 2.5 m section; Convert-O-Tron 125, 30 kNm reaction wheel, RA-15 + 2 HG-55, 2 Gigantors + 6 OX-STAT-XL, 4 Z-400). Transfer stage Poodle + X200-32 stays with the station (~2.9 km/s: Duna ejection, capture, Ike transfer, Ike capture). Launcher: ADTP-2-3 adapter + S3-3600 (3.75 m, short) on a Twin-Boar (65 t of fuel in 12.9 m; the builder cannot flip parts, so no adapter back to 2.5 m: the S3-3600's flat bottom sits on the Twin-Boar's 2.5 m top), Skipper + X200-32 + X200-8. Fins on every atmospheric stage (Minmus Lab 1 lesson), draggy parts low, whole stack rigid + autostrut Root.",
+ "parts": [
+  {
+   "id": "dock",
+   "part": "dockingPort2"
+  },
+  {
+   "id": "core",
+   "part": "probeCoreOcto.v2",
+   "parent": "dock",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw",
+   "part": "advSasModule",
+   "parent": "core",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "isru",
+   "part": "MiniISRU",
+   "parent": "rw",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "cupola",
+   "part": "cupola",
+   "parent": "isru",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "cab1",
+   "part": "crewCabin",
+   "parent": "cupola",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat",
+   "part": "ksp.r.largeBatteryPack",
+   "parent": "cab1",
+   "symmetry": 4,
+   "angle": 45,
+   "height": 0.0
+  },
+  {
+   "id": "cab2",
+   "part": "crewCabin",
+   "parent": "cab1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "oxstat",
+   "part": "LgRadialSolarPanel",
+   "parent": "cab2",
+   "symmetry": 6,
+   "angle": 0,
+   "height": 0.0
+  },
+  {
+   "id": "tP",
+   "part": "Rockomax32.BW",
+   "parent": "cab2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "solar",
+   "part": "largeSolarPanel",
+   "parent": "tP",
+   "symmetry": 2,
+   "angle": 0,
+   "height": 0.8
+  },
+  {
+   "id": "hg",
+   "part": "HighGainAntenna",
+   "parent": "tP",
+   "symmetry": 2,
+   "angle": 90,
+   "height": 0.8
+  },
+  {
+   "id": "relay",
+   "part": "RelayAntenna50",
+   "parent": "tP",
+   "angle": 135,
+   "height": 0.0
+  },
+  {
+   "id": "finsP",
+   "part": "winglet",
+   "parent": "tP",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -1.5
+  },
+  {
+   "id": "poodle",
+   "part": "liquidEngine2-2.v2",
+   "parent": "tP",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decB",
+   "part": "Decoupler.2",
+   "parent": "poodle",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t2a",
+   "part": "Rockomax32.BW",
+   "parent": "decB",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "finsS",
+   "part": "R8winglet",
+   "parent": "t2a",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -1.4
+  },
+  {
+   "id": "t2b",
+   "part": "Rockomax8BW",
+   "parent": "t2a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "skipper",
+   "part": "engineLargeSkipper.v2",
+   "parent": "t2b",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decA",
+   "part": "Decoupler.2",
+   "parent": "skipper",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "ad",
+   "part": "Size3To2Adapter.v2",
+   "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "s3",
+   "part": "Size3SmallTank",
+   "parent": "ad",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "boar",
+   "part": "Size2LFB.v2",
+   "parent": "s3",
+   "node": "bottom",
+   "childNode": "top",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "R8winglet",
+   "parent": "boar",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -2.5
+  }
+ ]
+}

@@ -9,7 +9,9 @@ export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet"
 dotnet build -c Release "$ROOT/mod/KspBot" -v q -nologo | grep -E "error|Build succeeded"
 if tasklist.exe 2>/dev/null | grep -i KSP_x64.exe >/dev/null; then
   # Save first: space-center actions like accepting contracts aren't persisted until KSP saves.
-  (cd "$ROOT" && timeout 20 uv run python -c "from kspbot.core import sc; sc().save('persistent')" \
+  (cd "$ROOT" && timeout 20 uv run python -c "from kspbot import core
+try: core.save()
+except AttributeError: core.sc().save('persistent')  # running mod build predates KspBot.Save" \
     && echo "saved persistent") || echo "WARNING: save before restart failed"
   taskkill.exe /IM KSP_x64.exe /F >/dev/null; sleep 5
 fi

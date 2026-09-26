@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using KRPC.Service;
@@ -18,16 +19,100 @@ namespace KspBot
         [KRPCProcedure]
         public static string Status()
         {
+            FixFlightGlobals();
             var o = new Obj
             {
                 ["scene"] = HighLogic.LoadedScene.ToString(),
+                ["loaded"] = SceneGuard.Loaded,
                 ["save"] = HighLogic.SaveFolder,
                 ["mode"] = HighLogic.CurrentGame?.Mode.ToString(),
                 ["ut"] = Planetarium.GetUniversalTime(),
+                ["flightGlobalsReady"] = FlightGlobals.ready,
             };
             if (Funding.Instance != null) o["funds"] = Funding.Instance.Funds;
             if (ResearchAndDevelopment.Instance != null) o["science"] = ResearchAndDevelopment.Instance.Science;
             if (Reputation.Instance != null) o["reputation"] = Reputation.Instance.reputation;
+            return Json.Write(o);
+        }
+
+        // ---------------- Saving and scene changes ----------------
+
+        static Vessel ActiveVesselOrNull()
+        {
+            var fg = FlightGlobals.fetch;
+            return fg != null && fg.activeVessel != null ? fg.activeVessel : null;
+        }
+
+        /// kRPC runs RPCs inside FixedUpdate. A scene change requested there can be followed by one more physics
+        /// step of the flight scene, which re-arms FlightGlobals.ready; OnDestroy then nulls the active vessel but
+        /// leaves the static flag set. In the next scene every SaveGame throws an NRE in FlightState..ctor
+        /// (ready ? IndexOf(ActiveVessel.protoVessel) : 0) and Vessel.Update spams NREs (2026-09-26).
+        /// Outside flight, ready with no active vessel is always stale: clear it. Returns true if it did.
+        internal static bool FixFlightGlobals()
+        {
+            if (HighLogic.LoadedSceneIsFlight || !FlightGlobals.ready || ActiveVesselOrNull() != null) return false;
+            FlightGlobals.ready = false;
+            Debug.Log("[KspBot] cleared stale FlightGlobals.ready (no active vessel) in " + HighLogic.LoadedScene);
+            return true;
+        }
+
+        static Obj TrySave(string name)
+        {
+            var fixedReady = FixFlightGlobals();
+            var o = new Obj { ["name"] = name };
+            try
+            {
+                var file = GamePersistence.SaveGame(name, HighLogic.SaveFolder, SaveMode.OVERWRITE);
+                o["ok"] = !string.IsNullOrEmpty(file);  // "" when the game's options disable saving
+                o["error"] = string.IsNullOrEmpty(file) ? "SaveGame wrote nothing (saving disabled?)" : null;
+            }
+            catch (Exception ex)
+            {
+                o["ok"] = false;
+                o["error"] = ex.GetType().Name + ": " + ex.Message + " " + ex.StackTrace?.Split('\n')[0].Trim();
+            }
+            var av = ActiveVesselOrNull();
+            o["scene"] = HighLogic.LoadedScene.ToString();
+            o["ready"] = FlightGlobals.ready;
+            o["activeVessel"] = av != null ? av.vesselName : null;
+            o["fixedReady"] = fixedReady;
+            return o;
+        }
+
+        /// For procedures that change game state and then save: a failed save must stop them (a scene change after
+        /// it silently rolls the career back to the last good save).
+        static void SaveOrThrow()
+        {
+            var r = TrySave("persistent");
+            if (!(bool)r["ok"]) throw new InvalidOperationException("save failed: " + Json.Write(r));
+        }
+
+        /// <summary>Save the game (e.g. "persistent") after clearing the stale-FlightGlobals state; never throws.
+        /// JSON: ok, error, scene, ready, activeVessel, fixedReady.</summary>
+        [KRPCProcedure]
+        public static string Save(string name) => Json.Write(TrySave(name));
+
+        /// <summary>Save, then switch to "space_center" or "tracking_station" from the Update phase (kRPC's own
+        /// game_scene switches from FixedUpdate, see FixFlightGlobals). Nothing is switched if the save fails.
+        /// JSON: save (as Save), switching (target scene or null).</summary>
+        [KRPCProcedure]
+        public static string SwitchScene(string sceneName)
+        {
+            GameScenes target;
+            switch (sceneName)
+            {
+                case "space_center": target = GameScenes.SPACECENTER; break;
+                case "tracking_station": target = GameScenes.TRACKSTATION; break;
+                default: throw new ArgumentException("space_center | tracking_station");
+            }
+            if (!HighLogic.LoadedSceneIsGame) throw new InvalidOperationException("no game loaded");
+            if (SceneGuard.Instance == null) throw new InvalidOperationException("scene not loaded yet");
+            if (HighLogic.LoadedSceneIsFlight) FlightInputHandler.SetNeutralControls();  // as the stock tracking-station button
+            var r = TrySave("persistent");
+            var o = new Obj { ["save"] = r, ["switching"] = null };
+            if (!(bool)r["ok"] || HighLogic.LoadedScene == target) return Json.Write(o);
+            SceneGuard.Instance.LoadSceneNextFrame(target);
+            o["switching"] = target.ToString();
             return Json.Write(o);
         }
 
@@ -46,7 +131,7 @@ namespace KspBot
         {
             var p = HighLogic.CurrentGame.Parameters.CustomParams<CommNet.CommNetParams>();
             p.requireSignalForControl = on;
-            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            SaveOrThrow();
             return p.requireSignalForControl;
         }
 
@@ -217,7 +302,7 @@ namespace KspBot
             rd.AddScience(-cost, TransactionReasons.RnDTechResearch);
             rd.UnlockProtoTechNode(n.tech);
             ResearchAndDevelopment.RefreshTechTreeUI();
-            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            SaveOrThrow();
             return Json.Write(new Obj { ["researched"] = techId, ["science"] = rd.Science });
         }
 
@@ -333,6 +418,7 @@ namespace KspBot
         [KRPCProcedure]
         public static string UpgradeFacility(string id)
         {
+            FixFlightGlobals();
             if (HighLogic.LoadedScene != GameScenes.SPACECENTER)
                 throw new InvalidOperationException("go to the space center first");
             if (!id.Contains("/")) id = "SpaceCenter/" + id;
@@ -344,7 +430,7 @@ namespace KspBot
             if (Funding.Instance.Funds < cost) throw new InvalidOperationException($"not enough funds ({Funding.Instance.Funds:F0} < {cost:F0})");
             Funding.Instance.AddFunds(-cost, TransactionReasons.StructureConstruction);
             fac.SetLevel(fac.FacilityLevel + 1);
-            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            SaveOrThrow();
             return Json.Write(new Obj { ["id"] = id, ["level"] = fac.FacilityLevel + 1, ["funds"] = Funding.Instance.Funds });
         }
 
@@ -355,12 +441,13 @@ namespace KspBot
         [KRPCProcedure]
         public static void FlyVessel(string name)
         {
+            FixFlightGlobals();
             if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("already in flight; go to the space center first");
             // same as the tracking station's Fly button: the index is into FlightGlobals.Vessels, which can be
             // ordered differently from flightState.protoVessels (that index once focused an asteroid)
             var v = FlightGlobals.Vessels.Find(x => x.vesselName == name);
             if (v == null) throw new ArgumentException("no vessel named " + name);
-            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            SaveOrThrow();
             FlightDriver.StartAndFocusVessel("persistent", FlightGlobals.Vessels.IndexOf(v));
         }
 
@@ -369,10 +456,11 @@ namespace KspBot
         [KRPCProcedure]
         public static void LoadSave(string name)
         {
+            FixFlightGlobals();
             if (HighLogic.LoadedSceneIsFlight) throw new InvalidOperationException("go to the space center first");
             if (!System.IO.File.Exists(KSPUtil.ApplicationRootPath + "saves/" + name.Split(':')[0] + "/persistent.sfs"))
                 throw new ArgumentException("no save " + name);
-            GamePersistence.SaveGame("persistent", HighLogic.SaveFolder, SaveMode.OVERWRITE);
+            SaveOrThrow();
             AutoLoad.Pending = name;
             HighLogic.LoadScene(GameScenes.MAINMENU);
         }
@@ -382,6 +470,7 @@ namespace KspBot
         [KRPCProcedure]
         public static void WarpTo(double ut)
         {
+            FixFlightGlobals();
             TimeWarp.fetch.WarpTo(ut);
         }
 
@@ -392,6 +481,7 @@ namespace KspBot
         [KRPCProcedure]
         public static void OpenFacility(string typeName)
         {
+            FixFlightGlobals();
             var b = UnityEngine.Object.FindObjectsOfType<SpaceCenterBuilding>().FirstOrDefault(x => x.GetType().Name == typeName)
                     ?? throw new ArgumentException("no building " + typeName + "; have: " +
                         string.Join(", ", UnityEngine.Object.FindObjectsOfType<SpaceCenterBuilding>().Select(x => x.GetType().Name)));
@@ -724,6 +814,50 @@ namespace KspBot
         public static string BuildCraft(string specJson)
         {
             return CraftBuilder.Build(specJson);
+        }
+    }
+
+    /// In every game scene: clears a stale FlightGlobals.ready each frame (KspBotService.FixFlightGlobals), tells
+    /// Status() when the scene is up, and runs scene switches requested over kRPC from the Update phase.
+    [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
+    public class SceneGuard : MonoBehaviour
+    {
+        internal static SceneGuard Instance;
+        /// The scene whose first Update has run (after the guard); null from a scene change request until then.
+        public static string Loaded;
+        bool leaving;  // a scene change was requested: this scene is on its way out
+
+        void Awake()
+        {
+            Instance = this;
+            Loaded = null;
+            GameEvents.onGameSceneLoadRequested.Add(OnLoadRequested);
+        }
+
+        void OnDestroy()
+        {
+            GameEvents.onGameSceneLoadRequested.Remove(OnLoadRequested);
+            if (Instance == this) Instance = null;
+        }
+
+        void OnLoadRequested(GameScenes scene)
+        {
+            Loaded = null;
+            leaving = true;
+        }
+
+        void Update()
+        {
+            KspBotService.FixFlightGlobals();
+            if (!leaving && Loaded == null) Loaded = HighLogic.LoadedScene.ToString();
+        }
+
+        internal void LoadSceneNextFrame(GameScenes scene) => StartCoroutine(LoadScene(scene));
+
+        IEnumerator LoadScene(GameScenes scene)
+        {
+            yield return null;  // resumes after Update: no physics step of this scene runs after the request
+            HighLogic.LoadScene(scene);
         }
     }
 }

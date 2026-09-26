@@ -3,9 +3,9 @@ Run at the space center after a mission: uv run python tools/summary/extract_sav
 import json, re, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from kspbot.core import KSP_DIR, sc
+from kspbot.core import KSP_DIR, save
 
-sc().save("persistent")
+save()
 t = open(f"{KSP_DIR}/saves/kspbot/persistent.sfs", encoding="utf-8").read()
 ros = t[t.index("\n\tROSTER"):]
 out = {"kerbals": [], "science": [], "techs": []}
