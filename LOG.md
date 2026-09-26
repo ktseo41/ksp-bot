@@ -573,11 +573,32 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   with the can on top: fine (the can stayed cool in the pod's wake), splashdown, recovered: **both contracts done, funds
   1.93 -> 2.19M**, rep 438. Crew +2: Elfry (engineer), Barzor.
 
+## 2026-09-26 — Jool 1: uncrewed Nerv orbiter on its way (Kerbin->Jool window UT 24,293,116)
+- Research: aviation (45: Mk0/Mk1 LF-only fuselages, so Nerv stages carry no dead oxidizer) and automation (550:
+  Communotron 88-88, RA-100). Sci 925 -> 330.
+- Designed offline by fable: crafts/jool-1.json + docs/jool-1-plan.md (46 parts, 87.1 t, 83.6k): OKTO, stabilizer,
+  4 Mk1 LF fuselages + Nerv (6615 m/s), 3 x 88-88 (228 G -> 107 Gm with DSN 2; Kerbin-Jool max ~86 Gm), 3 Gigantors
+  (~1 EC/s each at Jool), 2,610 EC, science set (Jr, 2 goo, thermo, baro, gravioli, magnetometer); Skipper + Mainsail
+  launcher, fins on all three stages. Pad numbers matched the plan table (1280 SL / 2127 SL / 6615 vac).
+- Ascent clean: 79.4 x 79.6 km with the Skipper still holding 480 m/s. The new circularize code opened the three dishes
+  and three Gigantors (signal 1.0). Warped to the window from the space center.
+- `transfer Jool --pe 250000 --plan`: Lambert 1965, tuned **1954 m/s** (expected 1934-2100), Jool pe 250 km, v_inf 1583.
+  **The burn stopped 601 m/s short**: burn_time used the current stage (Skipper, "~54 s"), the Skipper staged after
+  480 m/s and the "3 x estimate + 60 s" guard stopped the Nerv. Tooling bug; fixed: burn_time walks KSP's per-stage
+  delta-v readout. Right away (checkpoint: Oberth fading, revert possible but the craft was whole and had ~5,000 m/s)
+  601 m/s prograde -> Sun ap only 62.3 Gm (72.9 needed); `correct Jool --plan` 278.5 m/s (hand estimate 120-150; the
+  tuner has no dv term) -> Jool encounter. After the Kerbin SOI 3.5 m/s -> Jool pe 250 km, but the burn error left
+  **pe 76.6 km (inside the 200 km atmosphere), inc 110.7**: fix both at the geometric mid-course, **UT 27,263,628**
+  (90 deg before arrival), `correct Jool --pe 250000 --inc-to 0 --plan`. Jool SOI **UT 52,787,080**. Nerv left
+  ~4,540 m/s (plan after capture: ~3,800 for a moon tour). Lost to the short burn: ~130-280 m/s.
+
 ### Next steps (plan)
 State (2026-09-26, after Rescue 6): KSP running, at the space center, UT ~23.68M, funds 2.19M, sci 925, rep 438.
 Save-NRE fix verified live. Timeline ahead (UT): 25,054,465 Ike Station 1 window; 26,854,269 Duna 1 mid-course;
 ~27.5M lab visit (500 cap ~53 days after 23.456M); 28,925,295 / 29,029,189 Eve 1 tilt / ejection; 29,273,095 Duna 1
 Kerbin SOI.
+Jool 1 (uncrewed, ~4,540 m/s) cruising: mid-course UT 27,263,628 (`correct Jool --pe 250000 --inc-to 0 --plan`),
+Jool SOI UT 52,787,080, then `soi`, `capture --apo 100000000` (~445 m/s), science (docs/jool-1-plan.md).
 Duna 1 (Valentina, ~378 sci, 623 m/s) on the way home: Kerbin pass pe 11,514 km inc 56.5 -> correct at UT 26,854,269.
 Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
 Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 730/750 data, ~9.3 sci/day, transmitted at 23.456M.
