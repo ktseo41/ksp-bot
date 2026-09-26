@@ -123,8 +123,9 @@ def _ensure_control(v):
     """With Require Signal for Control a probe-controlled craft has no throttle without a CommNet link. Minmus Lab 1:
     the stowed HG-55 left only the OKTO's own antenna (~16 Mm with DSN 2), and the capture burn at Minmus sat at
     throttle 1 / thrust 0 until the burn-time guard gave up. Extend antennas in vacuum, else refuse."""
-    if v.control.state.name == "full":
-        return
+    if v.control.state.name == "full" or (v.control.state.name == "partial" and v.control.source.name == "kerbal"):
+        return  # crew without a Pilot and no link is KSP's "No Pilot" state: only map node editing is locked
+        # (Vessel.CheckControllable PARTIAL_MANNED); Rescue 6 refused two burns behind Minmus for nothing
     if v.flight().static_pressure < 1:
         _antennas(v, True)
         time.sleep(2)

@@ -373,10 +373,15 @@ def grab(name, speed=0.15, face=None, max_contacts=3):
     # circle (+ margin). Rescue 1 (12 m stack) started at 8.6 m, swung at 4-16 deg/s for 90 s and hit the target.
     arm = math.sqrt(_dot(_claw(v).position(v.reference_frame), _claw(v).position(v.reference_frame)))
     safe = arm + 8.0
+    # SAS or RCS left on (Rescue 6: by a back-off script) fight the autopilot: 5-28 deg/s swings for 10 min
+    # emptied the monopropellant and the battery during a plain grab
+    v.control.sas = False
+    v.control.rcs = False
     d = _rel(v, target, frame)[2]
     if d < safe:
-        say(f"too close to turn: {d:.1f} m < {safe:.1f} m (Klaw {arm:.1f} m from the centre of mass); back off first")
-        return False
+        say(f"too close to turn: {d:.1f} m < {safe:.1f} m (Klaw {arm:.1f} m from the centre of mass); backing off")
+        if not _back_off(v, target, frame, safe + 3):
+            return False
     if face:
         a = _face_axis(target, face, frame)
         say(f"moving onto the target's {face} axis")
@@ -447,6 +452,36 @@ def grab(name, speed=0.15, face=None, max_contacts=3):
         time.sleep(0.2)
     say("no grab within 30 min")
     return False
+
+
+def _back_off(v, target, frame, want, speed=0.3, timeout=120):
+    """RCS translation straight away from the target until `want` m (SAS holds the attitude, the thrusters only
+    translate); leaves SAS and RCS off and the drift for the caller to trim."""
+    rcs = [p.rcs for p in v.parts.all if p.rcs is not None]
+    if not rcs:
+        say("no RCS to back off with")
+        return False
+    c = v.control
+    for r in rcs:
+        r.pitch_enabled = r.yaw_enabled = r.roll_enabled = False
+    c.sas, c.rcs = True, True
+    t0 = time.time()
+    try:
+        while time.time() - t0 < timeout:
+            p, u, d, _ = _rel(v, target, frame)
+            if d >= want:
+                break
+            q = target.position(v.reference_frame)  # target seen from us, vessel frame: x right, y forward, z down
+            n = math.sqrt(_dot(q, q))
+            push = 1.0 if _dot(p, u) / d < speed else 0.0  # our speed away from the target
+            c.right, c.forward, c.up = -q[0] / n * push, -q[1] / n * push, q[2] / n * push
+            time.sleep(0.2)
+    finally:
+        c.right = c.forward = c.up = 0.0
+        c.sas, c.rcs = False, False
+    d = _rel(v, target, frame)[2]
+    say(f"backed off to {d:.1f} m")
+    return d >= want
 
 
 def _rcs_axes(v, target, frame, pulse=0.6):
@@ -584,16 +619,24 @@ def transfer_crew(to_part="mk1pod.v2"):
     TransferCrew threw for Gwenbro, whose seat object didn't exist after the grab). A rescue's 'Save X' completes
     on the grab or on this transfer."""
     v = vessel()
-    ours = [p for p in v.parts.all if p.name == to_part]
+    grabbed, todo = [], list(_claw(v).children)  # the grabbed vessel hangs below the Klaw in the part tree
+    while todo:
+        p = todo.pop()
+        grabbed.append(p)
+        todo.extend(p.children)
+    # by name alone Elfry's own Mk1-3 pod counted as "ours" (Rescue 6): nobody moved, and the release let her go
+    ours = [p for p in v.parts.all if p.name == to_part and p not in grabbed]
+    if not grabbed or not ours:
+        raise RuntimeError(f"nothing grabbed ({len(grabbed)} parts) or no {to_part} of ours ({len(ours)})")
     moved = []
-    for p in v.parts.all:
-        if p in ours:
-            continue
+    for p in grabbed:
         for c in list(p.crew):
             say(bot().move_crew(c.name, to_part))
             moved.append(c.name)
-    say(f"moved {moved}; aboard: " + ", ".join(f"{p.title}: {[c.name for c in p.crew]}"
-                                             for p in vessel().parts.all if p.name == to_part))
+    aboard = [c.name for p in ours for c in p.crew]
+    say(f"moved {moved}; aboard our {to_part}: {aboard}")
+    if any(m not in aboard for m in moved):
+        raise RuntimeError(f"not all moved into our {to_part}: keep holding the target")
     return bool(moved)
 
 
