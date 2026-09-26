@@ -491,8 +491,24 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Lab throughput: at 720 data the lab eats ~2 data/day (tau ~92 days at S = 2.5): a full lab makes ~10 sci/day,
   so ~500 per 50 days; visit (switch to it, transmit) every <= 50 days.
 
+## 2026-09-26 — contracts mix-up (Ike station accepted), Keo Relay 3 (gravioli keosynchronous contract)
+- `accept "keosynchronous"` accepted, but the save right after threw an NRE (FlightState ctor, first save after the
+  flight), the CLI printed ERROR, I retried with `accept 4` - the list had shifted and it took **"Build a new orbital
+  station around Ike"** instead. A scene switch then half-reloaded the old save (funds back to 1.368M, contracts
+  "active" objects stuck in the offered list, accept() did nothing); `load-save` didn't clear it, a KSP restart did
+  (both contracts offered again, nothing lost). Then accepted both on purpose: keosynchronous (48.5k + 124k) and
+  **Ike station** (303.6k advance, 905.6k on completion, failure 349k, deadline ~41 years: 9 kerbals, ISRU, cupola,
+  antenna, docking port, power, in Ike orbit - fits the Duna + Ike goal). `accept` now prints the title first and
+  only warns if the save fails.
+- crafts/keo-relay-3.json = Keo Relay 2 with a GRAVMAX instead of the goo (30.3k). Target inc 4.24, e 0.057,
+  sma 3463 km, LAN 95.64, argPe 299.63. wait-plane: heading 85.4; LKO 82.6 x 87.7, inc 3.94; match-orbit plane 12.9,
+  periapsis side 647 (expected 643-647), apoapsis 457 -> sma 3461.7, e 0.0567, inc 4.24, LAN 95.67, argPe 299.73:
+  **contract done**, funds 1.72 -> 1.81M, sci 146 -> 154. `--plan` stopped on sub-1 m/s trims of the first burn
+  over and over: match_orbit now skips trims < 2 m/s. Keo Relay 3 keeps 4617 m/s (spare relay / tug).
+
 ### Next steps (plan)
-State (2026-09-26, after Minmus Lab 1): KSP at the space center, UT ~19,418,500, funds 1.37M, sci 146, rep 407, R&D 3.
+State (2026-09-26, after Keo Relay 3): KSP at the space center, UT ~19,437,400, funds 1.81M, sci 154, rep 424, R&D 3.
+Active: Ike station contract (see above), Duna contracts, Minmus temperature survey (500 m sites, will lapse).
 Eve 1 (Jeb, ~1017 sci aboard, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73. Valentina (Duna 1) landed on Duna,
 ~2800 m/s, ~378 sci aboard (+ contracts "Explore Duna", "Science data from surface of Duna" complete on recovery).
 Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 720/750 data, ~10 sci/day, storage unit full of

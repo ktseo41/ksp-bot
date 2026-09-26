@@ -1550,7 +1550,7 @@ def match_orbit(inc, lan, argpe, sma, ecc):
         return abs(no.radius_at_true_anomaly(argpe - no.argument_of_periapsis) - rp) / 1000
     node = v.control.add_node(t, dv, 0, 0)
     tune_node(node, cost1, steps=(("prograde", 1.0), ("radial", 1.0)))
-    if node.delta_v > 0.5:
+    if node.delta_v > 2.0:  # below that it's burn-residual noise (Keo Relay 3: --plan stopped on 1.2, 0.7, ... trims)
         say(f"periapsis side to {rp - R:.0f} m: {node.delta_v:.1f} m/s")
         _approve(node, dv, rp - R)
         execute_node(node)

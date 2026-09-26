@@ -124,9 +124,14 @@ def cmd_accept(a):
     c.accept()
     time.sleep(1)
     ok = any(x.title == c.title for x in _contracts("active"))
-    if ok:
-        sc().save("persistent")  # see cmd_launch
     print("accepted:" if ok else "ACCEPT FAILED:", c.title)
+    if ok:
+        try:
+            sc().save("persistent")  # see cmd_launch
+        except Exception as e:
+            # 2026-09-26: the save threw an NRE (FlightState ctor) right after a flight; the accept had worked, the
+            # error made me retry "accept 4", the list had shifted and a second contract (Ike station) got accepted
+            print(f"WARNING: accepted, but saving failed ({str(e).splitlines()[0]}); don't retry the accept")
 
 
 def cmd_decline(a):
