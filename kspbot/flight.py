@@ -969,9 +969,10 @@ def tune_node(node, cost, steps=(("prograde", 5.0), ("normal", 5.0), ("radial", 
     return best
 
 
-def transfer_to(target_name, pe_alt):
+def transfer_to(target_name, pe_alt, lambert=False, horizon_days=None):
     """From a near-circular parking orbit, plan and burn a Hohmann transfer to a moon of the current body,
-    tuned so the moon periapsis is ~pe_alt. Then use capture()."""
+    tuned so the moon periapsis is ~pe_alt. Then use capture(). An eccentric or inclined moon (Gilly), an eccentric
+    orbit of ours, or lambert=True: transfer_moon (Lambert over departure time x flight time) instead."""
     v = vessel()
     o = v.orbit
     if o.body.has_atmosphere and o.periapsis_altitude < o.body.atmosphere_depth:
@@ -980,6 +981,8 @@ def transfer_to(target_name, pe_alt):
     target = sc().bodies[target_name]
     if target.orbit.body.name != v.orbit.body.name:
         return transfer_planet(target_name, pe_alt)
+    if lambert or _lambert_moon(o, target):
+        return transfer_moon(target_name, pe_alt, horizon_days)
     mu = v.orbit.body.gravitational_parameter
     r1 = v.orbit.semi_major_axis
     r2 = target.orbit.semi_major_axis
@@ -1003,7 +1006,7 @@ def transfer_to(target_name, pe_alt):
                      if off(ut() + wait + k * day + t_trans) < 0.3 * soi), None)
         raise Refused(f"{target_name} will be {off(ut() + wait + t_trans) / 1e6:.1f} Mm out of our plane at arrival "
                       f"(SOI {soi / 1e6:.1f} Mm)" + (f"; depart ~{good} days later (warp from the space center)"
-                                                   if good else ""))
+                                                   if good else "") + ", or `transfer --lambert` (plane folded in)")
     node = v.control.add_node(ut() + wait, dv, 0, 0)
     say(f"transfer to {target_name}: {dv:.0f} m/s in {wait:.0f}s, tuning")
     c = tune_node(node, lambda n: _node_cost(n, target, pe_alt),
@@ -1020,6 +1023,280 @@ def transfer_to(target_name, pe_alt):
     if not enc or abs(enc[0] - pe_alt) > 3000:
         return correct_course(target_name, pe_alt)
     return True
+
+
+# ---------------------------------------------------------------- moon transfer by Lambert (eccentric / inclined moon)
+
+def _lambert_moon(orbit, target, min_e=0.2, min_rel=8.0):
+    """True when transfer_to's Hohmann plan (a circular moon in our plane, from a circular orbit) does not fit: the
+    moon's orbit or ours is eccentric (> min_e) or the planes are > min_rel deg apart. Gilly from Eve's equatorial
+    orbit: e 0.55, inc 12 (Minmus from LKO, 6 deg, stays on the Hohmann path)."""
+    t = target.orbit
+    rel = math.degrees(_rel_inc(orbit.inclination, orbit.longitude_of_ascending_node, t.inclination,
+                                t.longitude_of_ascending_node))
+    return _odd_moon(target, min_e) or orbit.eccentricity > min_e or rel > min_rel
+
+
+def _odd_moon(target, min_e=0.2, min_inc=8.0):
+    """A moon whose own orbit is eccentric or inclined to its planet's equator (Gilly e 0.55 / 12 deg, Bop); not
+    the Mun, Minmus (6 deg), Ike."""
+    return target.orbit.eccentricity > min_e or math.degrees(target.orbit.inclination) > min_inc
+
+
+def plan_moon_intercept(ship, moon, t_from, t_to, aim=0.0, n_T=40, dep_step=None, prefer=0.05):
+    """Pure planner (kepler.Orbit inputs around one body, no kRPC): one burn from our orbit to a moon whose orbit is
+    eccentric and/or inclined to ours. transfer_to's Hohmann assumes a circular moon in our plane and refuses when
+    the moon is > 0.8 SOI out of it; Gilly (e 0.55, inc 12 from Eve's equator) is 3.9 Mm out of our plane where its
+    orbit crosses our radius. Lambert (_lambert, prograde about our orbit normal) from our position at the departure
+    t1 to the moon's at t1 + T, over a grid of t1 in [t_from, t_to] (every ship period / 60) x T (0.15..2 x the
+    Hohmann time between the two semi-major axes); cost = departure dv + |v_rel| at the moon (the capture at a small
+    moon costs ~ v_rel). The plane change is folded in: the cheap arcs arrive near a node of the moon's orbit on our
+    plane (Gilly: its descending node, near its apoapsis, v_rel ~90 instead of ~300 at its periapsis). The best grid
+    minima are refined by a compass search on (t1, T); the earliest refined candidate within `prefer` (5 %) + 2 m/s
+    of the cheapest is chosen (a far departure only costs real time, but that is time).
+    aim: impact parameter (m, or a function of v_rel) to aim beside the moon's centre, perpendicular to v_rel on the
+    side that makes the pass prograde about our orbit normal (the moon periapsis comes from it, _aim_radius).
+    Returns a dict or None: t1, T, t_arr, cost, dv, dv_vec, burn = (prograde, normal, radial) in our orbital frame at
+    t1 (normal along r x v in the elements' frame: KSP's sign is checked on its own patch), v_rel, v_rel_vec, aim,
+    transfer (kepler.Orbit after the burn), candidates [(cost, t1, T)] sorted by cost."""
+    mu = ship.mu
+    nrm, crs, dt, mag = _norm, _cross, _dot, kepler._mag
+    sub = lambda a, b: tuple(x - y for x, y in zip(a, b))
+    T_h = math.pi * math.sqrt(((ship.a + moon.a) / 2) ** 3 / mu)
+    step = dep_step or ship.period / 60
+    Ts = [T_h * (0.15 + 1.85 * i / (n_T - 1)) for i in range(n_T)]
+    dT = Ts[1] - Ts[0]
+
+    def solve(t1, T, off=0.0):
+        """(cost, dv vector, v_rel vector, r1, v1) of the arc from us at t1 to the moon at t1 + T (off: aim that far
+        beside its centre), or None."""
+        if T < 60 or t1 < t_from:
+            return None
+        r1, v1 = ship.state(t1)
+        r2, v2 = moon.state(t1 + T)
+        h = nrm(crs(r1, v1))
+        if off:
+            sol = _lambert(mu, r1, r2, T, h)
+            if sol is None:
+                return None
+            b = crs(sub(sol[1], v2), h)
+            if mag(b) < 1e-9:
+                return None
+            r2 = tuple(x + off * y for x, y in zip(r2, nrm(b)))
+        sol = _lambert(mu, r1, r2, T, h)
+        if sol is None:
+            return None
+        dv, vr = sub(sol[0], v1), sub(sol[1], v2)
+        return mag(dv) + mag(vr), dv, vr, r1, v1
+
+    def cost(x):
+        s = solve(x[0], x[1])
+        return s[0] if s else math.inf
+
+    grid = []
+    t1 = t_from
+    while t1 <= t_to:
+        grid.append([cost((t1, T)) for T in Ts])
+        t1 += step
+    if not grid:
+        return None
+    # local minima of the grid (8 neighbours), the six cheapest refined
+    mins = []
+    for i, row in enumerate(grid):
+        for j, c in enumerate(row):
+            if c == math.inf:
+                continue
+            nb = [grid[a][b] for a in (i - 1, i, i + 1) for b in (j - 1, j, j + 1)
+                  if 0 <= a < len(grid) and 0 <= b < len(row) and (a, b) != (i, j)]
+            if all(c <= x for x in nb):
+                mins.append((c, t_from + i * step, Ts[j]))
+    mins.sort()
+    cands = []
+    for c0, t1, T in mins[:6]:
+        c, x = _pattern_search(cost, [t1, T], [step / 2, dT / 2], [2 * step, 2 * dT], [1.0, 1.0], iters=80)
+        if c < math.inf and all(abs(x[0] - k[1]) > 60 or abs(x[1] - k[2]) > 60 for k in cands):
+            cands.append((c, x[0], x[1]))  # two grid minima often refine to the same arc
+    if not cands:
+        return None
+    cands.sort()
+    best = min((k for k in cands if k[0] <= cands[0][0] * (1 + prefer) + 2.0), key=lambda k: k[1])
+    c, t1, T = best
+    s = solve(t1, T)
+    off = aim(mag(s[2])) if callable(aim) else aim
+    if off:
+        s = solve(t1, T, off) or s
+    c, dv, vr, r1, v1 = s
+    pro, hn = nrm(v1), nrm(crs(r1, v1))
+    rad = crs(pro, hn)
+    return dict(t1=t1, T=T, t_arr=t1 + T, cost=c, dv=mag(dv), dv_vec=dv, burn=(dt(dv, pro), dt(dv, hn), dt(dv, rad)),
+                v_rel=mag(vr), v_rel_vec=vr, aim=off, candidates=cands,
+                transfer=kepler.Orbit.from_state(mu, r1, tuple(a + b for a, b in zip(v1, dv)), t1, "transfer"))
+
+
+def _match_timing(k, o, now, name):
+    """Shift a kepler.Orbit's mean anomaly so its next periapsis falls where KSP's does (depart_planet's check);
+    returns the shift in s."""
+    if o.eccentricity >= 1:
+        return 0.0
+    t_k = k.time_of_nu(0, now + 60)
+    t_g = o.ut_at_true_anomaly(0)
+    while t_g < now + 60:
+        t_g += o.period
+    while t_g - o.period >= now + 60:
+        t_g -= o.period
+    d = t_k - t_g
+    if abs(d) > 0.5 * o.period:
+        d -= math.copysign(o.period, d)
+    if abs(d) > 10:
+        say(f"WARNING: {name}'s next periapsis by elements is {d:+.0f} s off KSP's: shifted to KSP's timing")
+        k.m0 -= k.n * d
+    return d
+
+
+def _capture_dv(body, pe_alt, vinf):
+    """Burn (m/s) at a periapsis pe_alt above body from a hyperbola of v_inf into a circular orbit there."""
+    mu, rp = body.gravitational_parameter, body.equatorial_radius + pe_alt
+    return math.sqrt(vinf ** 2 + 2 * mu / rp) - math.sqrt(mu / rp)
+
+
+def _tune_pass(node, target, pe_alt, b, lever):
+    """Compass search on the node's (prograde, normal, radial), judged by KSP's own patch (_node_cost: the moon
+    periapsis error in km with an encounter, else the closest approach behind a miss penalty), steps sized so one
+    moves the aim point by ~b/10 over the lever arm (Gilly, b ~21 km over ~2e5 s: 0.01 m/s), capped at 10 steps.
+    Leaves the best in place; returns its cost."""
+    s = max(1e-4, 0.1 * b / max(lever, 60.0))
+
+    def f(x):
+        node.prograde, node.normal, node.radial = x
+        return _node_cost(node, target, pe_alt)
+    c, x = _pattern_search(f, [node.prograde, node.normal, node.radial], [s] * 3, [10 * s] * 3, [s / 50] * 3)
+    node.prograde, node.normal, node.radial = x
+    say(f"pass tuned (steps {s:.4f} m/s): cost {c:.2f}, {node.delta_v:.3f} m/s", screen=False)
+    return c
+
+
+def transfer_moon(target_name, pe_alt, horizon_days=None):
+    """One-burn transfer to an eccentric / inclined moon of the body we orbit (Gilly from Eve 2's equatorial orbit),
+    from any orbit of ours: plan_moon_intercept on both orbits' elements (kepler, checked against KSP's own
+    positions first), the burn put on a node (KSP's normal sign chosen by its own patch), then tuned on KSP's patch
+    for the moon periapsis pe_alt (_tune_pass). Prints the depart UT, dv, arrival v_rel, KSP's predicted periapsis and
+    the capture estimate; --plan stops there. After the burn the pass is trimmed at once (_moon_trim). Then `soi`,
+    `capture`. horizon_days: departures searched (default 1.2 x the longer of the two periods)."""
+    v = vessel()
+    o = v.orbit
+    body = o.body
+    target = sc().bodies[target_name]
+    if target.orbit.body.name != body.name:
+        raise Refused(f"{target_name} does not orbit {body.name}")
+    now = ut()
+    day = 21600.0
+    frame = body.non_rotating_reference_frame
+    ship, moon = _kepler_of(o, name=v.name), _kepler_of(target.orbit, name=target_name)
+    if ship.e >= 1:
+        raise Refused(f"our orbit around {body.name} is not closed (e {ship.e:.2f}): capture first")
+    _match_timing(ship, o, now, v.name)
+    _match_timing(moon, target.orbit, now, target_name)
+    # the elements' frame vs KSP's: distances are frame-free (depart_planet compares an angle the same way)
+    worst, dg = 0.0, 1.0
+    for t in (now + 600, now + ship.period / 3, now + 0.8 * ship.period, now + 0.5 * moon.period):
+        dk = math.dist(ship.position(t), moon.position(t))
+        dg = math.dist(o.position_at(t, frame), target.orbit.position_at(t, frame))
+        worst = max(worst, abs(dk - dg))
+    if worst > max(5000.0, 1e-3 * dg):
+        raise Refused(f"distance to {target_name} by elements vs KSP differs by {worst / 1000:.0f} km: the element "
+                      "conventions differ; not planning")
+    horizon = horizon_days * day if horizon_days else 1.2 * max(ship.period, moon.period)
+    say(f"Lambert to {target_name}: departures over the next {horizon / day:.1f} d (element check {worst:.0f} m)")
+    p = plan_moon_intercept(ship, moon, now + 600, now + horizon,
+                            aim=lambda vr: _aim_radius(target, pe_alt, max(vr, 1.0)))
+    if p is None:
+        say(f"Lambert found no transfer to {target_name} in {horizon / day:.1f} d; not planning")
+        return False
+    for c, t1, T in p["candidates"][:4]:
+        say(f"  candidate: depart UT {t1:.0f} (+{(t1 - now) / 3600:.1f} h), flight {T / 3600:.1f} h, "
+            f"dv + v_rel {c:.0f} m/s", screen=False)
+    pro, nrm, rad = p["burn"]
+    best = None
+    for sign in (1, -1):  # KSP's normal sign vs the elements' right-handed frame: let its own patch decide
+        node = v.control.add_node(p["t1"], pro, sign * nrm, rad)
+        c = _node_cost(node, target, pe_alt)
+        node.remove()
+        if best is None or c < best[0]:
+            best = (c, sign)
+    node = v.control.add_node(p["t1"], pro, best[1] * nrm, rad)
+    say(f"Lambert: depart UT {p['t1']:.0f} (in {(p['t1'] - now) / 3600:.1f} h), {p['dv']:.1f} m/s (prograde "
+        f"{pro:.1f} normal {best[1] * nrm:+.1f} radial {rad:+.1f}), flight {p['T'] / 3600:.1f} h, arrival v_rel "
+        f"{p['v_rel']:.0f} m/s, aim {p['aim'] / 1000:.1f} km beside {target_name}; KSP's patch cost {best[0]:.1f}")
+    _tune_pass(node, target, pe_alt, p["aim"] or target.sphere_of_influence / 10, p["T"])
+    enc = _encounter(node.orbit, target)
+    if not enc:
+        o2 = _patch_around(node.orbit, body.name)
+        ca = o2.next_closest_approach(target.orbit).distance if o2 is not None else float("nan")
+        say(f"no encounter in KSP's prediction after tuning (closest approach {ca / 1000:.0f} km, SOI "
+            f"{target.sphere_of_influence / 1000:.0f} km); node left for inspection")
+        return False
+    vi = math.sqrt(target.gravitational_parameter / abs(enc[1].semi_major_axis))
+    cap = _capture_dv(target, max(pe_alt, enc[0]), vi)
+    say(f"{target_name}: depart UT {node.ut:.0f} (in {(node.ut - now) / 3600:.1f} h), {node.delta_v:.1f} m/s "
+        f"(Lambert {p['dv']:.1f}), arrival ~UT {p['t_arr']:.0f}, v_rel {vi:.0f} (Lambert {p['v_rel']:.0f}), predicted "
+        f"{target_name} pe {enc[0] / 1000:.1f} km (want {pe_alt / 1000:.1f}); capture ~{cap:.0f} m/s: total "
+        f"~{node.delta_v + cap:.0f} m/s" + (f". After `ksp node`: `ksp correct {target_name} --pe {pe_alt:.0f}` trims "
+                                             "the pass" if PLAN_ONLY else ""))
+    _approve(node, p["dv"])
+    execute_node(node, tol=0.05)
+    return _moon_trim(target, pe_alt)
+
+
+def _moon_trim(target, pe_alt, tol=None):
+    """Trim the pass at a moon of our body now (+120 s), from a zero node tuned on KSP's patch (_tune_pass, steps from
+    the lever arm to the pass): right after transfer_moon's burn (a 0.05 m/s residual moves Gilly's pass by ~10 km),
+    and what `correct` does for such a moon (its grid steps of 1 m/s move the pass by ~200 km there). Nothing is
+    burned when the periapsis is within tol (default max(2 km, 20 %)). The estimate (aim point error / lever arm)
+    caps it at 3x + 0.5; the burn runs thrust-limited to ~2 s."""
+    v = vessel()
+    body = v.orbit.body
+    tol = tol if tol is not None else max(2000.0, 0.2 * pe_alt)
+    time.sleep(0.5)
+    enc = _encounter(v.orbit, target)
+    if enc and abs(enc[0] - pe_alt) <= tol:
+        say(f"{target.name} pe {enc[0] / 1000:.1f} km (want {pe_alt / 1000:.1f} +- {tol / 1000:.1f}): no trim needed")
+        return True
+    frame = body.non_rotating_reference_frame
+    if enc:
+        t_ca = _t_entry(v.orbit, target)
+        vi = math.sqrt(target.gravitational_parameter / abs(enc[1].semi_major_axis))
+        d_now = _aim_radius(target, max(enc[0], -0.9 * target.equatorial_radius), vi)
+    else:
+        ca = v.orbit.next_closest_approach(target.orbit)
+        t_ca, d_now = ca.ut, ca.distance
+        vi = math.dist(_vel_at(v.orbit, t_ca, frame), _vel_at(target.orbit, t_ca, frame))
+    node = v.control.add_node(ut() + 120, 0, 0, 0)
+    lever = max(600.0, t_ca - node.ut)
+    b = _aim_radius(target, pe_alt, max(vi, 1.0))
+    expect = abs(d_now - b) / lever
+    say(f"trim toward {target.name} pe {pe_alt / 1000:.1f} km: now " + (f"pe {enc[0] / 1000:.1f} km" if enc else
+        f"no encounter, closest approach {d_now / 1000:.0f} km") + f", {lever / 3600:.1f} h to go, estimate "
+        f"{expect:.3f} m/s")
+    _tune_pass(node, target, pe_alt, b, lever)
+    enc = _encounter(node.orbit, target)
+    if not enc:
+        node.remove()
+        say(f"no encounter reachable with a small trim; plan again with `transfer {target.name} --pe {pe_alt:.0f}`")
+        return False
+    if node.delta_v < 0.003:
+        node.remove()
+        say(f"{target.name} pe {enc[0] / 1000:.1f} km: nothing better within reach")
+        return True
+    if node.delta_v > 3 * expect + 0.5:
+        raise Refused(f"trim {node.delta_v:.2f} m/s is over 3x the estimate ({expect:.2f}); node left for inspection")
+    say(f"trim {node.delta_v:.3f} m/s -> {target.name} pe {enc[0] / 1000:.1f} km")
+    _approve(node, expect, allow_flip=True)
+    acc = max(v.available_thrust / v.mass, 1e-3)
+    execute_node(node, tol=0.005, thrust_limit=max(0.005, min(1.0, node.delta_v / (2.0 * acc))))
+    time.sleep(0.5)
+    enc = _encounter(v.orbit, target)
+    say(f"after the trim: {target.name} pe " + (f"{enc[0] / 1000:.1f} km" if enc else "none (no encounter)"))
+    return enc is not None
 
 
 def planet_window(target_name, origin=None, lookback_days=40, flight_time=False):
@@ -1667,6 +1944,10 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     did. Around a planet (moons) the older grid/tuner paths below still apply."""
     v = vessel()
     target = sc().bodies[target_name]
+    if v.orbit.body.name == target.orbit.body.name and min_inc is None and inc_to is None and _odd_moon(target):
+        # on the way to an eccentric / inclined moon (Gilly after transfer_moon): the 1 m/s grid below moves its
+        # pass by ~200 km (SOI 126 km); a trim tuned from the lever arm instead
+        return _moon_trim(target, pe_alt, tol=max(500.0, 0.05 * pe_alt))
     node = v.control.add_node(ut() + 120, 0, 0, 0)
     cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
     dv_cost = lambda n: cost(n) + n.delta_v  # 1 m/s weighs like 1 km of periapsis or 5 deg of inclination
@@ -2950,13 +3231,57 @@ def _site_sky(track, sky, basis, w, t0, timeline, r_orb, R):
     return f
 
 
-def _landing_sky(v, track, safety=1.3, max_decel=3.0):
-    """_site_sky for this vessel on its current (near-circular) orbit, with its speed and thrust now."""
+def _landing_accel(a_max, g, cap=2.0, ratio=50.0):
+    """Thrust acceleration (m/s2) a landing may use: all of it, unless the TWR is absurd (a_max > ratio x g), then
+    g + cap. Eve 2's Poodle on Gilly: 250 kN on ~9 t at g 0.049 is TWR ~570, 28 m/s2: one control tick (~0.2 s of
+    kRPC calls) at full throttle there is 5 m/s, a touchdown's whole budget. Minmus landers (TWR <= 28) and
+    everything at the Mun keep their full thrust (pure)."""
+    return min(a_max, g + cap) if a_max > ratio * g else a_max
+
+
+def _descent_accel(h, vs, hs, g, a_use, safety=1.3, final_speed=1.5, max_decel=3.0):
+    """Acceleration (m/s2) _powered_descent asks of the engine at height h (m above the feet) and vertical speed
+    vs: hover + the braking curve's deceleration (feedforward) + 2/s on the speed error + a horizontal kill. The
+    curve's deceleration a_d = min((a_use - g) / safety, max_decel); want = -max(final_speed, sqrt(2 a_d (h - 2))).
+    Without the feedforward the speed lagged the curve by a_d/Kp: 15 m/s touchdown at Minmus TWR 28 (pure)."""
+    a_d = min(max(a_use - g, 0.1) / safety, max_decel)
+    curve = math.sqrt(max(0.0, 2 * a_d * (h - 2)))
+    want = -max(final_speed, curve)
+    ff = a_d if curve > final_speed else 0.0
+    return g + ff + 2.0 * (want - vs) + 0.5 * hs
+
+
+def _parent_clear(body):
+    """f(t) -> metres by which the line from body's centre to Kerbin passes outside body's parent planet (radius +
+    highest terrain), for a moon of a planet other than Kerbin (Gilly behind Eve, Ike behind Duna); None elsewhere.
+    Positions from the orbit chains on a cached grid like _sky."""
+    par = body.orbit.body if body.orbit is not None else None
+    if par is None or par.orbit is None or par.name == "Kerbin":
+        return None
+    cb, cp, ck = _sun_chain(body), _sun_chain(par), _sun_chain(sc().bodies["Kerbin"])
+    R = par.equatorial_radius + TERRAIN.get(par.name, 0)
+
+    def fetch(t):
+        pb = _chain_pos(cb, t)
+        return (tuple(a - b for a, b in zip(_chain_pos(ck, t), pb)),
+                tuple(a - b for a, b in zip(_chain_pos(cp, t), pb)))
+    grid = _sky_grid(fetch, min(600.0, max(30.0, body.orbit.period / 2000)))
+
+    def f(t):
+        k, m = grid(t)
+        return _ray_clearance((0.0, 0.0, 0.0), k, m, R)
+    return f
+
+
+def _landing_sky(v, track, safety=1.3, max_decel=3.0, max_accel=2.0):
+    """_site_sky for this vessel on its current (near-circular) orbit, with its speed and thrust now (capped like
+    the landing itself, _landing_accel)."""
     body = v.orbit.body
     if v.available_thrust <= 0:
         raise Refused(f"no thrust on {v.name} (stage {v.control.current_stage}): stage the engine first")
     hs = v.flight(body.reference_frame).horizontal_speed
-    acc, g = v.available_thrust / v.mass, body.surface_gravity
+    g = body.surface_gravity
+    acc = _landing_accel(v.available_thrust / v.mass, g, max_accel)
     R, r_orb = body.equatorial_radius, v.orbit.semi_major_axis
     frame = body.non_rotating_reference_frame
     t0 = ut()
@@ -3037,23 +3362,37 @@ def find_point(lat, lon, tol_km=2.0, orbits=20, step=5.0, track=None, ok=None, t
 
 
 @_contained(_fallback_descent)
-def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8, at=None, min_elev=None):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8, at=None, min_elev=None,
+         max_accel=2.0):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
     biomes: first wait for a pass over one of these biomes with gentle terrain; at: (lat, lon) to land near.
     min_elev: Kerbin's elevation (deg) the CommNet link needs (None: 20 for an uncrewed craft, 0 crewed): passes
     with Kerbin lower from the site at the touchdown, or under half of it from the vessel at the burn start, are
-    skipped (_link_ok); an uncrewed craft with no biomes / at waits for such a gentle site in any biome. No site in
-    the window: names the next one (a few orbits / rotations on) and flies nothing. PLAN_ONLY: print the site, stop."""
+    skipped (_link_ok), and at a moon of another planet also those with the planet between the moon and Kerbin then
+    (_parent_clear: Gilly behind Eve); an uncrewed craft with no biomes / at waits for such a gentle site in any
+    biome. No site in the window: names the next one (a few orbits / rotations on) and flies nothing. PLAN_ONLY:
+    print the site, stop. max_accel: with an absurd TWR (> 50 g: a Poodle on Gilly, TWR ~570) the throttle is capped
+    at g + max_accel m/s2 (_landing_accel) for the kill, the braking curve and the timeline."""
     v = vessel()
     body = v.orbit.body
     if min_elev is None:
         min_elev = 0.0 if _crewed(v) else 20.0
     linked = min_elev > 0 and body.name != "Kerbin"
+    g = body.surface_gravity
+    a_max = v.available_thrust / v.mass
+    a_use = _landing_accel(a_max, g, max_accel)
+    if a_use < a_max:
+        say(f"TWR {a_max / g:.0f} here: throttle capped at {a_use / a_max * 100:.1f} % ({a_use:.2f} m/s2)")
     t = None
     if at or biomes or linked:
         track = _track(v)
-        sky = _landing_sky(v, track, safety, max_decel)
-        ok = (lambda tt: _link_ok(*sky(tt)[:2], min_elev)) if linked else None
+        sky = _landing_sky(v, track, safety, max_decel, max_accel)
+        clear = _parent_clear(body) if linked else None
+
+        def ok(tt):
+            s = sky(tt)
+            return _link_ok(s[0], s[1], min_elev) and (clear is None or min(clear(s[3]), clear(s[4])) > 0)
+        ok = ok if linked else None
         n = max(orbits, 20) if at else orbits
 
         def search(**kw):
@@ -3081,8 +3420,10 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
                     f"{t2 - 900:.0f} and land again")
             return False
         s = sky(t)
+        par = "" if clear is None else f"; {body.orbit.body.name} clears the line to Kerbin by " \
+            f"{min(clear(s[3]), clear(s[4])) / 1000:.0f} km"
         say(f"landing at UT {t:.0f}: {_sky_note(s)}" + (f" (link needs {min_elev / 2:.0f} / {min_elev:.0f})"
-                                                        if linked else ""))
+                                                        if linked else "") + par)
         if PLAN_ONLY:
             lat, lon = track(t)
             raise Planned(f"land {where} at {lat:.2f}, {lon:.2f}, UT {t:.0f} (burn start UT {s[3]:.0f}, touchdown "
@@ -3092,7 +3433,7 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
     start = None
     if t is not None:
         # the braking burn covers ~hs*burn/2 of ground: start it half a burn before the site
-        start = _descent_timeline(t, fl.horizontal_speed, v.available_thrust / v.mass, body.surface_gravity, 0.0)[0]
+        start = _descent_timeline(t, fl.horizontal_speed, a_use, g, 0.0)[0]
         warp_to(start, lead=40)
     ap = v.auto_pilot
     ap.reference_frame = v.surface_velocity_reference_frame
@@ -3101,27 +3442,35 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
     _wait_pointing(ap)
     while start and ut() < start:
         time.sleep(0.05)
-    g = body.surface_gravity
-    say(f"deorbit: killing horizontal speed ({fl.horizontal_speed:.0f} m/s)")
-    v.control.throttle = 1.0
-    while fl.horizontal_speed > 5:
+    hs0 = fl.horizontal_speed
+    hs_end = max(1.0, min(5.0, 0.1 * hs0))  # Gilly's orbit is ~20 m/s: 5 m/s left would be a quarter of it
+    say(f"deorbit: killing horizontal speed ({hs0:.0f} -> {hs_end:.1f} m/s)")
+
+    def cap():
+        """Throttle giving a_use (re-read: auto_stage may bring the engine in only now)."""
+        a = v.available_thrust / v.mass
+        return _landing_accel(a, g, max_accel) / a if a > 0 else 1.0
+    v.control.throttle = cap()
+    while fl.horizontal_speed > hs_end:
         auto_stage(v)
-        v.control.throttle = min(1.0, max(0.05, fl.horizontal_speed / 50))
+        v.control.throttle = cap() * min(1.0, max(0.05, fl.horizontal_speed / 50))
         time.sleep(0.05)
     v.control.throttle = 0.0
     # free fall until shortly before the braking curve is reached: warp through it (engines are off)
-    a_d = min(max(v.available_thrust / v.mass - g, 0.1) / safety, max_decel)
+    a_use = _landing_accel(v.available_thrust / v.mass, g, max_accel)
+    a_d = min(max(a_use - g, 0.1) / safety, max_decel)
     h0 = fl.surface_altitude
     t_fall = math.sqrt(2 * a_d * h0 / (g * g + a_d * g))
     if t_fall > 60:
         say(f"free fall from {h0:.0f} m: warping {0.8 * t_fall - 20:.0f} s")
         warp_to(ut() + 0.8 * t_fall - 20)
-    _powered_descent(v, fl, ap, safety, final_speed, max_decel)
+    _powered_descent(v, fl, ap, safety, final_speed, max_decel, max_accel=max_accel)
 
 
-def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick=None):
+def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick=None, max_accel=2.0):
     """Throttled suicide burn down to touchdown, holding surface retrograde (drag and chutes only help).
-    tick: called every loop (land --science's situation check; it must not block)."""
+    tick: called every loop (land --science's situation check; it must not block). The engine's acceleration is
+    capped by _landing_accel (absurd TWR only); the throttle law is _descent_accel."""
     body = v.orbit.body
     g = body.surface_gravity
     v.control.legs = True
@@ -3134,6 +3483,7 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick
         auto_stage(v)
         h = fl.surface_altitude - feet
         a_max = v.available_thrust / v.mass
+        a_use = _landing_accel(a_max, g, max_accel)
         spd = fl.speed
         if spd > 2:
             ap.reference_frame = v.surface_velocity_reference_frame
@@ -3142,15 +3492,8 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick
             ap.reference_frame = v.surface_reference_frame
             ap.target_direction = (1, 0, 0)
         # descend along a constant-deceleration curve (capped, so high-TWR landers don't brake at the last moment)
-        a_d = min(max(a_max - g, 0.1) / safety, max_decel)
-        curve = math.sqrt(max(0.0, 2 * a_d * (h - 2)))
-        want = -max(final_speed, curve)
-        vs = fl.vertical_speed
-        # throttle = hover + curve deceleration (feedforward) + proportional on speed error (+ horizontal kill).
-        # Without the feedforward the speed lagged the curve by a_d/Kp: 15 m/s touchdown at Minmus TWR 28.
-        ff = a_d if curve > final_speed else 0.0
-        acc_cmd = g + ff + 2.0 * (want - vs) + 0.5 * fl.horizontal_speed
-        v.control.throttle = max(0.0, min(1.0, acc_cmd / max(a_max, 1e-3)))
+        acc_cmd = _descent_accel(h, fl.vertical_speed, fl.horizontal_speed, g, a_use, safety, final_speed, max_decel)
+        v.control.throttle = max(0.0, min(a_use, acc_cmd) / max(a_max, 1e-3))
         time.sleep(0.03)
     v.control.throttle = 0.0
     ap.engaged = False

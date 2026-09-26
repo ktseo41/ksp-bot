@@ -336,7 +336,8 @@ def _land(a):
         return flight.land_atmo(a.pe, ignore_link=a.ignore_link, science=a.science)
     if a.science:
         print("--science is for atmospheric landings (flying high/low sets); here run `science --transmit` after")
-    return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at, min_elev=a.min_elev)
+    return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at, min_elev=a.min_elev,
+                       max_accel=a.max_accel)
 
 
 def cmd_science(a):
@@ -448,7 +449,7 @@ PHASES = {
     "ascent": lambda a: flight.ascent(a.alt, a.heading, twr=a.twr),
     "circularize": lambda a: flight.circularize(a.at),
     "periapsis": lambda a: flight.change_periapsis(a.alt),
-    "transfer": lambda a: flight.transfer_to(a.body, a.pe),
+    "transfer": lambda a: flight.transfer_to(a.body, a.pe, a.lambert, a.horizon),
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(a.force),
     "capture": lambda a: flight.capture(a.apo, a.early),
@@ -552,6 +553,12 @@ def main(argv=None):
     p = add("transfer", PHASES["transfer"], help="Hohmann transfer to a moon or (at the window) a planet, tuned for periapsis --pe")
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
+    p.add_argument("--lambert", action="store_true",
+                   help="moon: plan by Lambert over departure time x flight time (automatic for an eccentric / "
+                        "inclined moon such as Gilly, or from an eccentric orbit): one burn, plane change folded in")
+    p.add_argument("--horizon", type=float, metavar="DAYS",
+                   help="Lambert moon transfer: search departures this many (6 h) days ahead "
+                        "(default 1.2 x the longer orbital period)")
     p = add("correct", PHASES["correct"], help="mid-course correction for periapsis --pe")
     p.add_argument("body")
     p.add_argument("--pe", type=float, default=20000)
@@ -576,6 +583,8 @@ def main(argv=None):
                         "vessel at the burn start); sites/passes below it are skipped, and with none in the window "
                         "the next one is named and nothing flies. Default 20 uncrewed (which then also waits for a "
                         "gentle site without --biome/--at), 0 crewed. Relays not counted")
+    p.add_argument("--max-accel", type=float, default=2.0, metavar="M/S2",
+                   help="airless, absurd TWR only (> 50 g: a Poodle on Gilly): cap the thrust at g + this")
     p.add_argument("--pe", type=float, default=5000, help="atmosphere: deorbit burn (now) to this periapsis first")
     p.add_argument("--ignore-link", action="store_true",
                    help="atmosphere, uncrewed: burn even with Kerbin < 20 deg up at the predicted periapsis")

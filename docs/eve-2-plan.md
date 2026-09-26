@@ -154,6 +154,11 @@ Unverified in game: kRPC event names for the shield, `active_vessel` switch, tra
    > 0.8 SOI (100 km for Gilly) out of plane; Gilly is e 0.55 / inc 12 deg. Fix: match Gilly's plane first (`match-orbit`
    with Gilly's inc 12 / LAN 80 and our sma/ecc), seed the transfer at Gilly's apoapsis (v_inf 30 instead of 300), tune on
    closest approach (LOG 4c).
+   **Written 2026-09-27 (not flown):** `transfer Gilly --pe X [--plan]` now routes to `transfer_moon` (Lambert over
+   departure time x flight time on both orbits' elements, plane folded in; offline 220-245 m/s for dv + v_rel, arrival
+   near Gilly's descending node / apoapsis, v_rel 45-100), tuned on KSP's patch, trimmed after the burn; after
+   `--plan` + `node` run `correct Gilly --pe X` (routes to the small-step trim). `land` caps the Poodle at g + 2 m/s2
+   there (TWR ~570) and skips sites with Eve between Gilly and Kerbin.
 8. `correct` far out: the aim-point seed + tuner can walk off (LOG 4l): always `--plan`, compare with the printed analytic
    estimate, stop rule 1.5x.
 9. `match_orbit` measures argPe in our orbit's LAN frame; for the contract (inc 0, LAN 0) check `contracts -v` after the
