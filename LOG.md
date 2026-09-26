@@ -785,6 +785,27 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Open: KSP's stage delta-v missing after `fly` (burn_time needs a multi-stage fallback or a forced recalculation);
   site finder with the link condition belongs in `land` (scratch site.py); link forecast for captures in code (plan
   gap 3a).
+## 2026-09-27 (cont.) — delta-v fix in the mod, Eve 2 flies (#48 flipped, #49 up), Eve encounter
+- Opus: `KspBot.RecalcDeltaV()` (mod) + `_burns_from_parts` multi-stage fallback in `burn_time`/`burn_lead`; `vessel`
+  retries through the mod. KSP restarted at the space center to install it (commit 26.9 -> 25.7 GB, pool 1.26 GB both,
+  available 0.76 -> 0.84 GB: little free RAM). Tested: after `fly "Moho 1"` the stage lines are there.
+- Research: experimentalElectrics (RTG) + highPerformanceFuelSystems (S3 large tank): sci 6,432 -> 4,882.
+- Records merged (opus): career.json #46/#47 + missing lab hauls, cards rebuilt (Moho added), writeup 7.25-7.27.
+- **Eve 2 launch #48 (UT 41,150,000): flipped at MET 55, 8 km, ~335 m/s (transonic, q 24 kPa)**: the nose pitched up
+  against the command (AoA -1 -> -15 -> -39 deg in 6 s), exactly the plan's ascent risk (blunt 2.5 m shield drum at
+  the nose). Reverted to launch, recovered (full refund). Fix: 4 x Tail Fin on the S3-3600 at 45 deg to the AV-R8s
+  (+0.5 t, 137.05 t, 76 parts). **#49**: transonic AoA <= 1.4 deg, rate <= 2 deg/s; 79.3 x 79.5 km, Poodle **3,321
+  untouched**, Skipper 99 left (plan 150-250: the fins' mass/drag).
+- Ejection: `transfer Eve --pe 120000 --plan`: T 190 d, node 1,026, arrival v_inf **1,103** (plan 850-950: capture
+  ~224 instead of 161-189), Eve in plane. Burned (Skipper 99 then Poodle). Checked the Eve miss *before* leaving
+  Kerbin's SOI this time: 34,000 km (SOI 85,109). Outside: **Eve pe 29,486 km, inc 34**, Poodle 2,390.
+- `correct Eve --pe 120000 --inc-to 0 --plan` (opus's new far-out code): Lambert 7.9 m/s, but its seed "had no
+  encounter" in KSP and the grid ended at 30.8 m/s with a RETROGRADE pass (inc 156): not flown. My local search
+  (dv term) from the Lambert seed: 7.71 m/s "pe 120.1, inc 27.4" -> burned -> **actual pe 10,358 km, inc 2.8**.
+  Cause (probable): 185 d out, KSP's encounter prediction for a *node's* trajectory differs by thousands of km from the
+  patch of the real orbit after the burn (and 0.04 s is too short for the patches to settle between evaluations:
+  runs gave inconsistent costs). Far-out fine trims are meaningless here: trim ~20 d before the SOI (~8 m/s est.).
+  Eve SOI ~UT 45.17M, pe ~45.30M.
 ### Next steps (plan)
 **State (2026-09-26, before a 2nd PC restart): KSP saved at the space center, UT 38,425,858, funds 3.18M, sci 3,636,
 rep 528. Nothing in flight needs attention; no burns pending. Moho 1 is NOT flying (reverted + recovered, craft file
