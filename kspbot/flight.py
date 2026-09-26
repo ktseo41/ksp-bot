@@ -1519,10 +1519,37 @@ def transfer_planet(target_name, pe_alt, samples=48):
         return False
     t0 = ut() + 300
     node = v.control.add_node(t0, dv, 0, 0)
-    c = _match_exit(node, home, frame, lambda t1, p1, T: (plan(t1, p1, T) or (None,))[0], t_arr,
-                    [t0 + i * P / samples for i in range(samples)], req0=vi_req)
+    req = lambda t1, p1, T: (plan(t1, p1, T) or (None,))[0]
+    hits = {}
+    c = _match_exit(node, home, frame, req, t_arr, [t0 + i * P / samples for i in range(samples)], req0=vi_req,
+                    hits=hits)
+    # Duna 2: the optimum's path ran Kerbin > Mun > Kerbin > Sun, those trials had no exit velocity and the tuner
+    # stopped 150 m/s off; 14,000 s later (the Mun 36 deg on) it matched to 0.0. Move the ejection on by whole
+    # parking orbits until the tuned path clears every moon by 2 SOI (at most three shifts: the stop rule)
+    base = t0
+    for _ in range(3):
+        if c <= 20 or not hits:
+            break
+        k, rows = _moon_wait(node, home, P)
+        if k is None:
+            break
+        base += k * P
+        say(f"KSP's paths near the optimum ejection cross {_hits_note(hits)}: shifting the ejection {k} parking "
+            f"orbits ({k * P:.0f} s) on, to UT ~{base:.0f}, where the tuned path clears "
+            + ", ".join(f"{m} by {r:.1f} SOI" for m, r in rows))
+        hits.clear()
+        node.prograde, node.normal, node.radial = dv, 0.0, 0.0
+        c = _match_exit(node, home, frame, req, t_arr, [base + i * P / samples for i in range(samples)],
+                        req0=vi_req, hits=hits)
     if c > 20:
-        say("cannot match the required departure velocity; node left for inspection")
+        if hits:
+            k, rows = _moon_wait(node, home, P)
+            wait = (f"wait ~{base + k * P - ut():.0f} s (warp to UT {base + (k - 1) * P:.0f}) and run `transfer "
+                    f"{target_name}` again" if k is not None else "no parking orbit within a moon period clears it")
+            say(f"path crosses {_hits_note(hits)} near the optimum ejection (v_inf error {c:.1f} m/s): {wait}; node "
+                "left for inspection")
+        else:
+            say("cannot match the required departure velocity; node left for inspection")
         return False
 
     def pe_cost(n):
@@ -1578,16 +1605,76 @@ def _golden_min(f, a, b, n=20):
     return best
 
 
+def _moon_on_path(orbit, home):
+    """Name of the moon of home whose SOI this trajectory enters before it leaves home's SOI, else None."""
+    o = orbit
+    for _ in range(4):
+        nxt = o.next_orbit
+        if nxt is None:
+            return None
+        b = nxt.body
+        if b.orbit is not None and b.orbit.body.name == home.name:
+            return b.name
+        if b.name != home.name:
+            return None
+        o = nxt
+    return None
+
+
+def _hits_note(hits):
+    return " / ".join(f"the {m}'s SOI ({n} trials)" for m, n in hits.items())
+
+
+def _moon_clear_shift(path, moons, t0, t1, period, k_max, k_min=1, margin=2.0):
+    """First k in [k_min, k_max] such that the escape path (kepler.Orbit, flown from UT t0 to t1, where it is past
+    the moons) flown k parking periods later passes every moon (name, kepler.Orbit, SOI radius) at > margin x its
+    SOI. Returns (k, [(name, closest approach / SOI)]) or (None, the rows at k_max) (pure). The ejection point repeats
+    every parking orbit (Kerbin moves ~0.1 deg per LKO orbit) while the Mun moves ~5 deg."""
+    rows = []
+    for k in range(k_min, k_max + 1):
+        dt = k * period
+        p = kepler.Orbit(path.mu, path.a, path.e, path.inc, path.lan, path.argpe, path.m0, path.epoch + dt)
+        rows = [(name, kepler.closest_approach(p, mo, t0 + dt, t1 + dt, n=200)[0] / soi) for name, mo, soi in moons]
+        if all(r > margin for _, r in rows):
+            return k, rows
+    return None, rows
+
+
+def _moon_wait(node, home, period, k_min=1):
+    """_moon_clear_shift for the node's escape path from home (its first patch and home's moons as two-body arcs
+    from kRPC states in home's non-rotating frame: one frame for both, whatever its handedness), searched up to one
+    period of the slowest moon."""
+    frame = home.non_rotating_reference_frame
+    mu = home.gravitational_parameter
+    o = node.orbit
+    t0 = node.ut + 1
+    path = kepler.Orbit.from_state(mu, o.position_at(t0, frame), _vel_at(o, t0, frame), t0)
+    now = ut()
+    moons = [(m.name, kepler.Orbit.from_state(mu, m.orbit.position_at(now, frame), _vel_at(m.orbit, now, frame), now),
+              m.sphere_of_influence) for m in home.satellites]
+    if not moons:
+        return None, []
+    r_out = max(mo.apoapsis + 2 * soi for _, mo, soi in moons)
+    t1 = path.time_at_radius(r_out, t0) or t0 + 86400.0
+    k_max = int(max(mo.period for _, mo, _ in moons) / period) + 1
+    return _moon_clear_shift(path, moons, t0, t1, period, k_max, k_min)
+
+
 def _match_exit(node, home, frame, plan, t_arr, seed_uts, req0=None,
-                coarse=(("prograde", 10.0), ("ut", 30.0), ("normal", 5.0))):
+                coarse=(("prograde", 10.0), ("ut", 30.0), ("normal", 5.0)), hits=None):
     """Tune node (prograde, ut, normal) until the velocity with which KSP's own patch leaves home's SOI matches the
     Lambert requirement plan(t1, p1, T) -> v_inf vector (None if unsolvable). First pass against the requirement
     from home's centre (req0, or plan at the node time), seeded at the best of seed_uts; second pass from the real
     hand-over point and time: the SOI edge is 84 Mm from Kerbin / 85 Mm from Eve, 1-2 days later, and the speed
-    there exceeds v_inf by 2 mu / r_SOI (9 % at Eve) - the second pass absorbs both. Returns the error left (m/s)."""
+    there exceeds v_inf by 2 mu / r_SOI (9 % at Eve) - the second pass absorbs both. Returns the error left (m/s).
+    hits (a dict): counts the trials whose path entered a moon of home first (no exit velocity: cost 1e6), by moon."""
     def cost(n):
         time.sleep(0.04)  # let KSP recompute patches
         ex = _exit_velocity(n, home, frame)
+        if ex is None and hits is not None:
+            m = _moon_on_path(n.orbit, home)
+            if m:
+                hits[m] = hits.get(m, 0) + 1
         return math.dist(ex[0], cost.req) if ex else 1e6
     cost.req = req0 if req0 is not None else plan(node.ut, home.orbit.position_at(node.ut, frame), t_arr - node.ut)
     if cost.req is None:
@@ -1606,7 +1693,8 @@ def _match_exit(node, home, frame, plan, t_arr, seed_uts, req0=None,
     if req is not None:
         cost.req = req
         c = tune_node(node, cost, steps=(("prograde", 2.0), ("ut", 10.0), ("normal", 2.0)))
-    say(f"ejection tuned: v_inf error {c:.1f} m/s, {node.delta_v:.0f} m/s")
+    say(f"ejection tuned: v_inf error {c:.1f} m/s, {node.delta_v:.0f} m/s"
+        + (f"; paths through {_hits_note(hits)} had no exit" if hits else ""))
     return c
 
 

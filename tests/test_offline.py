@@ -789,5 +789,48 @@ class GillyLanding(unittest.TestCase):
             self.assertAlmostEqual(F._descent_accel(h, vs, hs, g, a), old)
 
 
+class EscapePastMoon(unittest.TestCase):
+    """Duna 2: the optimum ejection's path ran Kerbin > Mun > Kerbin > Sun; move it on by parking orbits."""
+    MU = 3.5316e12
+
+    def setUp(self):
+        mu = self.MU
+        r0 = 680e3
+        self.P = 2 * math.pi * math.sqrt(r0 ** 3 / mu)
+        vp = math.sqrt(1000.0 ** 2 + 2 * mu / r0)  # v_inf 1000 m/s from LKO
+        self.path = F.kepler.Orbit.from_state(mu, (r0, 0.0, 0.0), (0.0, vp, 0.0), 0.0)
+        # the Mun (r 12,000 km, SOI 2,430 km) sits exactly where the path crosses its orbit
+        self.tc = self.path.time_at_radius(12e6, 0.0)
+        pc = self.path.position(self.tc)
+        n = math.sqrt(mu / 12e6 ** 3)
+        lon = math.atan2(pc[1], pc[0]) - n * self.tc
+        self.mun = F.kepler.Orbit(mu, 12e6, 0.0, 0.0, 0.0, 0.0, lon, 0.0, "Mun")
+        self.soi = 2.43e6
+
+    def test_blocked_now_clear_later(self):
+        moons = [("Mun", self.mun, self.soi)]
+        t1 = self.path.time_at_radius(12e6 + 2 * self.soi, 0.0)
+        k0, rows0 = F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, 0, k_min=0)
+        self.assertIsNone(k0)
+        self.assertLess(rows0[0][1], 0.01)  # straight through the Mun
+        k, rows = F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, 80)
+        self.assertIsNotNone(k)
+        self.assertGreater(rows[0][1], 2.0)
+        # just enough: one orbit earlier it was not clear yet
+        self.assertLessEqual(F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, k - 1)[1][0][1], 2.0)
+        # the Mun moves ~20 deg away before the path clears it by 2 SOI (Duna 2 waited 14,000 s: 36 deg)
+        moved = math.degrees(self.mun.n * k * self.P)
+        self.assertTrue(10 < moved < 40, moved)
+
+    def test_moon_on_path(self):
+        kerbin = NS(name="Kerbin", orbit=NS(body=NS(name="Sun")))
+        mun = NS(name="Mun", orbit=NS(body=kerbin))
+        sun = NS(name="Sun", orbit=None)
+        via_mun = NS(body=kerbin, next_orbit=NS(body=mun, next_orbit=NS(body=kerbin, next_orbit=NS(body=sun))))
+        self.assertEqual(F._moon_on_path(via_mun, kerbin), "Mun")
+        direct = NS(body=kerbin, next_orbit=NS(body=sun, next_orbit=None))
+        self.assertIsNone(F._moon_on_path(direct, kerbin))
+
+
 if __name__ == "__main__":
     unittest.main()
