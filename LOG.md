@@ -880,6 +880,16 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   Research experimentalScience (OrbitalScanner, LargeTank), advUnmanned, largeUnmanned -> sci 3,600.
 - Next (in work, opus): Gilly transfer/landing for the Eve 2 carrier (~2,200 m/s left), `transfer` moon-SOI avoidance,
   `stage` safety + `activate`/`decouple` helpers.
+- Merged (opus): `transfer_moon` (Lambert to an eccentric/inclined moon, `_moon_trim` for `correct` at small SOIs),
+  `land` thrust cap for absurd TWR (`--max-accel`), Eve occlusion in the site finder; `transfer` moon-SOI detection +
+  shifted re-match; `stage` safety (prints the stage, refuses a heat shield or a skipped engine), `activate`, `decouple`.
+- **Gilly (Eve 2 carrier)**: `transfer Gilly --pe 5000 --plan` 199.0 m/s (+ capture ~77 = 276; offline 220-245), depart
+  +109 h, 79.5 h flight; after the burn no encounter (closest 284 km, SOI 126): `correct Gilly` 0.24 m/s at thrust 0.005
+  did nothing (too little thrust for the tolerance), again at 0.02: 0.12 m/s -> Gilly pe 13.7 km. Capture 79 m/s ->
+  13.7 x 13.9 km; space-high science +177. `land` (first capped-throttle landing: TWR 531 -> 7.9 %): Highlands site
+  (Kerbin 34/44 deg), free fall from 9.4 km, **landed on Gilly** at 7.88, -109.21 (10 deg east of the site; Midlands),
+  28/28 parts. Surface science +264 (sci 4,049); **funds 4.81 -> 5.04M** (Gilly firsts), rep 586. 2,070 m/s left.
+  Photo docs/media/2026-09-27_eve-2-gilly-landed.png. `hop` is a Kerbin sounding-rocket routine (no airless biome hop).
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
