@@ -665,19 +665,47 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   Reentry from v_inf 2,126 (collect_science: 0 new, 11 held in the pod), drogues 20 km at 771 m/s, landed in the
   Grasslands, **Jeb recovered: sci 3,594 -> 4,214 (+620), funds 3.61 -> 3.64M**.
 
+## 2026-09-26 — Lab visit, research + Tracking Station 3, Moho 1 designed, Eve 2 in design (before a PC restart)
+- Lab visit UT 35.47M (~63 days after the last: late, the lab sat at the 500 cap): EC 2,249 -> warped 1 h in sunlight to
+  3,810, `lab transmit` (new: refuses < 3,000 EC, waits for the science) **+500, sci 4,214 -> 4,714**; `lab process`
+  +100 data -> 723/750 (storage unit still holds ~1,000 data: magnetometer 366, gravity 400, EVA 200). Next visit
+  **before UT 36.55M**.
+- Research: heavyLanding, veryHeavyRocketry, advancedMotors, specializedElectrics (sci 4,714 -> 2,764). **Tracking
+  Station level 3** (563k, DSN 250G). Funds 3.18M.
+- Contract accepted: **Eve equatorial satellite** (302k): Eve, inc 0, ecc 0.05102, sma 18,868,437 m, LAN 0, argPe 330.23,
+  deviation 5 %, Science Jr on the satellite (elements read from persistent.sfs SpecificOrbitParameter TargetBody 5).
+- `window Moho` failed ("no window found"): Moho's eccentric orbit put the zero 137.5 d out, past the search end
+  (synodic 135 d + 2): search 1.5 synodic periods. **Moho window UT 38,450,305**, flight 113 d. Windows: Eve 41,166,705,
+  Dres 43,122,323, Jool 44,258,005, Duna 44,649,525.
+- Tooling: `_await_link` in execute_node/manual_burn (wait for the CommNet link before ignition, pause mid-burn),
+  untested in flight. fable warns: for a CAPTURE burn a pause loses the Oberth window; plan the pass so the link holds.
+- **Moho 1** designed by fable (crafts/moho-1.json, docs/moho-1-plan.md): chemical, not Nerv (capture hyperbola e ~21:
+  a ~2-min Oberth window; a Nerv would lose ~500 m/s). Twin-Boar / Skipper / Poodle / Terrier lander, 138.08 t, 80k.
+  Budget from LKO ~5,200 (eject ~2,040, mid-course 200-400 at UT ~40,455,500, capture ~2,690 to 25 x 1,000 km) +
+  landing ~1,200; margin ~600. **Pad check on the pad matched the plan** (1430 SL / 1198 SL / 3513 vac / 4218 vac),
+  recovered (full refund). Pad photo was at night: redo in the sandbox (shoot_crafts.py).
+- **Eve 2** (Eve satellite contract + uncrewed Eve surface-science lander, Gilly bonus) being designed by fable when
+  the user announced a PC restart: crafts/eve-2.json + docs/eve-2-plan.md are drafts, see the plan's OPEN list.
+- Records: writeup 7.19-7.24 (opus), career.json fixes, card 02 past-event ETA, cards rebuilt.
+- Windows before the PC restart (KSP up ~6 h this run): commit 32.8 GB, nonpaged pool 1.57 GB, available 1.9 GB.
+
 ### Next steps (plan)
-State (2026-09-26, after Eve 1's return): KSP running at the space center, UT ~35.47M, funds 3.64M, sci 4,214,
-rep ~521. All crews home except Bob + Gwenbro (Minmus Lab 1). No burns pending.
-Timeline (UT): lab visits every ~50 days (last 34.10M -> next before ~35.26M+... i.e. now-ish, then +1.08M each; charge
-to > 3,000 EC before `lab transmit`); **Jool 1 Jool SOI 52,787,080** (pe -655 km, inc 15.9: trim pe to 250 km inside the
-SOI, then `capture --apo 100000000` ~445 m/s; docs/jool-1-plan.md).
+State (2026-09-26, before a PC restart): KSP saved at the space center, UT ~35.476M, funds 3.18M, sci 2,764, rep 528.
+All crews home except Bob + Gwenbro (Minmus Lab 1). No burns pending, nothing in flight that needs attention.
+Timeline (UT): **lab visit before 36.55M** (then every ~1.08M, charge > 3,000 EC first); **Moho 1 launch for the window
+38,450,305** (warp from the space center; launch ~1 day before, don't wait days in LKO: 8 real hours at 100x);
+**Eve 2 window 41,166,705**; Dres 43.12M; Jool 44.26M; Duna 44.65M (Duna surface science contract open);
+**Jool 1 Jool SOI 52,787,080** (pe -655 km, inc 15.9: trim pe to 250 km inside the SOI, then `capture --apo 100000000`
+~445 m/s; docs/jool-1-plan.md).
+Before Moho 1 flies, fix (docs/moho-1-plan.md "code gaps"): `science --transmit` skips goo/Science Jr (one-way probes
+lose them: add `--all`), transmit EC guard 120 EC vs ~1,000 per set, transfer_planet's 2 % T grid (golden-section
+refine, ~170 m/s), refuse to warp into a sub-terrain periapsis after a far-out correct. Then Eve 2's gaps (its plan).
 Jool 1 (uncrewed, ~4,540 m/s) cruising. Ike Station 1 in Ike orbit 33.7 x 523.5 km, ~920 m/s (contract done).
-Minmus Lab 1 (Bob, Gwenbro) lab ~722/750, ~9.5 sci/day; the storage unit's backlog is nearly used up.
-Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
-Active contracts: **Ike station** (Ike Station 1 en route), Duna x2 (complete on recovery),
-Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
-Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
-Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
+Minmus Lab 1 (Bob, Gwenbro) 723/750 data. Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
+Active contracts: Eve equatorial satellite (Eve 2), Duna surface science, Minmus temperature survey (will lapse), two
+part-recovery contracts (skip, small parts rule). Offered: Gilly station (12 kerbals, ISRU, 6,000 LF: 1.25M), Sun
+orbit probe, Minmus outpost, Kerbin polar satellite, Minmus satellite repair.
+Crew at KSC: Jeb, Valentina, Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. (done: Duna 1 home.) Duna surface science contract still open (needs surface data from Duna: Ike Station can't).
 2. (done: Eve 1 home, +620 sci.) Old plan text: **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
