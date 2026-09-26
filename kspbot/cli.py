@@ -426,7 +426,7 @@ PHASES = {
     "reentry": _reentry,
     "deorbit": lambda a: flight.deorbit(a.pe, a.at, a.under, a.sunward),
     "inflate": lambda a: flight.inflate(),
-    "node": lambda a: flight.execute_node(),
+    "node": lambda a: flight.execute_node(tol=a.tol, thrust_limit=a.thrust),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
     "survey": lambda a: flight.survey(a.kind, a.dist),
     "rendezvous": lambda a: _rdv().rendezvous(a.target, a.dist),
@@ -578,7 +578,10 @@ def main(argv=None):
          "from 'X Probe' is named 'X Probe' again: among equal names the one with a command part wins")
     p = add("switch", cmd_switch, help=h, description=h)
     p.add_argument("name", help="exact name, else a prefix, else a substring (case-insensitive)")
-    add("node", PHASES["node"], help="execute the next maneuver node")
+    p = add("node", PHASES["node"], help="execute the next maneuver node")
+    p.add_argument("--tol", type=float, default=0.2, help="stop at this residual (m/s); far-out trims: 0.02")
+    p.add_argument("--thrust", type=float, default=None,
+                   help="thrust limit 0..1 for the burn (restored after): a 0.2 m/s trim on a Poodle is 15 ms at full thrust")
     p = add("survey", PHASES["survey"], help="orbital survey contract: run the experiment over each waypoint")
     p.add_argument("--kind", default="temperature")
     p.add_argument("--dist", type=float, default=8000.0)

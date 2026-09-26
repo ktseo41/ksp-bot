@@ -195,10 +195,30 @@ def _link_by(start, capture_pe, lead, default):
     return default if capture_pe is None else max(start, capture_pe - lead)
 
 
-def execute_node(node=None, tol=0.2, capture_pe=None):
+def execute_node(node=None, tol=0.2, capture_pe=None, thrust_limit=None):
     """Execute a maneuver node (default: the first one). Handles pointing, warp, staging and fine throttle.
     capture_pe: UT of the periapsis of a capture burn: the pre-ignition link wait ends in time for it, and a link
-    lost mid-burn never pauses the burn (see below)."""
+    lost mid-burn never pauses the burn (see below). thrust_limit: 0..1 on the active engines for this burn only."""
+    v = vessel()
+    # kRPC's default time_to_peak of 1 s set Moho 1's flexible stack (8 t lander on a 9 t Poodle stage) swinging
+    # +-20 deg during a 0.3 m/s trim: the tumble guard fired again and again and the burn went every which way.
+    # 8 s settled the same 110 deg turn in 30 s to 0.5 deg. Restored after the burn (other phases tune their own).
+    ttp = v.auto_pilot.time_to_peak
+    v.auto_pilot.time_to_peak = (8.0, 8.0, 8.0)
+    engines = [e for e in v.parts.engines if e.active] if thrust_limit is not None else []
+    for e in engines:
+        e.thrust_limit = thrust_limit
+    try:
+        return _execute_node(node, tol, capture_pe)
+    finally:
+        for e in engines:
+            e.thrust_limit = 1.0
+        if engines:
+            v.control.throttle = 0.0
+        v.auto_pilot.time_to_peak = ttp
+
+
+def _execute_node(node, tol, capture_pe):
     v = vessel()
     _ensure_control(v)
     node = node or v.control.nodes[0]
