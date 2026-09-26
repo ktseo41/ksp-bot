@@ -684,5 +684,173 @@ class LandScience(unittest.TestCase):
             F._entry_science, F._await_queue, F.do_science, F.ut = saved
 
 
+class MoonLambert(unittest.TestCase):
+    """transfer Gilly from Eve 2's equatorial orbit (17,209 x 19,098 km): plan_moon_intercept on stock elements."""
+    MU, R = 8.1717302e12, 700e3
+
+    def ship(self):
+        rp, ra = self.R + 17209e3, self.R + 19098e3
+        return F.kepler.Orbit(self.MU, (rp + ra) / 2, (ra - rp) / (ra + rp), math.radians(0.02), 0.0,
+                              math.radians(30), 0.0, 0.0, "Eve 2")
+
+    def gilly(self, m0=0.0):
+        return F.kepler.Orbit(self.MU, 31.5e6, 0.55, math.radians(12), math.radians(80), math.radians(10), m0, 0.0,
+                              "Gilly")
+
+    def test_lambert_recovers_an_inclined_arc(self):
+        o = F.kepler.Orbit(self.MU, 25e6, 0.3, math.radians(30), 1.0, 2.0, 0.4, 0.0)
+        for dt in (20000.0, 90000.0, 150000.0):
+            (r1, v1), (r2, v2) = o.state(1000.0), o.state(1000.0 + dt)
+            sol = F._lambert(self.MU, r1, r2, dt, o.W)
+            self.assertLess(math.dist(sol[0], v1), 0.01)
+            self.assertLess(math.dist(sol[1], v2), 0.01)
+
+    def test_gilly_plan(self):
+        ship, aim = self.ship(), 16900.0
+        for m0 in (0.0, 1.5, 3.0, 4.5):  # Gilly anywhere on its orbit at the start
+            moon = self.gilly(m0)
+            t0 = time.time()
+            p = F.plan_moon_intercept(ship, moon, 600.0, 600.0 + 1.2 * moon.period, aim=aim)
+            self.assertLess(time.time() - t0, 20.0)
+            # the task's expectation: ~150-300 m/s for departure + capture (v_rel)
+            self.assertTrue(150 < p["cost"] < 300, p["cost"])
+            self.assertAlmostEqual(p["cost"], p["dv"] + p["v_rel"], delta=1e-6)
+            self.assertAlmostEqual(math.sqrt(sum(x * x for x in p["burn"])), p["dv"], delta=1e-6)
+            self.assertGreaterEqual(p["t1"], 600.0)
+            self.assertLessEqual(p["candidates"][0][0], p["cost"] + 2.0)  # aimed 17 km aside: ~the same arc
+            # the arc really passes the aim point: closest approach to Gilly = the impact parameter
+            d, tc = F.kepler.closest_approach(p["transfer"], moon, p["t_arr"] - 3000, p["t_arr"] + 3000)
+            self.assertAlmostEqual(d, aim, delta=0.02 * aim)
+            self.assertLess(abs(tc - p["t_arr"]), 30)
+            # and on the side that makes the pass prograde about our orbit normal
+            r = tuple(a - b for a, b in zip(p["transfer"].position(tc), moon.position(tc)))
+            w = tuple(a - b for a, b in zip(p["transfer"].velocity(tc), moon.velocity(tc)))
+            self.assertGreater(F._dot(F._cross(r, w), ship.W), 0)
+
+    def test_gilly_plan_arrives_near_the_far_node(self):
+        # the cheapest arcs meet Gilly away from its periapsis (v_rel there ~300 m/s)
+        moon = self.gilly(0.0)
+        p = F.plan_moon_intercept(self.ship(), moon, 600.0, 600.0 + 1.2 * moon.period)
+        self.assertGreater(moon.radius_at(p["t_arr"]), 35e6)
+        self.assertLess(p["v_rel"], 150)
+
+    def test_prefers_the_earlier_of_two_near_equal(self):
+        moon = self.gilly(0.0)
+        p = F.plan_moon_intercept(self.ship(), moon, 600.0, 600.0 + 1.2 * moon.period, prefer=1.0)
+        cheap = [k for k in p["candidates"] if k[0] <= 2 * p["candidates"][0][0] + 2]
+        self.assertEqual(p["t1"], min(k[1] for k in cheap))
+
+
+class GillyLanding(unittest.TestCase):
+    def test_accel_cap_only_for_absurd_twr(self):
+        self.assertAlmostEqual(F._landing_accel(27.8, 0.049), 2.049)  # Poodle on Gilly, TWR ~570
+        self.assertEqual(F._landing_accel(13.7, 0.49), 13.7)  # Minmus TWR 28 keeps full thrust
+        self.assertEqual(F._landing_accel(8.0, 1.63), 8.0)  # Mun
+        self.assertEqual(F._landing_accel(1.0, 0.049), 1.0)  # never above what the engine has
+
+    def sim(self, g, a_max, a_use, tick, h=10000.0):
+        """1-D descent from rest: the throttle law sampled every tick and applied one tick late (kRPC latency).
+        Returns (touchdown vertical speed, highest vertical speed in the last 50 m, peak thrust acceleration)."""
+        vs, t, thr, nxt, pend, climb, peak = 0.0, 0.0, 0.0, 0.0, [], -99.0, 0.0
+        while h > 0 and t < 5000:
+            if t >= nxt:
+                acc = F._descent_accel(h, vs, 0.0, g, a_use)
+                pend.append((t + tick, max(0.0, min(a_use, acc) / a_max)))
+                nxt = t + tick
+            while pend and pend[0][0] <= t:
+                thr = pend.pop(0)[1]
+            peak = max(peak, thr * a_max)
+            vs += (thr * a_max - g) * 0.002
+            h += vs * 0.002
+            t += 0.002
+            if h < 50:
+                climb = max(climb, vs)
+        return vs, climb, peak
+
+    def test_gilly_touchdown_with_a_capped_poodle(self):
+        g, a_max = 0.049, 27.8
+        a_use = F._landing_accel(a_max, g)
+        for tick in (0.1, 0.2, 0.3, 0.5):
+            vs, climb, peak = self.sim(g, a_max, a_use, tick)
+            self.assertTrue(-2.0 <= vs < 0, (tick, vs))  # <= 2 m/s on the Poodle bell (crash tolerance 7)
+            self.assertLess(climb, 0.0)  # never hovers back up near the ground
+            self.assertLessEqual(peak, a_use + 1e-9)
+        # the same law at full thrust climbs back up near the ground once the latency reaches 0.3 s (why the cap)
+        self.assertGreater(self.sim(g, a_max, a_max, 0.5)[1], 0.0)
+
+    def test_throttle_law_unchanged_at_the_mun(self):
+        # the old inline law, for a normal lander (a_use = a_max)
+        g, a = 1.63, 8.0
+        for h, vs, hs in ((5000, -80, 3), (300, -20, 0.5), (10, -2, 0.1), (1, -1.5, 0)):
+            a_d = min(max(a - g, 0.1) / 1.3, 3.0)
+            curve = math.sqrt(max(0.0, 2 * a_d * (h - 2)))
+            ff = a_d if curve > 1.5 else 0.0
+            old = g + ff + 2.0 * (-max(1.5, curve) - vs) + 0.5 * hs
+            self.assertAlmostEqual(F._descent_accel(h, vs, hs, g, a), old)
+
+
+class EscapePastMoon(unittest.TestCase):
+    """Duna 2: the optimum ejection's path ran Kerbin > Mun > Kerbin > Sun; move it on by parking orbits."""
+    MU = 3.5316e12
+
+    def setUp(self):
+        mu = self.MU
+        r0 = 680e3
+        self.P = 2 * math.pi * math.sqrt(r0 ** 3 / mu)
+        vp = math.sqrt(1000.0 ** 2 + 2 * mu / r0)  # v_inf 1000 m/s from LKO
+        self.path = F.kepler.Orbit.from_state(mu, (r0, 0.0, 0.0), (0.0, vp, 0.0), 0.0)
+        # the Mun (r 12,000 km, SOI 2,430 km) sits exactly where the path crosses its orbit
+        self.tc = self.path.time_at_radius(12e6, 0.0)
+        pc = self.path.position(self.tc)
+        n = math.sqrt(mu / 12e6 ** 3)
+        lon = math.atan2(pc[1], pc[0]) - n * self.tc
+        self.mun = F.kepler.Orbit(mu, 12e6, 0.0, 0.0, 0.0, 0.0, lon, 0.0, "Mun")
+        self.soi = 2.43e6
+
+    def test_blocked_now_clear_later(self):
+        moons = [("Mun", self.mun, self.soi)]
+        t1 = self.path.time_at_radius(12e6 + 2 * self.soi, 0.0)
+        k0, rows0 = F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, 0, k_min=0)
+        self.assertIsNone(k0)
+        self.assertLess(rows0[0][1], 0.01)  # straight through the Mun
+        k, rows = F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, 80)
+        self.assertIsNotNone(k)
+        self.assertGreater(rows[0][1], 2.0)
+        # just enough: one orbit earlier it was not clear yet
+        self.assertLessEqual(F._moon_clear_shift(self.path, moons, 0.0, t1, self.P, k - 1)[1][0][1], 2.0)
+        # the Mun moves ~20 deg away before the path clears it by 2 SOI (Duna 2 waited 14,000 s: 36 deg)
+        moved = math.degrees(self.mun.n * k * self.P)
+        self.assertTrue(10 < moved < 40, moved)
+
+    def test_moon_on_path(self):
+        kerbin = NS(name="Kerbin", orbit=NS(body=NS(name="Sun")))
+        mun = NS(name="Mun", orbit=NS(body=kerbin))
+        sun = NS(name="Sun", orbit=None)
+        via_mun = NS(body=kerbin, next_orbit=NS(body=mun, next_orbit=NS(body=kerbin, next_orbit=NS(body=sun))))
+        self.assertEqual(F._moon_on_path(via_mun, kerbin), "Mun")
+        direct = NS(body=kerbin, next_orbit=NS(body=sun, next_orbit=None))
+        self.assertIsNone(F._moon_on_path(direct, kerbin))
+
+
+class StageSafety(unittest.TestCase):
+    def test_eve2_lander_after_the_release(self):
+        # current stage 2, Terrier in stage 2 never fired; stage 1 = the deorbit TD-12 + the shield's decoupler
+        firing = [("TD-12 Decoupler", "decoupler1-2"), ("Heat Shield (10m)", "InflatableHeatShield")]
+        engines = [("LV-909 \"Terrier\" Liquid Fuel Engine", 2, False)]
+        hz = F.stage_hazards(2, firing, engines)
+        self.assertEqual(len(hz), 2)
+        self.assertIn("Heat Shield (10m)", hz[0])
+        self.assertIn("stage 2", hz[1])
+
+    def test_normal_staging_passes(self):
+        # the Terrier fired with its stage (active), the next stage only drops a spent tank
+        self.assertEqual(F.stage_hazards(3, [("TD-12 Decoupler", "decoupler1-2")],
+                                         [("Terrier", 3, True), ("Poodle", 1, False)]), [])
+        # an engine of a later stage (lower number) being off is normal
+        self.assertEqual(F.stage_hazards(3, [("Poodle", "liquidEngine2-2.v2")], [("Poodle", 2, False)]), [])
+        # parts not in any stage (-1) are ignored
+        self.assertEqual(F.stage_hazards(0, [], [("Ant", -1, False)]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -44,6 +44,12 @@
   reaches ~16 Mm (DSN 2); beyond that a probe-controlled craft (scientists aren't pilots) has no throttle.
 - **EVA from the MPL-LG-2 kicks the vessel** (~0.08 m/s, ~6 deg/s on a 12-20 t station): never on the pad or landed
   (it toppled an 87 t stack twice); in orbit turn SAS on first and wait ~6 s; re-check the periapsis afterwards.
+- **The inflatable heat shield (10 m) is a decoupler too** (Eve 2, 2026-09-27): its own decoupler sat in the deorbit
+  stage's TD-12 stage, so staging that TD-12 would have dropped the shield. Give it a stage of its own (or keep it out
+  of the staged sequence entirely) and fly such sequences with `ksp decouple PART --parent NAME` / `ksp activate
+  ENGINE`; `ksp stage` now refuses a stage holding a heat shield. A vessel split off by a decoupler can come with a
+  current stage that skips its own engine (the lander's Terrier sat in stage 2 with current stage 2): `ksp stage`
+  refuses that too and prints what it would fire.
 
 Numbers are stock KSP 1.12.x values pulled from the KSP wiki/forums (see Sources). `(?)` marks
 figures that are community consensus but not verified against a primary in-game readout for
