@@ -113,12 +113,22 @@ def burn_time(v, dv):
         left, t = dv, 0.0
         for st in stages:
             if st.vacuum_delta_v >= left:
-                return t + st.burn_time * left / st.vacuum_delta_v
+                # time goes with the propellant burned, not with dv (Moho 1: 2040 of the Poodle's 2961 m/s is 196 s,
+                # not the linear 174 s)
+                ve = st.vacuum_delta_v / math.log(st.start_mass / st.end_mass)
+                return t + st.burn_time * (1 - math.exp(-left / ve)) / (1 - math.exp(-st.vacuum_delta_v / ve))
             left -= st.vacuum_delta_v
             t += st.burn_time
     except Exception:
         pass
     return _burn_time_now(v, dv)
+
+
+def burn_lead(v, dv):
+    """Seconds from ignition until half the dv is burned: the start that centres the dv on the node. Later than
+    half the burn time, since the craft gets lighter (Moho 1's 196 s ejection started bt/2 = 87 s early instead of
+    113 s: the ejection landed ~5 deg late on the 80 km orbit and missed Moho by 420,000 km)."""
+    return burn_time(v, dv / 2)
 
 
 def _burn_time_now(v, dv):
@@ -179,10 +189,10 @@ def _ensure_control(v):
     say("antennas extended: control restored")
 
 
-def _link_by(start, capture_pe, bt, default):
+def _link_by(start, capture_pe, lead, default):
     """UT until which a burn may wait for the link before ignition. A capture waits at most until a start that still
     centres the burn on the periapsis: waiting longer drifts into a flyby (Moho, e = 21)."""
-    return default if capture_pe is None else max(start, capture_pe - bt / 2)
+    return default if capture_pe is None else max(start, capture_pe - lead)
 
 
 def execute_node(node=None, tol=0.2, capture_pe=None):
@@ -195,21 +205,21 @@ def execute_node(node=None, tol=0.2, capture_pe=None):
     dv = node.delta_v
     if v.available_thrust <= 0:  # a spent stage still attached (Mun Tanker 1: burn time read 0 s, burn started late)
         auto_stage(v)
-    bt = burn_time(v, dv)
+    bt, lead = burn_time(v, dv), burn_lead(v, dv)
     ap = v.auto_pilot
     ap.reference_frame = node.reference_frame
     ap.target_direction = (0, 1, 0)
     ap.engaged = True
-    say(f"burn {dv:.0f} m/s, ~{bt:.0f}s, in {node.ut - ut():.0f}s")
-    warp_to(node.ut - bt / 2, lead=60)
+    say(f"burn {dv:.0f} m/s, ~{bt:.0f}s (start {lead:.0f}s before the node), in {node.ut - ut():.0f}s")
+    warp_to(node.ut - lead, lead=60)
     _wait_pointing(ap)
-    warp_to(node.ut - bt / 2, lead=5)
-    while ut() < node.ut - bt / 2:
+    warp_to(node.ut - lead, lead=5)
+    while ut() < node.ut - lead:
         time.sleep(0.05)
-    if not _await_link(v, _link_by(node.ut - bt / 2, capture_pe, bt, node.ut + bt / 2)):
+    if not _await_link(v, _link_by(node.ut - lead, capture_pe, lead, node.ut + bt - lead)):
         if capture_pe is not None:
             node.remove()
-            raise Refused(f"no CommNet link by {capture_pe - bt / 2 - ut():+.0f} s from the periapsis burn start "
+            raise Refused(f"no CommNet link by {capture_pe - lead - ut():+.0f} s from the periapsis burn start "
                           f"(control {v.control.state.name}): capture not started, node removed; `capture` again "
                           "burns now once the link is back")
         raise Refused(f"no CommNet link at the burn time (control {v.control.state.name}): node left in place")
@@ -388,18 +398,18 @@ def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3, capture_pe=Non
     dv = math.sqrt(_dot(vec, vec))
     if dv < 0.05:
         return 0.0
-    bt = burn_time(v, dv)
+    bt, lead = burn_time(v, dv), burn_lead(v, dv)
     ap = v.auto_pilot
     ap.reference_frame = frame
     ap.target_direction = _norm(vec)
     ap.engaged = True
-    say(f"manual burn {dv:.0f} m/s, ~{bt:.0f}s, in {t - ut():.0f}s")
-    warp_to(t - bt / 2, lead=60)
+    say(f"manual burn {dv:.0f} m/s, ~{bt:.0f}s (start {lead:.0f}s before), in {t - ut():.0f}s")
+    warp_to(t - lead, lead=60)
     _wait_pointing(ap)
-    warp_to(t - bt / 2, lead=5)
-    while ut() < t - bt / 2:
+    warp_to(t - lead, lead=5)
+    while ut() < t - lead:
         time.sleep(0.05)
-    if not _await_link(v, _link_by(t - bt / 2, capture_pe, bt, t + bt / 2)):
+    if not _await_link(v, _link_by(t - lead, capture_pe, lead, t + bt - lead)):
         raise Refused(f"no CommNet link at the burn time (control {v.control.state.name})")
     done, last = 0.0, ut()
     v.control.throttle = 1.0
