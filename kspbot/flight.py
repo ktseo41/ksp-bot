@@ -142,6 +142,27 @@ def _can_plan():
 
 # ---------------------------------------------------------------- burns
 
+def _controllable(v):
+    return v.control.state.name == "full" or (v.control.state.name == "partial" and v.control.source.name == "kerbal")
+
+
+def _await_link(v, deadline):
+    """Right before ignition (and during a burn): an uncrewed craft can lose its CommNet link while it waits (Ike
+    Station 1's capture: Kerbin went behind Ike near the periapsis, the burn ran at thrust 0 into the timeout, the
+    link came back a minute later). Wait for the link in short warp steps until UT deadline; True if it is back."""
+    if _controllable(v):
+        return True
+    v.control.throttle = 0.0
+    say(f"no control ({v.control.state.name}, signal {v.comms.signal_strength:.2f}): waiting for the link "
+        f"up to {deadline - ut():.0f} s")
+    while ut() < deadline:
+        sc().warp_to(min(deadline, ut() + 10))
+        if _controllable(v):
+            say("link back: burning")
+            return True
+    return False
+
+
 def _ensure_control(v):
     """With Require Signal for Control a probe-controlled craft has no throttle without a CommNet link. Minmus Lab 1:
     the stowed HG-55 left only the OKTO's own antenna (~16 Mm with DSN 2), and the capture burn at Minmus sat at
@@ -177,13 +198,23 @@ def execute_node(node=None, tol=0.2):
     warp_to(node.ut - bt / 2, lead=5)
     while ut() < node.ut - bt / 2:
         time.sleep(0.05)
+    if not _await_link(v, node.ut + bt / 2):
+        raise Refused(f"no CommNet link at the burn time (control {v.control.state.name}): node left in place")
     v.control.throttle = 1.0
     no_thrust = None
     t_end = time.time() + 3 * bt + 60
+    t_check = time.time() + 1
     while True:
         if time.time() > t_end:
             say("burn is taking far too long: stopping")
             break
+        if time.time() > t_check:  # the link can also drop mid-burn: pause and resume when it returns
+            t_check = time.time() + 1
+            if not _controllable(v):
+                if not _await_link(v, ut() + max(120, bt)):
+                    raise Refused(f"CommNet link lost mid-burn, {node.remaining_delta_v:.1f} m/s left: node left")
+                _wait_pointing(ap, timeout=60)
+                t_end = time.time() + 3 * bt + 60
         if _tumbling(v):  # Mun Tanker 1 spun up to 60 deg/s at a burn start and the loop never ended
             v.control.throttle = 0.0
             _damp(v, ap)
@@ -341,6 +372,8 @@ def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
     warp_to(t - bt / 2, lead=5)
     while ut() < t - bt / 2:
         time.sleep(0.05)
+    if not _await_link(v, t + bt / 2):
+        raise Refused(f"no CommNet link at the burn time (control {v.control.state.name})")
     done, last = 0.0, ut()
     v.control.throttle = 1.0
     while done < dv - tol:

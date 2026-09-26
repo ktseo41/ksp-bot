@@ -356,9 +356,27 @@ def cmd_lab(a):
             print(f"{it['labValue']:6.0f}  {it['result']:18s} {it['subject']}  ({it['part']})")
         print("data stored", r["dataStored"])
         return
+    if a.action == "transmit":
+        # a transmit with too little EC does nothing and reports nothing (2,056 and 2,102 EC failed, 2,425 worked)
+        ec = sc().active_vessel.resources.amount("ElectricCharge")
+        if ec < 3000:
+            raise SystemExit(f"EC {ec:.0f} < 3000: charge in sunlight first (a transmit with ~2,100 EC fails silently)")
+        before = sc().science
     r = json.loads(b.lab_status() if a.action == "status" else b.lab_action(a.action))
     r["processed"] = len(r["processed"])
     print(json.dumps(r))
+    if a.action == "transmit":
+        # science arrives when the transmission ends (~6 EC per science at the antenna's rate)
+        t0 = time.time()
+        while time.time() - t0 < 300:
+            time.sleep(5)
+            gained = sc().science - before
+            if gained > 0.5:
+                time.sleep(10)
+                print(f"science +{sc().science - before:.1f} (now {sc().science:.1f})")
+                return
+        raise SystemExit(f"no science arrived within 300 s (EC now "
+                         f"{sc().active_vessel.resources.amount('ElectricCharge'):.0f}): transmit failed")
 
 
 def cmd_wait(a):

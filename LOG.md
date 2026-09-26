@@ -715,9 +715,9 @@ Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pil
    n. (done: `transfer` to a moon refuses when the moon will be > 0.8 SOI out of our plane at arrival and names the
       day offset of the next good departure; Rescue 6's tuner had planned a 1094 m/s escape path)
    o. (done: kill_relative / approach / grab call _ensure_control first)
-   p. Uncrewed burns: the link can drop during the wait/burn (Ike capture): re-check control right before ignition,
+   p. (done: execute_node/manual_burn wait for the link before ignition and pause mid-burn; untested in flight) Uncrewed burns: the link can drop during the wait/burn (Ike capture): re-check control right before ignition,
       and if it's lost, wait for it (warp in small steps) up to a deadline instead of burning into the timeout.
-   q. `lab transmit`: check EC >= ~2,000 first and wait until science rises (a transmit with 1,793 EC did nothing).
+   q. (done: refuses under 3,000 EC, waits for the science to arrive, exits 1 if nothing comes) `lab transmit`: check EC >= ~2,000 first and wait until science rises (a transmit with 1,793 EC did nothing).
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
 6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).
