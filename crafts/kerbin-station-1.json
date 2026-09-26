@@ -1,0 +1,165 @@
+{
+ "name": "Kerbin Station 1",
+ "parts": [
+  {
+   "id": "dock",
+   "part": "dockingPort2"
+  },
+  {
+   "id": "core",
+   "part": "probeCoreOcto.v2",
+   "parent": "dock",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "rw",
+   "part": "advSasModule",
+   "parent": "core",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "cab1",
+   "part": "crewCabin",
+   "parent": "rw",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "bat",
+   "part": "ksp.r.largeBatteryPack",
+   "parent": "cab1",
+   "symmetry": 4,
+   "angle": 45,
+   "height": 0.0
+  },
+  {
+   "id": "ant",
+   "part": "SurfAntenna",
+   "parent": "cab1",
+   "angle": 0,
+   "height": 0.0
+  },
+  {
+   "id": "cab2",
+   "part": "crewCabin",
+   "parent": "cab1",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "oxstat",
+   "part": "LgRadialSolarPanel",
+   "parent": "cab2",
+   "symmetry": 6,
+   "angle": 0,
+   "height": 0.0
+  },
+  {
+   "id": "tP",
+   "part": "Rockomax16.BW",
+   "parent": "cab2",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "finsP",
+   "part": "winglet",
+   "parent": "tP",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -0.6
+  },
+  {
+   "id": "poodle",
+   "part": "liquidEngine2-2.v2",
+   "parent": "tP",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decB",
+   "part": "Decoupler.2",
+   "parent": "poodle",
+   "node": "bottom",
+   "stage": 3,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t2",
+   "part": "Rockomax32.BW",
+   "parent": "decB",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "finsS",
+   "part": "R8winglet",
+   "parent": "t2",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -1.4
+  },
+  {
+   "id": "skipper",
+   "part": "engineLargeSkipper.v2",
+   "parent": "t2",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "decA",
+   "part": "Decoupler.2",
+   "parent": "skipper",
+   "node": "bottom",
+   "stage": 2,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1a",
+   "part": "Rockomax32.BW",
+   "parent": "decA",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "t1b",
+   "part": "Rockomax32.BW",
+   "parent": "t1a",
+   "node": "bottom",
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "mainsail",
+   "part": "liquidEngineMainsail.v2",
+   "parent": "t1b",
+   "node": "bottom",
+   "stage": 1,
+   "rigid": true,
+   "autostrut": "Root"
+  },
+  {
+   "id": "fins",
+   "part": "R8winglet",
+   "parent": "t1b",
+   "symmetry": 4,
+   "angle": 45,
+   "height": -2.5
+  }
+ ]
+}
