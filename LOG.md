@@ -751,6 +751,40 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Minmus Lab visit (UT 38.48M): research drains EC (2,802 -> 1,150 in 1 h with the lab running): `lab stop`, charge
   30 min to 3,810, transmit **+420 -> sci 4,057**, `lab start`. Next visit before UT ~39.55M (~10 sci/day, 500 cap).
 
+- Lab visits: UT 39.50M **+444** (sci 4,501), UT 40.45M **+412** (sci 4,913; the first transmit found no link and
+  failed, the retry worked). Next visit before UT ~41.45M.
+- **Trim 10 d out (UT 40.71M)**: my scratch grid +-1 m/s found nothing; the pass moves only ~200 km per m/s here. Local
+  search with a dv term: 4.55 m/s -> pe 24.8 km, inc 61. `ksp node` (tol 0.2) left **pe 59.9** (0.2 m/s ~ 35 km).
+  A second 0.16 m/s trim via my own python at 1 % thrust **went wrong**: the craft swung past 11 deg/s, the tumble guard
+  cut and restarted the engine over and over for 400 s, my `timeout 400` killed the process with the throttle at
+  0.68: Moho pe -87 km, ~10 m/s wasted. Lesson: burns only through the CLI (recorder), never a python one-off.
+  Causes found: (1) kRPC's autopilot `time_to_peak` was (1,1,1) (its default; only ascent sets 5): the flexible stack
+  swung +-20 deg even under SAS; 8 s settled a 110 deg turn to 0.5 deg in 30 s. (2) execute_node aimed in the node's
+  own frame, which turns with the orbit being changed: the rate climbed ~1 deg/s per s in the last 5 m/s of every burn.
+  **Fixes**: `ksp node --tol --thrust` (thrust limit restored + throttle 0 in a finally), execute_node sets
+  time_to_peak 8 s during the burn and steers in the body's inertial frame (commits after 1ccddd5). Re-trim 1.0 m/s at
+  5 %: **Moho pe 23.9 km, inc 69.8 (prograde)**. Merged opus's far-out `correct` (Lambert seed + dv-term grid;
+  untested in flight).
+- **Moho SOI (UT 40,929,000)**: pe 23.9, inc 69.8, 44 min to pe, signal 0.92. Link forecast (ray to Kerbin vs Moho's
+  disc, positions from the patches): **blocked from pe-10 s to pe+130 s** — the second half of the capture burn.
+  Early burns were no way out (a retrograde burn before the pe drags the pe underground; +300 m/s). **Raised the pe to
+  175 km (70 m/s, 35 min before pe): ray clears Moho by >= 41 km.**
+- **Capture**: `capture --apo 1000000` printed "~131 s, start 80 s before": KSP had no stage delta-v for the vessel
+  ("Delta-v has not been calculated", after `fly` from the space center) so `burn_time` fell back to the Poodle alone;
+  the real burn was 278 s (Poodle 694 + Terrier 2,293, half-dv 144 s after ignition). I stopped the command to rerun
+  with `--early`, but it had already warped to the start: **117 s to pe**. Burned at once by hand (autopilot
+  retrograde, full throttle, auto-staging, stop at ap < 1,000 km): **captured 38.7 x 999.6 km**, Terrier **1,843**
+  (plan ~2,100: the late start cost the pe (175 -> 39 km) and ~150 m/s of Oberth, plus the 70 m/s pe raise).
+- Science high (UT 40.93M) **+556**, circularize at pe 210 m/s -> **38.0 x 38.3 km** (no tumble: steering fix works),
+  science low **+537**. Terrier 1,631.
+- **Landing site with the link in view**: the far half of a 38 km orbit has no link, so the site search added Kerbin's
+  elevation (> 20 deg at touchdown, > 10 deg 150 s before) to biome/slope: Midlands 56.9, -168.0. `land --at` took the
+  pass one orbit earlier (1.4 km off, elevation 54-62). **Landed on Moho at 55.50, -169.24 (UT ~40.953M)**, upright,
+  27/27 parts, Terrier **296 m/s left** (landing ~1,335). Surface science **+423 -> sci 6,432**. Funds 3.10M -> 3.40M
+  (Moho firsts). Screenshot runs/moho1-landed.png (night side). **Moho 1 done: ~1,516 sci + ~300k funds.**
+- Open: KSP's stage delta-v missing after `fly` (burn_time needs a multi-stage fallback or a forced recalculation);
+  site finder with the link condition belongs in `land` (scratch site.py); link forecast for captures in code (plan
+  gap 3a).
 ### Next steps (plan)
 **State (2026-09-26, before a 2nd PC restart): KSP saved at the space center, UT 38,425,858, funds 3.18M, sci 3,636,
 rep 528. Nothing in flight needs attention; no burns pending. Moho 1 is NOT flying (reverted + recovered, craft file
