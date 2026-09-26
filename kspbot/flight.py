@@ -2133,7 +2133,9 @@ def capture(target_apo=None, early=0.0):
     """At the periapsis of a hyperbolic/elliptic orbit, burn retrograde into a circular orbit
     (or an orbit with apoapsis target_apo). early: centre the burn this many seconds before the periapsis (Eve 2:
     the pe lies in Kerbin's shadow, the burn must end before the blackout). An uncrewed craft that has no link by
-    the periapsis start is refused instead of drifting into a flyby; a link lost mid-burn does not pause it."""
+    the periapsis start is refused instead of drifting into a flyby; a link lost mid-burn does not pause it.
+    Uncrewed (no kerbal in a command part), away from Kerbin: the link over the burn is forecast first and the burn
+    moved earlier by itself when Kerbin would go behind the body during it (_capture_link)."""
     v = vessel()
     o = v.orbit
     mu = o.body.gravitational_parameter
@@ -2144,13 +2146,166 @@ def capture(target_apo=None, early=0.0):
         t = ut() + 60
     elif early:
         say(f"capture burn centred {early:.0f} s before the periapsis")
-    rp = o.radius_at(t)
-    v_now = math.sqrt(mu * (2 / rp - 1 / o.semi_major_axis))
-    ra = rp if target_apo is None else o.body.equatorial_radius + target_apo
-    v_new = math.sqrt(mu * (2 / rp - 2 / (rp + ra)))
-    burn_at(t, prograde=v_new - v_now, capture_pe=t_pe)
+
+    def dv_at(tc):
+        rp = o.radius_at(tc)
+        v_now = math.sqrt(mu * (2 / rp - 1 / o.semi_major_axis))
+        ra = rp if target_apo is None else o.body.equatorial_radius + target_apo
+        return math.sqrt(mu * (2 / rp - 2 / (rp + ra))) - v_now
+    if o.body.orbit is not None and o.body.name != "Kerbin" and not _crewed(v):
+        t = _capture_link(v, o, t, t_pe, dv_at)
+    burn_at(t, prograde=dv_at(t), capture_pe=t_pe)
     o = v.orbit
     say(f"captured: {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m around {o.body.name}")
+
+
+def _crewed(v):
+    """A kerbal in a command part: the throttle works without a CommNet link (without a Pilot only map node editing
+    is locked, see _ensure_control)."""
+    return any(p.crew for p in v.parts.with_module("ModuleCommand"))
+
+
+def _ray_clearance(s, k, m, R):
+    """Metres by which the segment from s (vessel) to k (Kerbin) passes outside the sphere (centre m, radius R);
+    negative: blocked (pure)."""
+    d = tuple(b - a for a, b in zip(s, k))
+    L = math.sqrt(_dot(d, d))
+    u = tuple(x / L for x in d)
+    w = tuple(b - a for a, b in zip(s, m))
+    tc = _dot(u, w)
+    if tc <= 0:
+        return math.sqrt(_dot(w, w)) - R
+    if tc >= L:
+        return math.dist(k, m) - R
+    return math.sqrt(max(0.0, _dot(w, w) - tc * tc)) - R
+
+
+def _sun_chain(body):
+    """[(orbit, parent's non-rotating frame)] from body up to the Sun, for _chain_pos."""
+    out = []
+    while body.orbit is not None:
+        out.append((body.orbit, body.orbit.body.non_rotating_reference_frame))
+        body = body.orbit.body
+    return out
+
+
+def _chain_pos(chain, t):
+    """Position at UT t relative to the Sun: the sum of each orbit's position around its parent (Orbit.position_at
+    puts the parent where it is NOW, so a moon's position in the Sun's frame alone would be off; every non-rotating
+    frame has the same axes)."""
+    p = (0.0, 0.0, 0.0)
+    for o, f in chain:
+        p = tuple(a + b for a, b in zip(p, o.position_at(t, f)))
+    return p
+
+
+def _link_forecast(o, occluders):
+    """f(t) -> (clearance m, body) of the straight line from the vessel (on patch o, in its body's frame) to Kerbin
+    past the occluders (radius + highest terrain), the worst one (Moho 1's scratch occl.py, in code). Relays are not
+    counted."""
+    body = o.body
+    frame = body.non_rotating_reference_frame
+    cb, ck = _sun_chain(body), _sun_chain(sc().bodies["Kerbin"])
+    occ = [(b, None if b.name == body.name else _sun_chain(b), b.equatorial_radius + TERRAIN.get(b.name, 0))
+           for b in occluders]
+
+    def f(t):
+        pb = _chain_pos(cb, t)
+        s = o.position_at(t, frame)
+        k = tuple(a - b for a, b in zip(_chain_pos(ck, t), pb))
+        worst = None
+        for b, ch, R in occ:
+            m = (0.0, 0.0, 0.0) if ch is None else tuple(a - c for a, c in zip(_chain_pos(ch, t), pb))
+            c = _ray_clearance(s, k, m, R)
+            if worst is None or c < worst[0]:
+                worst = (c, b.name)
+        return worst
+    return f
+
+
+def _blackout(link, t0, t1, step=5.0):
+    """(UT the first blackout that meets [t0, t1] begins or None, closest clearance (m, body) sampled over the
+    window). A blackout already running at t0 is traced back to its start (up to 6 h)."""
+    n = max(1, int(math.ceil((t1 - t0) / step)))
+    worst = None
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n
+        c = link(t)
+        if worst is None or c[0] < worst[0]:
+            worst = c
+        if c[0] > 0:
+            continue
+        hi, lo = t, t - (t1 - t0) / n
+        while link(lo)[0] <= 0:
+            hi, lo = lo, lo - step
+            if t0 - lo > 21600:
+                return lo, worst
+        for _ in range(12):  # to ~1 ms of a 5 s step
+            mid = (lo + hi) / 2
+            if link(mid)[0] > 0:
+                lo = mid
+            else:
+                hi = mid
+        return hi, worst
+    return None, worst
+
+
+def _link_safe_centre(t, window, blackout, earliest, margin=25.0, tries=6):
+    """Latest burn centre <= t whose burn window(t) -> (start, end) ends >= margin s before any blackout
+    (blackout(t0, t1) -> UT the first blackout meeting [t0, t1] begins, or None); None if that needs a start before
+    earliest (pure: unit-tested). The window is re-read after each shift: off the periapsis the burn grows."""
+    for _ in range(tries):
+        start, end = window(t)
+        if start < earliest:
+            return None
+        tb = blackout(start, end + margin)
+        if tb is None:
+            return t
+        t -= end + margin - tb + 1.0
+    return None
+
+
+def _capture_link(v, o, t, t_pe, dv_at, margin=25.0):
+    """Uncrewed capture: predict the CommNet link over the burn [start, end] (ray to Kerbin vs the body's disc,
+    and its parent's for a moon, from the predicted positions). A blackout inside it (Moho 1: Kerbin behind Moho
+    from pe-10 s to pe+130 s, the second half of the burn) moves the burn earlier, as --early would, so that it ends
+    >= margin s before the blackout; refused if that start is already past (now + 90 s) or the earlier retrograde
+    burn drops the periapsis under the terrain / into the atmosphere. Returns the burn centre UT."""
+    body = o.body
+    par = body.orbit.body
+    occl = [body] + ([par] if par.orbit is not None and par.name != "Kerbin" else [])
+    link = _link_forecast(o, occl)
+
+    def window(tc):
+        dv = abs(dv_at(tc))
+        s = tc - burn_lead(v, dv)
+        return s, s + burn_time(v, dv)
+    start, end = window(t)
+    note = " (relays not counted: the direct line to Kerbin only)"
+    tb, worst = _blackout(link, start, end + margin)
+    if tb is None:
+        say(f"link forecast over the burn ({start - t_pe:+.0f} to {end - t_pe:+.0f} s from the pe): clear, closest "
+            f"{worst[0] / 1000:.0f} km past {worst[1]}" + note)
+        return t
+    tc = _link_safe_centre(t, window, lambda a, b: _blackout(link, a, b)[0], ut() + 90, margin)
+    what = (f"link forecast: Kerbin blocked from {tb - t_pe:+.0f} s from the pe, inside the burn ({start - t_pe:+.0f} "
+            f"to {end - t_pe:+.0f} s)" + note)
+    if tc is None:
+        raise Refused(what + f"; no burn start after now + 90 s ends {margin:.0f} s before it: raise the periapsis "
+                             "(a later, higher pass), or capture with a pilot / relay")
+    r, vel = _state(o, tc, body.non_rotating_reference_frame)
+    sp = math.sqrt(_dot(vel, vel))
+    dv0, dv1 = dv_at(t), dv_at(tc)
+    pe = _peri(body.gravitational_parameter, r, tuple(x * (sp + dv1) / sp for x in vel))[0] - body.equatorial_radius
+    floor = max(_pe_floor(body), body.atmosphere_depth if body.has_atmosphere else 0.0)
+    s1, e1 = window(tc)
+    if pe < floor:
+        raise Refused(what + f"; burning early enough (centre {t_pe - tc:.0f} s before the pe) leaves the periapsis "
+                             f"at ~{pe / 1000:.0f} km, under {floor / 1000:.0f} km: raise the periapsis first")
+    say(what + f"; moved the burn earlier: centre {t_pe - tc:.0f} s before the pe (like --early {t_pe - tc:.0f}), "
+               f"{s1 - t_pe:+.0f} to {e1 - t_pe:+.0f} s, ends {tb - e1:.0f} s before the blackout; "
+               f"{abs(dv0):.0f} -> {abs(dv1):.0f} m/s, periapsis after ~{pe / 1000:.0f} km")
+    return tc
 
 
 def _plane(inc, lan):

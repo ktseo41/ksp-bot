@@ -535,7 +535,8 @@ def main(argv=None):
     p = add("capture", PHASES["capture"], help="burn at periapsis into orbit (circular or --apo)")
     p.add_argument("--apo", type=float)
     p.add_argument("--early", type=float, default=0.0, metavar="S",
-                   help="centre the burn S seconds before the periapsis (end it before a blackout past the pe)")
+                   help="centre the burn S seconds before the periapsis (uncrewed craft: a forecast blackout inside "
+                        "the burn moves it earlier by itself, ending >= 25 s before it)")
     p = add("land", PHASES["land"], help="powered landing (airless), or entry + chutes + powered touchdown (atmosphere)")
     p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
     p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")

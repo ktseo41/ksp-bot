@@ -65,5 +65,42 @@ class FarCorrection(unittest.TestCase):
         self.assertLess(dv, 1.3 * 24.5)
 
 
+class CaptureLink(unittest.TestCase):
+    def test_ray_clearance(self):
+        R = 700e3
+        # Kerbin far along +x, the vessel 1000 km beside the body's centre line: clears by 300 km
+        self.assertAlmostEqual(F._ray_clearance((0, 1000e3, 0), (1e10, 1000e3, 0), (0, 0, 0), R), 300e3, delta=1)
+        # the vessel behind the body: blocked
+        self.assertLess(F._ray_clearance((-1000e3, 100e3, 0), (1e10, 0, 0), (0, 0, 0), R), 0)
+        # the body behind the vessel (Kerbin on the other side): clear by the vessel's own height
+        self.assertAlmostEqual(F._ray_clearance((1000e3, 0, 0), (1e10, 0, 0), (0, 0, 0), R), 300e3, delta=1)
+
+    def test_blackout_start(self):
+        link = lambda t: (1.0 if t < 1003.2 or t > 1140 else -1.0, "Moho")
+        tb, worst = F._blackout(link, 900, 1200)
+        self.assertAlmostEqual(tb, 1003.2, delta=0.01)
+        self.assertEqual(worst[0], -1.0)
+        # already blocked at the window start: traced back to where it began
+        tb, _ = F._blackout(link, 1050, 1100)
+        self.assertAlmostEqual(tb, 1003.2, delta=0.01)
+        self.assertIsNone(F._blackout(link, 1150, 1300)[0])
+
+    def test_shift_earlier(self):
+        # burn 100 s centred on t (lead 50); blackout 1000..1140; the burn must end by 975
+        blackout = lambda a, b: 1000.0 if a < 1140 and b > 1000 else None
+        window = lambda t: (t - 50, t + 50)
+        t = F._link_safe_centre(1000.0, window, blackout, earliest=0.0)
+        self.assertLessEqual(window(t)[1], 975.0)
+        self.assertGreater(window(t)[1], 970.0)
+        # a burn that grows off the periapsis (+0.5 s per s earlier) still converges
+        window2 = lambda t: (t - 50 - 0.25 * (1000 - t), t + 50 + 0.25 * (1000 - t))
+        t2 = F._link_safe_centre(1000.0, window2, blackout, earliest=0.0)
+        self.assertLessEqual(window2(t2)[1], 975.0)
+        # no room before the blackout: refused
+        self.assertIsNone(F._link_safe_centre(1000.0, window, blackout, earliest=900.0))
+        # clear: unchanged
+        self.assertEqual(F._link_safe_centre(800.0, window, blackout, earliest=0.0), 800.0)
+
+
 if __name__ == "__main__":
     unittest.main()
