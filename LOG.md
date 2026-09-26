@@ -806,6 +806,28 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   patch of the real orbit after the burn (and 0.04 s is too short for the patches to settle between evaluations:
   runs gave inconsistent costs). Far-out fine trims are meaningless here: trim ~20 d before the SOI (~8 m/s est.).
   Eve SOI ~UT 45.17M, pe ~45.30M.
+## 2026-09-27 (session 3) — code fixes merged, Dres 1 designed, lab visit, Mun Sat 1 and a stale contract system
+- Merged (opus, offline tests in tests/test_offline.py): `correct` far-out compass search (0.3 s settle, dv term, side
+  penalty, dv cap); `capture` link forecast (moves the burn earlier before a Kerbin blackout); `deorbit` pe ground point +
+  Kerbin/Sun elevation + refusal < 20 deg, `release_ut` sunward sign; `land --science`. Dres 1 designed (fable):
+  crafts/dres-1.json, docs/dres-1-plan.md; pad check matched exactly (1177 SL / 1045 SL / 2742 / 3683), recovered.
+- Lab visit UT 42.35M: +400 (sci 5,671); research propulsionSystems (Spark/Ant) -> 5,581. Accepted "Science data from
+  surface of Eve" (Eve 2 lander). CommNet Require Signal is already ON in the save.
+- **Mun Sat 1** (crafts/mun-sat-1.json = Keo Relay 3 + goo/magnetometer/accelerometer) for "specific orbit of the Mun"
+  (inc 146.04, e 0.181, sma 803 km, LAN 275.9, argPe 177.9, 3 %): LKO 85 x 87 (the ascent coasted to 80 km and the
+  Swivel circularized with 1,091 m/s); `transfer Mun --pe 458000` 874 (plan 852) -> pe 453 km, inc 174 retro.
+  `correct Mun --inc-to 146` planned a 370 m/s 180-deg flip (near-path seed still assumes a half turn): not flown.
+  `capture --apo 748750`: **first link forecast in flight**: Kerbin hidden from pe -183 s -> burn moved 216 s earlier,
+  225 m/s -> 429 x 778 km. `match-orbit` plane 34.6 deg 165.5 (plan 167) + 16 + 19 -> argPe still 195.7 (17.8 off);
+  rotated the apsides by hand (node from a script, 16 m/s radial at the orbits' intersection; the pe-side one had no
+  link -> `node` refused, used the ap-side one), pe trim 1 m/s: all elements inside KSP's windows (checked against the
+  decompiled VesselUtilities.VesselAtOrbit). **Contract never completed: the save held both Mun contracts as Offered**
+  while kRPC listed them active and the advances (70.9k) had been paid. Cause: a stale ContractSystem after the lab
+  flight's FLIGHT -> SPACECENTER switch (the offered list had changed completely too). A KSP restart cleared it (memory:
+  commit 27.2 -> 25.7 GB, pool 1.31 GB, available 454 -> 778 MB). Mun Sat 1 (launchID 79) can't satisfy a contract
+  accepted now (VesselLaunchedAfterID), and a re-accept would pay the advances twice: both Mun contracts skipped, the
+  70.9k windfall noted here. Mun Sat 1 stays as a Mun relay (RA-2, 4,264 m/s). Fix: `accept` now compares the save's
+  Active count with kRPC's and errors on a mismatch.
 ### Next steps (plan)
 **State (2026-09-27, session end): KSP at the space center, UT ~41.40M, funds 3.30M, sci 5,270, rep 543.
 In flight: Eve 2 (#49) cruising to Eve: SOI ~UT 45.20M, pe ~45.30M; Eve pe 10,358 km, inc 2.8, Poodle 2,390, lander
