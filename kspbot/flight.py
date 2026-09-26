@@ -179,8 +179,16 @@ def _ensure_control(v):
     say("antennas extended: control restored")
 
 
-def execute_node(node=None, tol=0.2):
-    """Execute a maneuver node (default: the first one). Handles pointing, warp, staging and fine throttle."""
+def _link_by(start, capture_pe, bt, default):
+    """UT until which a burn may wait for the link before ignition. A capture waits at most until a start that still
+    centres the burn on the periapsis: waiting longer drifts into a flyby (Moho, e = 21)."""
+    return default if capture_pe is None else max(start, capture_pe - bt / 2)
+
+
+def execute_node(node=None, tol=0.2, capture_pe=None):
+    """Execute a maneuver node (default: the first one). Handles pointing, warp, staging and fine throttle.
+    capture_pe: UT of the periapsis of a capture burn: the pre-ignition link wait ends in time for it, and a link
+    lost mid-burn never pauses the burn (see below)."""
     v = vessel()
     _ensure_control(v)
     node = node or v.control.nodes[0]
@@ -198,10 +206,16 @@ def execute_node(node=None, tol=0.2):
     warp_to(node.ut - bt / 2, lead=5)
     while ut() < node.ut - bt / 2:
         time.sleep(0.05)
-    if not _await_link(v, node.ut + bt / 2):
+    if not _await_link(v, _link_by(node.ut - bt / 2, capture_pe, bt, node.ut + bt / 2)):
+        if capture_pe is not None:
+            node.remove()
+            raise Refused(f"no CommNet link by {capture_pe - bt / 2 - ut():+.0f} s from the periapsis burn start "
+                          f"(control {v.control.state.name}): capture not started, node removed; `capture` again "
+                          "burns now once the link is back")
         raise Refused(f"no CommNet link at the burn time (control {v.control.state.name}): node left in place")
     v.control.throttle = 1.0
     no_thrust = None
+    blind = None  # UT the link was lost at, during a capture burn
     t_end = time.time() + 3 * bt + 60
     t_check = time.time() + 1
     while True:
@@ -210,12 +224,25 @@ def execute_node(node=None, tol=0.2):
             break
         if time.time() > t_check:  # the link can also drop mid-burn: pause and resume when it returns
             t_check = time.time() + 1
-            if not _controllable(v):
+            if not _controllable(v) and capture_pe is not None:
+                # a capture never pauses: a warp/pause at e = 21 loses the Oberth window; the loop runs on at
+                # throttle 1 without warping and the thrust comes back with the link
+                if blind is None:
+                    blind = ut()
+                    say(f"link lost mid-capture, {node.remaining_delta_v:.0f} m/s left: burning on, no warp")
+                if ut() - blind > max(600, 3 * bt):
+                    raise Refused(f"CommNet link lost for {ut() - blind:.0f} s mid-capture, "
+                                  f"{node.remaining_delta_v:.1f} m/s left: node left")
+                t_end = time.time() + 3 * bt + 60
+            elif not _controllable(v):
                 if not _await_link(v, ut() + max(120, bt)):
                     raise Refused(f"CommNet link lost mid-burn, {node.remaining_delta_v:.1f} m/s left: node left")
                 _wait_pointing(ap, timeout=60)
                 t_end = time.time() + 3 * bt + 60
-        if _tumbling(v):  # Mun Tanker 1 spun up to 60 deg/s at a burn start and the loop never ended
+            elif blind is not None:
+                say(f"link back after {ut() - blind:.0f} s: {node.remaining_delta_v:.0f} m/s left")
+                blind = None
+        if blind is None and _tumbling(v):  # Mun Tanker 1 spun up to 60 deg/s at a burn start and the loop never ended
             v.control.throttle = 0.0
             _damp(v, ap)
             _wait_pointing(ap, timeout=30)
@@ -333,7 +360,7 @@ def _wait_pointing(ap, timeout=90):
         say(f"pointing not settled ({e.__class__.__name__}), error {ap.error:.1f} deg")
 
 
-def burn_at(t, prograde=0.0, normal=0.0, radial=0.0):
+def burn_at(t, prograde=0.0, normal=0.0, radial=0.0, capture_pe=None):
     """Burn a delta-v (orbital frame at UT t): via a maneuver node, or manually if nodes are locked
     (Tracking Station / Mission Control level 1)."""
     try:
@@ -341,11 +368,11 @@ def burn_at(t, prograde=0.0, normal=0.0, radial=0.0):
     except RuntimeError as e:
         if "Maneuver node" not in str(e):
             raise
-        return manual_burn(t, prograde, normal, radial)
-    return execute_node(node)
+        return manual_burn(t, prograde, normal, radial, capture_pe=capture_pe)
+    return execute_node(node, capture_pe=capture_pe)
 
 
-def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
+def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3, capture_pe=None):
     """Node-less burn: fixed inertial direction from the orbital frame at t, delivered dv integrated
     from thrust/mass."""
     v = vessel()
@@ -372,7 +399,7 @@ def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
     warp_to(t - bt / 2, lead=5)
     while ut() < t - bt / 2:
         time.sleep(0.05)
-    if not _await_link(v, t + bt / 2):
+    if not _await_link(v, _link_by(t - bt / 2, capture_pe, bt, t + bt / 2)):
         raise Refused(f"no CommNet link at the burn time (control {v.control.state.name})")
     done, last = 0.0, ut()
     v.control.throttle = 1.0
@@ -934,6 +961,17 @@ def transfer_planet(target_name, pe_alt, samples=48):
     if best is None:
         say("Lambert found no transfer around the window; not planning")
         return False
+
+    def at_T(T):
+        p = plan(t_dep, r1, T)
+        return (dv_total(p[1], p[2], p[3], T), T, p) if p else (math.inf, T, None)
+    # the 2 % grid (2.3 d at Moho) steps over narrow minima: 5,268 at 113.3 d, 5,094 at 114.75 d
+    step = 0.02 * T_h
+    fine = _golden_min(at_T, max(0.6 * T_h, best[1] - step), min(1.4 * T_h, best[1] + step))
+    if fine[0] < best[0]:
+        say(f"flight time refined {best[1] / 21600:.2f} -> {fine[1] / 21600:.2f} d: ~{best[0]:.0f} -> ~{fine[0]:.0f} m/s",
+            screen=False)
+        best = fine
     total, T, (vi_req, vi_dep, vi_arr, z2) = best
     t_arr = t_dep + T
     dv = math.sqrt(vi_dep ** 2 + 2 * mu / r0) - math.sqrt(mu / r0)
@@ -988,6 +1026,25 @@ def transfer_planet(target_name, pe_alt, samples=48):
     if not enc or abs(enc[0] - pe_alt) > 3000:
         return correct_course(target_name, pe_alt)
     return True
+
+
+def _golden_min(f, a, b, n=20):
+    """Golden-section search of f over [a, b]; f(x) -> tuple whose [0] is the cost. The best tuple evaluated."""
+    g = (math.sqrt(5) - 1) / 2
+    c, d = b - g * (b - a), a + g * (b - a)
+    fc, fd = f(c), f(d)
+    best = min(fc, fd, key=lambda r: r[0])
+    for _ in range(n):
+        if fc[0] < fd[0]:
+            b, d, fd = d, c, fc
+            c = b - g * (b - a)
+            fc = f(c)
+        else:
+            a, c, fc = c, d, fd
+            d = a + g * (b - a)
+            fd = f(d)
+        best = min(best, fc, fd, key=lambda r: r[0])
+    return best
 
 
 def _match_exit(node, home, frame, plan, t_arr, seed_uts, req0=None,
@@ -1420,6 +1477,15 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     _approve(node, expect or node.delta_v, pe_alt if v.orbit.body.name == target_name else None,
              allow_flip=inc_to is not None)
     execute_node(node, tol=0.05)
+    if v.orbit.body.name != target.name:
+        # far out a burn error of a few m/s moves the pass by 100s of km (Jool 1: pe -655 km): read it back
+        warp_to(ut() + 60)
+        time.sleep(0.5)
+        enc = _encounter(v.orbit, target)
+        floor = _pe_floor(target)
+        say(f"60 s after the burn: {target_name} pe " + (f"{enc[0] / 1000:.1f} km" if enc else "none (no encounter)")
+            + (f" -- BELOW the terrain + margin ({floor / 1000:.1f} km): trim it before `soi`"
+               if enc and enc[0] < floor else ""))
     return enc is not None
 
 
@@ -1512,12 +1578,37 @@ def _aim_point_seed(node, target, pe_alt, cost):
     return best[4]
 
 
-def warp_to_soi():
+# highest terrain (m) per body: a periapsis below it may hit a peak (Jool 1's far-out trim left pe -655 km)
+TERRAIN = {"Kerbin": 6767, "Mun": 7061, "Minmus": 5725, "Moho": 6818, "Eve": 7540, "Gilly": 6400, "Duna": 8264,
+           "Ike": 12750, "Dres": 5700, "Laythe": 5900, "Vall": 7990, "Tylo": 11290, "Bop": 21750, "Pol": 5590,
+           "Eeloo": 3900}
+
+
+def _pe_floor(body, margin=1000.0):
+    return TERRAIN.get(body.name, 10000) + margin
+
+
+def _entry_pe(o):
+    """(body, periapsis altitude) of the next SOI this orbit enters (not an escape to a parent), else None."""
+    nxt = o.next_orbit
+    if nxt is None or nxt.body.name in _ancestors(o.body):
+        return None
+    return nxt.body, nxt.periapsis_altitude
+
+
+def warp_to_soi(force=False):
     v = vessel()
     t = v.orbit.time_to_soi_change
     if math.isnan(t) or t <= 0:
         say("no SOI change ahead")
         return False
+    entry = _entry_pe(v.orbit)
+    if entry and entry[1] < _pe_floor(entry[0]):
+        why = (f"predicted periapsis at {entry[0].name} {entry[1] / 1000:.1f} km is below its terrain + margin "
+               f"({_pe_floor(entry[0]) / 1000:.1f} km): raise it first (`correct {entry[0].name} --pe X`)")
+        if not force:
+            raise Refused(why + ", or `soi --force`")
+        say(f"--force: {why}")
     body = v.orbit.body.name
     warp_to(ut() + t + 5)
     while v.orbit.body.name == body:
@@ -1526,21 +1617,26 @@ def warp_to_soi():
     return True
 
 
-def capture(target_apo=None):
+def capture(target_apo=None, early=0.0):
     """At the periapsis of a hyperbolic/elliptic orbit, burn retrograde into a circular orbit
-    (or an orbit with apoapsis target_apo)."""
+    (or an orbit with apoapsis target_apo). early: centre the burn this many seconds before the periapsis (Eve 2:
+    the pe lies in Kerbin's shadow, the burn must end before the blackout). An uncrewed craft that has no link by
+    the periapsis start is refused instead of drifting into a flyby; a link lost mid-burn does not pause it."""
     v = vessel()
     o = v.orbit
     mu = o.body.gravitational_parameter
-    t = ut() + o.time_to_periapsis
-    if o.eccentricity >= 1 and o.time_to_periapsis < 60:
+    t_pe = ut() + o.time_to_periapsis
+    t = t_pe - early
+    if (o.eccentricity >= 1 or early) and t - ut() < 60:
         # already past the periapsis of a hyperbola (Minmus Lab 1's first capture never fired): burn now
         t = ut() + 60
+    elif early:
+        say(f"capture burn centred {early:.0f} s before the periapsis")
     rp = o.radius_at(t)
     v_now = math.sqrt(mu * (2 / rp - 1 / o.semi_major_axis))
     ra = rp if target_apo is None else o.body.equatorial_radius + target_apo
     v_new = math.sqrt(mu * (2 / rp - 2 / (rp + ra)))
-    burn_at(t, prograde=v_new - v_now)
+    burn_at(t, prograde=v_new - v_now, capture_pe=t_pe)
     o = v.orbit
     say(f"captured: {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m around {o.body.name}")
 
@@ -2274,10 +2370,11 @@ def _antennas(v, extend, panels_only=False):
         time.sleep(6)
 
 
-def do_science(transmit=False, min_single=15.0):
+def do_science(transmit=False, min_single=15.0, all_=False):
     """Run every available experiment that has no data yet; optionally transmit results.
     Single-use experiments (goo, materials bay) only run when the subject still has >= min_single science left,
-    so a low-value situation (LKO, orbit before landing) doesn't spend them."""
+    so a low-value situation (LKO, orbit before landing) doesn't spend them. transmit keeps their data for
+    recovery; all_ transmits it too (one-way probes: Jool 1 lost its goo and Science Jr data)."""
     v = vessel()
     out = []
     ran = set()
@@ -2308,6 +2405,7 @@ def do_science(transmit=False, min_single=15.0):
         time.sleep(0.5)
         if all(e.has_data and e.data for e in started):
             break
+    send_ok = transmit
     if transmit:
         _antennas(v, True)
         # no link (Kerbin below the horizon): warp until it rises, up to ~7 h
@@ -2318,19 +2416,79 @@ def do_science(transmit=False, min_single=15.0):
             time.sleep(1)
         else:
             say("no signal to KSC; data kept on board")
+            send_ok = False
+    send = []
     for e in v.parts.experiments:
         if e.has_data:
             val = sum(d.science_value for d in e.data)
             out.append((e.title, e.science_subject.title, round(val, 2)))
-            # transmit only what can be run again (crew report, thermometer); keep goo etc. for recovery.
-            ec = v.resources.amount("ElectricCharge")
-            if transmit and e.rerunnable and ec > 120 and e.data and any(d.transmit_value > 0 for d in e.data):
-                e.transmit()
+            # transmit only what can be run again (crew report, thermometer); keep goo etc. for recovery (all_: send)
+            if send_ok and (e.rerunnable or all_) and e.data and any(d.transmit_value > 0 for d in e.data):
+                send.append(e)
+    for e in send:
+        if _transmit(v, e) is None:
+            say("a transmission did not arrive: the rest is kept on board")
+            break
     if not transmit:
         _collect(v)
     for row in out:
         print(row)
     return out
+
+
+def _ec_per_mit(v):
+    """(EC per Mit, antenna title) of the dearest antenna that can transmit: KSP picks the transmitter itself, the
+    dearest one bounds the cost (HG-55 6.67, 88-88 10, RA-2 24)."""
+    rates = [(a.packet_resource_cost / a.packet_size, a.part.title) for a in v.parts.antennas
+             if a.can_transmit and a.packet_size > 0]
+    return max(rates) if rates else (None, None)
+
+
+def _transmit(v, e, margin=100.0, charge_for=6 * 3600):
+    """Transmit one experiment once the battery holds its cost (Mits x EC/Mit + margin): a transmission that
+    empties the battery stalls and KSP never resumes it (the Jool plan: 900-1,100 EC sets on 1,810 EC). Short of
+    charge: wait in sunlight (short rails warps, up to charge_for s), or skip it without solar charge. Then poll the
+    career science total until it rises. True: arrived; False: skipped (data kept); None: sent but nothing arrived."""
+    mits = sum(d.data_amount for d in e.data)
+    rate, via = _ec_per_mit(v)
+    if rate is None:
+        say(f"{e.title}: no antenna can transmit; data kept")
+        return False
+    need = mits * rate + margin
+    ec, cap = v.resources.amount("ElectricCharge"), v.resources.max("ElectricCharge")
+    panels = [p for p in v.parts.solar_panels if p.state.name != "broken"]
+    flow = sum(p.energy_flow for p in panels)
+    if ec < need:
+        if need > cap or not panels:
+            say(f"{e.title}: needs {need:.0f} EC ({mits:.0f} Mit x {rate:.2f} via {via} + {margin:.0f}), has {ec:.0f}"
+                + (f" of {cap:.0f} max" if need > cap else " and no solar panels") + ": skipped, data kept")
+            return False
+        say(f"{e.title}: needs {need:.0f} EC, has {ec:.0f}: charging at {flow:.1f} EC/s"
+            + (f" (~{(need - ec) / flow:.0f} s)" if flow > 0 else " (in the shade)"))
+        deadline = ut() + charge_for
+        while ec < need:
+            if ut() > deadline:
+                say(f"{e.title}: EC {ec:.0f} < {need:.0f} after {charge_for / 3600:.0f} h of charging: skipped, "
+                    "data kept")
+                return False
+            warp_to(ut() + min(600.0, max(30.0, 1.2 * (need - ec) / max(flow, 0.5))))
+            time.sleep(1)
+            ec, flow = v.resources.amount("ElectricCharge"), sum(p.energy_flow for p in panels)
+    before = sc().science
+    speed = min((a.packet_size / a.packet_interval for a in v.parts.antennas
+                 if a.can_transmit and a.packet_interval > 0), default=1.0)
+    wait = 30 + 2 * mits / max(speed, 0.1)
+    say(f"transmitting {e.title} ({mits:.0f} Mit, ~{mits * rate:.0f} EC of {ec:.0f})", screen=False)
+    e.transmit()
+    t0 = time.time()
+    while time.time() - t0 < wait:
+        time.sleep(2)
+        if sc().science - before > 0.001:
+            time.sleep(2)
+            say(f"{e.title}: science +{sc().science - before:.1f} (now {sc().science:.1f})")
+            return True
+    say(f"{e.title}: no science arrived within {wait:.0f} s (EC now {v.resources.amount('ElectricCharge'):.0f})")
+    return None
 
 
 def _collect(v):

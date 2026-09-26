@@ -176,10 +176,12 @@ in, in that order.
   only at ≤ 2 m/s (Poodle crash tolerance 7).
 
 ## OPEN / not yet verified (2026-09-26, session cut short by a PC restart)
-- Pad numbers: `build` prints no Δv; the stage table above is the rocket equation from part stats (the method that matched
-  Jool 1 and Ike Station 1 to the metre). `launch` must confirm 1775 SL / 1518 SL / 3287 vac / 828 vac and the height < 36 m.
-- The shield orientation was checked only from the .craft positions (heat-face node at y 17.33 on the deorbit decoupler,
-  body 17.33-19.63, Jr in the recess up to the rim): look at it on the pad (`shot`) before flying; the inflate event is untested.
+- Pad check done (2026-09-26, career pad, recovered for a full refund): `launch` printed **1776 SL / 1526 SL / 3321 vac**
+  (plan 1775 / 1518 / 3287) and accepted the height (sandbox photo: 35.3 m). The lander's Terrier stage shows no Δv:
+  KSP's calculator follows the root (carrier OKTO) side of the TD-12, so the lander is dropped from it; part stats give
+  828 vac (4.605 -> 3.605 t, Isp 345). Not a design fault.
+- Shield orientation seen on the sandbox pad photo (runs/craft-eve-2.png, docs/media/summary/crafts/eve-2.jpg): the
+  stowed drum sits between the deorbit stage (below) and the lander body (above), as specified. The inflate event is untested.
 - `transfer Eve --plan` at the window is the real source of the ejection / mid-course / arrival numbers; the 171-184 d
   figures are offline Kepler (stock elements).
 - The capture blackout (-6..+55 deg) uses the 184-d Kerbin direction; recompute from the live positions inside the SOI

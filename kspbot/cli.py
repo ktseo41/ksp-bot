@@ -279,7 +279,7 @@ def cmd_stage(a):
 
 
 def cmd_science(a):
-    flight.do_science(transmit=a.transmit, min_single=a.min_single)
+    flight.do_science(transmit=a.transmit or a.all, min_single=a.min_single, all_=a.all)
 
 
 def cmd_warp(a):
@@ -389,8 +389,8 @@ PHASES = {
     "periapsis": lambda a: flight.change_periapsis(a.alt),
     "transfer": lambda a: flight.transfer_to(a.body, a.pe),
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
-    "soi": lambda a: flight.warp_to_soi(),
-    "capture": lambda a: flight.capture(a.apo),
+    "soi": lambda a: flight.warp_to_soi(a.force),
+    "capture": lambda a: flight.capture(a.apo, a.early),
     "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
@@ -459,6 +459,8 @@ def main(argv=None):
     add("stage", cmd_stage)
     p = add("science", cmd_science, help="run all fresh experiments")
     p.add_argument("--transmit", action="store_true")
+    p.add_argument("--all", action="store_true",
+                   help="transmit everything, goo / materials bay too (one-way probes; implies --transmit)")
     p.add_argument("--min-single", type=float, default=15.0,
                    help="run goo/materials bay only if the subject has this much science left")
     p = add("warp", cmd_warp, help="warp to UT or +seconds")
@@ -494,9 +496,12 @@ def main(argv=None):
     p.add_argument("--inc-to", type=float, help="aim for this arrival inclination (0..180 deg)")
     p = add("window", lambda a: flight.planet_window(a.body), help="next Hohmann window to another planet")
     p.add_argument("body")
-    add("soi", PHASES["soi"], help="warp to the next SOI change")
+    p = add("soi", PHASES["soi"], help="warp to the next SOI change (refused if the periapsis there is under the terrain)")
+    p.add_argument("--force", action="store_true", help="warp even if the predicted periapsis is under the terrain")
     p = add("capture", PHASES["capture"], help="burn at periapsis into orbit (circular or --apo)")
     p.add_argument("--apo", type=float)
+    p.add_argument("--early", type=float, default=0.0, metavar="S",
+                   help="centre the burn S seconds before the periapsis (end it before a blackout past the pe)")
     p = add("land", PHASES["land"], help="powered landing (airless), or entry + chutes + powered touchdown (atmosphere)")
     p.add_argument("--biome", nargs="*", help="wait for a gentle site in one of these biomes first")
     p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")
