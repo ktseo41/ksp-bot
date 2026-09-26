@@ -7,7 +7,7 @@ import math
 import time
 
 from .core import bot, say, sc
-from .flight import _approve, _norm, _dot, burn_time, execute_node, speed_at, tune_node, ut, vessel, warp_to
+from .flight import _approve, _ensure_control, _norm, _dot, burn_time, execute_node, speed_at, tune_node, ut, vessel, warp_to
 
 
 def find_target(name):
@@ -211,6 +211,7 @@ def _burn_vector(v, target, frame, want, tol=0.05, max_throttle=1.0):
 def kill_relative(target):
     """At the closest approach: burn off the relative velocity (burn centred on the closest approach)."""
     v = vessel()
+    _ensure_control(v)
     frame = _frame(target)
     tca = v.orbit.next_closest_approach(target.orbit).ut
     _p, u, _d, s = _rel(v, target, frame)
@@ -232,6 +233,7 @@ def kill_relative(target):
 def approach(target, dist=25.0, max_speed=6.0):
     """Close in to `dist` m and stop. Bursts: fix the velocity error when it is large, coast otherwise."""
     v = vessel()
+    _ensure_control(v)
     frame = _frame(target)
     while True:
         p, u, d, s = _rel(v, target, frame)
@@ -363,6 +365,7 @@ def grab(name, speed=0.15, face=None, max_contacts=3):
     (ModuleGrappleNode.CheckGrappleContact): on a small part (a Thud) aim at a flat face, e.g. face="-z".
     Stops after max_contacts bounces: repeating the same approach taught nothing new (Salvage 1/2, Rescue 2/3)."""
     v = vessel()
+    _ensure_control(v)
     target = find_target(name)
     sc().target_vessel = target
     for p in v.parts.all:

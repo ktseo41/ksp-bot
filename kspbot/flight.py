@@ -1430,6 +1430,10 @@ def _aim_point_seed(node, target, pe_alt, cost):
         c = cost(node)
         if best is None or c < best[0]:
             best = (c, node.prograde, node.normal, node.radial, node.delta_v, 10 * k)
+    if best is None:  # Duna 1 from the aphelion: every trial lost the encounter (TypeError below)
+        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+        say("aim-point seed: every trial lost the encounter; tuning from zero")
+        return None
     node.prograde, node.normal, node.radial = best[1:4]
     say(f"aim-point seed: {best[4]:.0f} m/s (turn {best[5]} deg), cost {best[0]:.1f}")
     return best[4]

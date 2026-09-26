@@ -166,10 +166,8 @@ def _clear_pad(radius_deg=0.01):
 
 
 def cmd_launch(a):
-    try:
+    if status().get("scene") == "FLIGHT":  # vessel positions are flight-scene only
         _clear_pad()
-    except Exception as e:  # some calls are flight-scene only
-        print("pad check skipped:", str(e).splitlines()[0])
     # kRPC's LaunchVessel goes to the flight scene without saving: contracts accepted at the space center since
     # the last save came back as merely offered in flight (the three accepted 2026-09-25 were lost, advances kept).
     if status().get("scene") != "FLIGHT":
