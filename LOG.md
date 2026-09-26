@@ -807,6 +807,21 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   runs gave inconsistent costs). Far-out fine trims are meaningless here: trim ~20 d before the SOI (~8 m/s est.).
   Eve SOI ~UT 45.17M, pe ~45.30M.
 ### Next steps (plan)
+**State (2026-09-27, session end): KSP at the space center, UT ~41.40M, funds 3.30M, sci 5,270, rep 543.
+In flight: Eve 2 (#49) cruising to Eve: SOI ~UT 45.20M, pe ~45.30M; Eve pe 10,358 km, inc 2.8, Poodle 2,390, lander
+attached. Moho 1 landed (done). Jool 1 cruising (SOI 52.79M). Minmus Lab 1 (Bob, Gwenbro) running.
+Timeline:** lab visits before UT 42.40M / 43.40M / 44.40M (`lab stop`, charge to 3,810, `lab transmit` (retry after
+20 min if "no science arrived": link), `lab process`, `lab start`); **Duna 2** (crafts/duna-2.json, docs/duna-2-plan.md,
+pad check matched 1436/1549/2466/1947) launch ~UT 44.63M for the window 44,649,525; **Eve 2 trim ~UT 44.77M** (20 d
+before the SOI): scratch local search with a dv term (see LOG 2026-09-27 cont.), settle >= 0.3 s per evaluation,
+target pe 120 km, inc < 5; inside the SOI a link forecast for the capture (scratch occl.py pattern: vessel position
+from the patch in Eve's frame, Kerbin from orbits in the Sun frame) and `capture --apo 19131000 --early S` so the burn
+ends >= 25 s before any blackout; then docs/eve-2-plan.md phases (pe raise, match-orbit, lander sequence).
+Code to fix before they bite: `correct` far-out (opus's Lambert seed "no encounter" + grid chose a retrograde pass;
+`_node_cost` 0.04 s settle is too short far out); `land` site finder with a Kerbin-elevation condition (scratch
+site.py); capture link forecast in code; `land_atmo --science` (Duna 2 plan gap 1).
+Records TODO (opus): career.json #48 (Eve 2 flipped at Mach 1, reverted) and #49 (Eve 2 flying); Duna 2 photo.
+
 **State (2026-09-26, before a 2nd PC restart): KSP saved at the space center, UT 38,425,858, funds 3.18M, sci 3,636,
 rep 528. Nothing in flight needs attention; no burns pending. Moho 1 is NOT flying (reverted + recovered, craft file
 unchanged). Next: relaunch Moho 1 at once (window UT 38,450,305 is ~24,000 s away: fine); watch the ascent's new
