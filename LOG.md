@@ -592,6 +592,17 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   (90 deg before arrival), `correct Jool --pe 250000 --inc-to 0 --plan`. Jool SOI **UT 52,787,080**. Nerv left
   ~4,540 m/s (plan after capture: ~3,800 for a moon tour). Lost to the short burn: ~130-280 m/s.
 
+## 2026-09-26 — Ike Station 1 launched toward Duna (window UT 25,054,465)
+- Pad numbers matched docs/ike-station-plan.md exactly (1824 SL / 1277 SL / 2942 vac, TWR 1.42). First Twin-Boar flight:
+  clean ascent, 79.7 x 79.9 km with the **Poodle still full (2942)** + Skipper 24. Both Gigantors, two HG-55 and the
+  RA-15 opened on circularize (new code), signal 1.0. Photo: docs/media/2026-09-26_ike-station-1_pad.png.
+- `transfer Duna --pe 60000 --plan`: **1085 m/s** (expected 1080-1120), v_inf 829 (plan 868), Duna pe 60 km but
+  arrival inc 146.6 (retrograde): accepted against my stop rule because Duna 1 flipped a 124 deg arrival far out for
+  0.4 m/s. The burn ran through the Skipper-to-Poodle staging to the end (burn_time fix works). After it the Duna pass
+  missed by 61.9 Mm (SOI 47.9); after the Kerbin SOI `correct Duna --pe 60000 --inc-to 10 --plan` 27.1 m/s -> pe 59.8,
+  inc 52.9 (not 10); burned -> pe 279.6 km, inc 41.7. Poodle ~1,850 m/s left (plan ~1,700 after mid-course).
+  **Duna SOI UT 30,679,045**: trim pe 60 km + inclination inside the SOI, capture ~640, then Ike.
+
 ### Next steps (plan)
 State (2026-09-26, after Rescue 6): KSP running, at the space center, UT ~23.68M, funds 2.19M, sci 925, rep 438.
 Save-NRE fix verified live. Timeline ahead (UT): 25,054,465 Ike Station 1 window; 26,854,269 Duna 1 mid-course;
@@ -603,7 +614,9 @@ Duna 1 (Valentina, ~378 sci, 623 m/s) on the way home: Kerbin pass pe 11,514 km 
 Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
 Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 730/750 data, ~9.3 sci/day, transmitted at 23.456M.
 Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
-Active contracts: **Ike station** (crafts/ike-station-1.json, window UT 25,054,465), Duna x2 (complete on recovery),
+Ike Station 1 (uncrewed, Poodle ~1,850 m/s) cruising to Duna: SOI UT 30,679,045 -> `correct Duna --pe 60000
+--inc-to 0 --plan` inside, `capture` (~640), `transfer Ike --pe 50000 --plan` (docs/ike-station-plan.md).
+Active contracts: **Ike station** (Ike Station 1 en route), Duna x2 (complete on recovery),
 Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
 Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
 Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
