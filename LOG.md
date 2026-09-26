@@ -603,6 +603,16 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   inc 52.9 (not 10); burned -> pe 279.6 km, inc 41.7. Poodle ~1,850 m/s left (plan ~1,700 after mid-course).
   **Duna SOI UT 30,679,045**: trim pe 60 km + inclination inside the SOI, capture ~640, then Ike.
 
+## 2026-09-26 — mid-course burns (Duna 1, Jool 1), lab visit
+- Duna 1 at UT 26,853,909 (90 deg before arrival): `correct Kerbin --pe 30000 --plan` **7.0 m/s** (expected ~10) ->
+  burned; the far-out burn error left Kerbin pe 204 km (inc 85): trim inside Kerbin's SOI (UT 29,268,764).
+- Jool 1 at UT 27,263,200: `correct Jool --pe 250000 --inc-to 0 --plan` **2.5 m/s** -> inc 110.7 -> 15.9 (the 90 deg
+  point makes the plane nearly free); burn error left pe -655 km: trim inside Jool's SOI (2.46 Gm, days of lead).
+- **Lab visit late (my arithmetic)**: from 23.456M at ~9.3 sci/day the 500 cap came at ~24.62M, not ~27.5M as I wrote;
+  the lab sat full ~120 days (~1,000 sci of production lost). The first `lab transmit` did nothing (EC 1,793 < ~2,000
+  needed; no error); with a full battery the second worked: **sci 330 -> 829**. Topped up to 731/750. Next visit before
+  ~UT 28.43M (54 days at ~9.3/day). Tooling: `lab transmit` should check EC first and wait until science rises.
+
 ### Next steps (plan)
 State (2026-09-26, after Rescue 6): KSP running, at the space center, UT ~23.68M, funds 2.19M, sci 925, rep 438.
 Save-NRE fix verified live. Timeline ahead (UT): 25,054,465 Ike Station 1 window; 26,854,269 Duna 1 mid-course;
@@ -612,7 +622,8 @@ Jool 1 (uncrewed, ~4,540 m/s) cruising: mid-course UT 27,263,628 (`correct Jool 
 Jool SOI UT 52,787,080, then `soi`, `capture --apo 100000000` (~445 m/s), science (docs/jool-1-plan.md).
 Duna 1 (Valentina, ~378 sci, 623 m/s) on the way home: Kerbin pass pe 11,514 km inc 56.5 -> correct at UT 26,854,269.
 Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
-Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 730/750 data, ~9.3 sci/day, transmitted at 23.456M.
+Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 731/750, ~9.5 sci/day, transmitted at 27.26M:
+next visit before UT ~28.43M (cap 500 = 54 days), then every <= 50 days.
 Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
 Ike Station 1 (uncrewed, Poodle ~1,850 m/s) cruising to Duna: SOI UT 30,679,045 -> `correct Duna --pe 60000
 --inc-to 0 --plan` inside, `capture` (~640), `transfer Ike --pe 50000 --plan` (docs/ike-station-plan.md).
