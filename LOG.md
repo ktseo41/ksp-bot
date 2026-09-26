@@ -684,8 +684,14 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   Budget from LKO ~5,200 (eject ~2,040, mid-course 200-400 at UT ~40,455,500, capture ~2,690 to 25 x 1,000 km) +
   landing ~1,200; margin ~600. **Pad check on the pad matched the plan** (1430 SL / 1198 SL / 3513 vac / 4218 vac),
   recovered (full refund). Pad photo was at night: redo in the sandbox (shoot_crafts.py).
-- **Eve 2** (Eve satellite contract + uncrewed Eve surface-science lander, Gilly bonus) being designed by fable when
-  the user announced a PC restart: crafts/eve-2.json + docs/eve-2-plan.md are drafts, see the plan's OPEN list.
+- **Eve 2** designed by fable (crafts/eve-2.json, docs/eve-2-plan.md; 72 parts, 136.55 t, 105k, 7 stages): carrier =
+  contract satellite (Poodle, RA-15 + 2 HG-55, Science Jr); lander with a 10 m inflatable shield and its own Terrier
+  deorbit stage, released after the contract. Capture ~161-189 m/s to 120 x 19,131 km, pe raise ~444, match-orbit
+  20-120. **The capture pe is on Eve's far side from Kerbin: link blocked from ~6 deg before pe -> the burn must END
+  >= 25 s before pe.** Lander: retro 474 from the contract orbit, entry 4,456 m/s, ~465 sci. Code gaps listed in the
+  plan (science --all, capture --early, vessel switch after staging, deorbit --at, shield inflate event, reentry
+  science). Not yet verified: pad Δv/height (`launch`), inflate event, live transfer numbers (plan's OPEN list).
+  Note: RA-15/RA-2 are fixed antennas (an earlier LOG line said "RA-15 opened": wrong).
 - Records: writeup 7.19-7.24 (opus), career.json fixes, card 02 past-event ETA, cards rebuilt.
 - Windows before the PC restart (KSP up ~6 h this run): commit 32.8 GB, nonpaged pool 1.57 GB, available 1.9 GB.
 
@@ -699,7 +705,8 @@ Timeline (UT): **lab visit before 36.55M** (then every ~1.08M, charge > 3,000 EC
 ~445 m/s; docs/jool-1-plan.md).
 Before Moho 1 flies, fix (docs/moho-1-plan.md "code gaps"): `science --transmit` skips goo/Science Jr (one-way probes
 lose them: add `--all`), transmit EC guard 120 EC vs ~1,000 per set, transfer_planet's 2 % T grid (golden-section
-refine, ~170 m/s), refuse to warp into a sub-terrain periapsis after a far-out correct. Then Eve 2's gaps (its plan).
+refine, ~170 m/s), refuse to warp into a sub-terrain periapsis after a far-out correct. Then Eve 2's gaps (its plan:
+capture --early, vessel switch, deorbit --at, shield inflate, reentry science) and its pad check.
 Jool 1 (uncrewed, ~4,540 m/s) cruising. Ike Station 1 in Ike orbit 33.7 x 523.5 km, ~920 m/s (contract done).
 Minmus Lab 1 (Bob, Gwenbro) 723/750 data. Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
 Active contracts: Eve equatorial satellite (Eve 2), Duna surface science, Minmus temperature survey (will lapse), two
