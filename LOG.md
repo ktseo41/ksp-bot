@@ -849,6 +849,33 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   ap 46 km at 3:00, AoA peak 7.7 deg at q 1.3 kPa (harmless), 79.3 x 79.5, Poodle 2,796 (plan ~2,860). Ejection
   1,958 (plan 1,960-2,000), T 1,198 d, arrival v_inf 2,208, Eeloo +5,191 Mm out of plane; Poodle 806 left, Terrier
   3,683. Sun orbit 13.30 x 69.02 Gm. Arrival ~UT 69.4M.
+- **Duna 2 launched** (UT 44.62M): pad matched (1436/1549/2466/1947); clean ascent (AoA <= 0.5), 79.7 x 79.9 with the
+  Skipper finishing the orbit (12 left): **Poodle 2,466 untouched**. `transfer Duna --plan` failed twice identically
+  ("v_inf error 149.9, cannot match"): diagnosed from the node's patches — **the optimal ejection path crossed the Mun's
+  SOI** (dt +60 s: Kerbin>Mun>Kerbin>Sun), so the tuner could not reach it. Waited 14,000 s (Mun moves ~36 deg), then
+  1,089.8 m/s, error 0.0, Duna pe 1,401 km, v_inf 720. Burned (Poodle 1,387 left). Encounter checked before leaving
+  Kerbin's SOI: Duna pe 11,881 km, inc 169 (retro): trims 20 d out (~51.18M) and inside the SOI (51.61M).
+  Code TODO: `transfer` should penalise/avoid a Mun (moon) SOI on the escape path instead of failing.
+- **Eve 2 at Eve**: KSP's patch 20 d out read pe -61 km, inc 27 (not the 10,358 km of the last session): new far-out
+  `correct` 1.0 m/s -> pe 119.0 km, inc 23.7 (flown with `--thrust 0.05`). Inside the SOI the new near-path seed:
+  inc 0 out of reach (the line to Eve 20 deg off the equator): 10 m/s -> 20.05. Capture: link forecast moved it 26 s
+  earlier, 204 m/s (hand estimate 204) -> 121 x 19,163 km. Low science +164. `match-orbit` wanted a 575 m/s plane change
+  (both nodes near the pe): raised the pe at the ap first (444, as planned), then plane 20 deg at a node 225, then 33 + 8
+  -> **equatorial contract done (+301,888)**; high science +117. Failed on the way: the G-P87T part recovery (-28k,
+  -13 rep; skipped by the small-part rule). Accepted **"Explore Eve"** (enter atmosphere + splash down: 351k).
+- **Lander staging failure + quickload (tooling)**: `stage` on the carrier released the lander ("Eve 2 Relay"), but the
+  separated lander came with current_stage 2, so the next `stage` fired stage 1 = the deorbit-stage TD-12 **and the
+  inflatable shield's own decoupler**, skipping the Terrier (stage 2): lander body without an engine in a 17,000 km orbit.
+  Judged a tooling failure (blind `stage` on a freshly separated vessel, flagged "unverified" in the plan) ->
+  **quickloaded** the persistent save of UT 45,624,317 (pre-release; backup restore_45624317.sfs; note `load-save`
+  saves first and overwrote it, kRPC `load(name)` of the backup worked). Then parts directly: `decouple()` on the
+  release TD-12, `engine.active` on the Terrier, `decouple()` on the lower TD-12 only, `inflate`, `arm()` the chutes.
+  `reentry` fixed to never stage a stage holding a heat shield (it would have jettisoned it).
+- **Eve landing (splashdown)**: `deorbit --pe 65000 --under Kerbin --sunward 20` (sunward 20 put the pe at lon 54 in the
+  34-76 deg sea band; the equator's sea/land read from surface_height, biome names looked unreliable) 493 m/s ->
+  64.5 km; entry 4,384 m/s at 92 km, peak q 1.6 kPa at 61 km, AoA <= 0.5, all 25 parts, subsonic at 45 km, 4.7 m/s under
+  2 Mk2-R, **splashed in the Eastern Sea** (UT 45.817M). Science flying high/low + splashed **+432 (sci 5,677)**;
+  **funds 3.65 -> 4.81M** (Explore Eve + Eve surface science + firsts), rep 575.9. Photo docs/media/2026-09-27_eve-2-splashdown.png.
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
