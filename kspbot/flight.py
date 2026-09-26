@@ -3743,8 +3743,12 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None, science=False):
     _antennas(v, False)
     if not science:
         collect_science(v)
-    # jettison stages until only parachutes remain in the next stage
-    while v.control.current_stage > 0:
+    # jettison stages until only parachutes remain in the next stage; never a stage holding a heat shield (the
+    # inflatable one is a decoupler too, staged with Eve 2's deorbit-stage TD-12: staging it would drop the shield)
+    def shielded():
+        nxt = _stage_parts(v, v.control.current_stage - 1) if v.control.current_stage > 0 else []
+        return any("HeatShield" in p.name for p in nxt)
+    while v.control.current_stage > 0 and not shielded():
         nxt = _stage_parts(v, v.control.current_stage - 1)
         if nxt and all(p.parachute is not None for p in nxt):
             break
@@ -3789,7 +3793,7 @@ def reentry(main_alt=4000, main_speed=250, keep_until=None, science=False):
             break
         # nothing left to stage (chutes armed before the entry: Eve 2's lander) used to end the retrograde hold
         # right at the atmosphere's edge, before the heat pulse: hold it until the main-chute point instead
-        if (v.control.current_stage == 0 and low) or v.situation.name in ("landed", "splashed"):
+        if ((v.control.current_stage == 0 or shielded()) and low) or v.situation.name in ("landed", "splashed"):
             break
         time.sleep(0.2)
     ap.engaged = False
