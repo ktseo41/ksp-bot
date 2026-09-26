@@ -107,21 +107,145 @@ def auto_stage(v):
 
 def burn_time(v, dv):
     """Seconds to burn dv, through the stages KSP's delta-v readout lists (Jool 1: the Skipper had 480 m/s of a
-    1954 m/s ejection, the estimate used its thrust alone (54 s), and the guard stopped the Nerv 601 m/s short)."""
-    try:
-        stages = sorted((st for st in v.stages if st.vacuum_delta_v > 0.5), key=lambda st: -st.number)
-        left, t = dv, 0.0
-        for st in stages:
-            if st.vacuum_delta_v >= left:
-                # time goes with the propellant burned, not with dv (Moho 1: 2040 of the Poodle's 2961 m/s is 196 s,
-                # not the linear 174 s)
+    1954 m/s ejection, the estimate used its thrust alone (54 s), and the guard stopped the Nerv 601 m/s short).
+    Without the readout the stages come from the parts (_burns_from_parts)."""
+    burns = _burns(v)
+    left, t = dv, 0.0
+    for sdv, st, ve in burns:
+        if sdv >= left:
+            # time goes with the propellant burned, not with dv (Moho 1: 2040 of the Poodle's 2961 m/s is 196 s,
+            # not the linear 174 s)
+            return t + st * (1 - math.exp(-left / ve)) / (1 - math.exp(-sdv / ve))
+        left -= sdv
+        t += st
+    if not burns:
+        now = _burn_time_now(v, dv)
+        say(f"WARNING: stage dv unavailable: estimate covers the current stage only ({now:.0f} s), "
+            f"real burn may be longer")
+        return now
+    say(f"WARNING: {dv:.0f} m/s is more than the {dv - left:.0f} m/s the stages hold: burn time {t:.0f} s "
+        f"covers all the propellant")
+    return t
+
+
+def _burns(v):
+    """[(vacuum dv, burn time, exhaust velocity)] per stage from the current one down, from KSP's delta-v readout.
+    After `scene space_center` + `fly` that readout was "not calculated" for hours (Moho 1, 2026-09-27: a 2987 m/s
+    capture on Poodle + Terrier read 131 s from the Poodle alone instead of ~278 s, lead 80 s instead of 144 s):
+    ask the mod to force KSP's calculation, else model the stages from the parts. burn_time and burn_lead ask back
+    to back: the answer is kept while the vessel's stage and mass stay the same."""
+    key = (v._object_id, v.control.current_stage)
+    mass = v.mass
+    hit = _BURNS.get(key)
+    if hit and time.monotonic() - hit[0] < 30 and abs(hit[1] - mass) < 1:
+        return hit[2]
+    burns = _burns_uncached(v)
+    _BURNS.clear()
+    _BURNS[key] = (time.monotonic(), mass, burns)
+    return burns
+
+
+_BURNS = {}
+
+
+def _burns_uncached(v):
+    for attempt in range(3):
+        try:
+            burns = []
+            for st in sorted((st for st in v.stages if st.vacuum_delta_v > 0.5), key=lambda st: -st.number):
                 ve = st.vacuum_delta_v / math.log(st.start_mass / st.end_mass)
-                return t + st.burn_time * (1 - math.exp(-left / ve)) / (1 - math.exp(-st.vacuum_delta_v / ve))
-            left -= st.vacuum_delta_v
-            t += st.burn_time
-    except Exception:
-        pass
-    return _burn_time_now(v, dv)
+                burns.append((st.vacuum_delta_v, st.burn_time, ve))
+            return burns
+        except Exception as e:
+            if "not been calculated" not in str(e) or attempt == 2:
+                break
+            _recalc_delta_v(v)
+    try:
+        burns = _burns_from_parts(v)
+    except Exception as e:
+        say(f"WARNING: stage model from parts failed ({e})")
+        return []
+    if burns:
+        say(f"KSP stage dv unavailable: modelled from parts: "
+            + ", ".join(f"{dv:.0f} m/s in {t:.0f} s" for dv, t, _ in burns))
+    return burns
+
+
+def _recalc_delta_v(v):
+    """KspBot.RecalcDeltaV: stop KSP's stuck delta-v run and redo it at once (see the mod); a short wait for the
+    readout either way. An older mod build has no such call: just wait."""
+    try:
+        import json
+        from .core import bot
+        r = json.loads(bot().recalc_delta_v())
+        say(f"KSP delta-v readout not ready: forced a recalculation (before {r.get('before')}, "
+            f"after {r.get('after')})", screen=False)
+    except Exception as e:
+        say(f"KSP delta-v readout not ready, recalculation unavailable ({e}): waiting", screen=False)
+    time.sleep(1.0)
+
+
+_DENSITY = {"LiquidFuel": 5.0, "Oxidizer": 5.0, "MonoPropellant": 4.0, "SolidFuel": 7.5, "XenonGas": 0.1}  # kg/unit
+_NOT_PROPELLANT = {"ElectricCharge", "IntakeAir"}
+
+
+def _density(name):
+    if name not in _DENSITY:
+        try:
+            _DENSITY[name] = sc().Resources.density(name)
+        except Exception:
+            _DENSITY[name] = 5.0
+    return _DENSITY[name]
+
+
+def _burns_from_parts(v):
+    """[(vacuum dv, burn time, exhaust velocity)] per stage from the current one down, from the parts: a part
+    decoupled in stage d is gone from stage d on; the engines of stage s are the active ones plus those activated
+    by then, and they burn (to empty, as auto_stage stages) their propellants in the tanks decoupled with them or
+    earlier. Right for a plain stack (decoupler + next engine); a stage whose engines drop at different stages
+    (boosters around a core) gets a warning: it counts all their propellant as one burn."""
+    cur = v.control.current_stage
+    engines = []
+    for e in v.parts.engines:
+        p = e.part
+        f = e.max_vacuum_thrust * e.thrust_limit
+        isp = e.vacuum_specific_impulse
+        if f > 0 and isp > 0:
+            d = p.decouple_stage
+            engines.append(dict(stage=p.stage, d=d if d < cur else -1, active=e.active, f=f, isp=isp,
+                                props=set(e.propellant_names) - _NOT_PROPELLANT))
+    names = set().union(*(e["props"] for e in engines)) if engines else set()
+    parts = []
+    for p in v.parts.all:
+        d = p.decouple_stage
+        if d >= cur:
+            d = -1  # its decoupler's stage has passed: it stays on
+        res = p.resources
+        fuel = {n: res.amount(n) * _density(n) for n in names}
+        parts.append(dict(d=d, mass=p.mass, fuel={n: m for n, m in fuel.items() if m > 0}))
+    burns = []
+    for s in range(cur, -1, -1):
+        present = [q for q in parts if q["d"] < s]
+        eng = [e for e in engines if e["d"] < s and (e["active"] if e["stage"] >= cur else e["stage"] >= s)]
+        if not eng:
+            continue
+        dmin = min(e["d"] for e in eng)
+        if max(e["d"] for e in eng) != dmin:
+            say(f"WARNING: stage {s} engines drop at different stages: its burn time is a rough guess")
+        props = set().union(*(e["props"] for e in eng))
+        m0 = sum(q["mass"] for q in present)
+        fuel = 0.0
+        for q in present:
+            if q["d"] >= dmin:
+                for n in props & set(q["fuel"]):
+                    fuel += q["fuel"][n]
+                    q["mass"] -= q["fuel"].pop(n)
+        if fuel <= 0 or fuel >= m0:
+            continue
+        f = sum(e["f"] for e in eng)
+        ve = f / sum(e["f"] / e["isp"] for e in eng) * G0
+        burns.append((ve * math.log(m0 / (m0 - fuel)), fuel * ve / f, ve))
+    return burns
 
 
 def burn_lead(v, dv):
