@@ -274,8 +274,34 @@ def cmd_hire(a):
 
 def cmd_stage(a):
     v = sc().active_vessel
-    v.control.activate_next_stage()
+    new = v.control.activate_next_stage()
     print("stage now", v.control.current_stage)
+    if not new:
+        return
+    time.sleep(1)
+    for x in new:
+        try:
+            print(f"separated: {x.name} ({x.type.name}, {len(x.parts.all)} parts"
+                  f"{', command part' if flight._has_command(x) else ''})")
+        except Exception:
+            pass  # already destroyed / unloaded
+    if not flight._has_command(v):
+        # a decoupler leaves the root's side active: the Eve 2 lander (root Terrier) stays on the dropped stage
+        print(f"!! the active vessel {v.name} has no command part now: `ksp switch NAME` to the separated one")
+
+
+def cmd_switch(a):
+    flight.switch_to(a.name)
+    cmd_vessel(a)
+
+
+def _reentry(a):
+    v = flight.vessel()
+    packed = flight.packed_shields(v)
+    if packed and not a.packed_ok:
+        raise flight.Refused(f"{len(packed)} inflatable heat shield(s) not inflated: `ksp inflate` first "
+                             "(or --packed-ok)")
+    return flight.reentry(a.main_alt, a.main_speed, a.keep_until, a.science)
 
 
 def cmd_science(a):
@@ -391,13 +417,15 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(a.force),
     "capture": lambda a: flight.capture(a.apo, a.early),
-    "land": lambda a: (flight.land_atmo() if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
+    "land": lambda a: (flight.land_atmo(a.pe) if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "depart": lambda a: flight.depart_planet(a.body, a.pe, a.at, a.max_arrival, a.horizon),
     "match-orbit": lambda a: flight.match_orbit(a.inc, a.lan, a.argpe, a.sma, a.ecc),
     "wait-plane": lambda a: flight.wait_plane(a.inc, a.lan),
-    "reentry": lambda a: flight.reentry(a.main_alt, a.main_speed, a.keep_until),
+    "reentry": _reentry,
+    "deorbit": lambda a: flight.deorbit(a.pe, a.at, a.under, a.sunward),
+    "inflate": lambda a: flight.inflate(),
     "node": lambda a: flight.execute_node(),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
     "survey": lambda a: flight.survey(a.kind, a.dist),
@@ -507,6 +535,7 @@ def main(argv=None):
     p.add_argument("--slope", type=float, default=5.0, help="max terrain slope (deg) for --biome sites")
     p.add_argument("--orbits", type=int, default=8, help="how many orbits ahead to search for a --biome site")
     p.add_argument("--at", type=float, nargs=2, metavar=("LAT", "LON"), help="land near this point (a waypoint)")
+    p.add_argument("--pe", type=float, default=5000, help="atmosphere: deorbit burn (now) to this periapsis first")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
@@ -529,6 +558,26 @@ def main(argv=None):
     p.add_argument("--main-alt", type=float, default=4000)
     p.add_argument("--main-speed", type=float, default=250)
     p.add_argument("--keep-until", type=float, help="uncrewed: keep the service module (probe core) on, drop it under chutes below this height")
+    p.add_argument("--science", action="store_true",
+                   help="one-way probe: run + queue the transmission of fresh experiments at flying high and flying "
+                        "low without waiting (the last single-use copy is kept), then after the landing the landed "
+                        "set and leftovers like `science --all`")
+    p.add_argument("--packed-ok", action="store_true", help="enter with an inflatable heat shield still packed")
+    h = "retrograde burn (now, --at UT, or --under BODY) until the periapsis is at --pe; coasts afterwards"
+    p = add("deorbit", PHASES["deorbit"], help=h, description=h)
+    p.add_argument("--pe", type=float, required=True, help="periapsis altitude to burn down to (m)")
+    p.add_argument("--at", type=float, help="centre the burn on this UT")
+    p.add_argument("--under", metavar="BODY",
+                   help="burn where the new periapsis (the entry) comes to lie under BODY as seen from here (the "
+                        "vessel 180 deg from BODY's direction, in the orbit plane), e.g. Kerbin for the direct link")
+    p.add_argument("--sunward", type=float, default=0.0, metavar="DEG",
+                   help="with --under: rotate that direction DEG towards the Sun (Eve 2: 30 = daylight, Kerbin up)")
+    h = "inflate the inflatable heat shield (refused while an engine is aboard; KSP blocks it while a part sits on its top node)"
+    add("inflate", PHASES["inflate"], help=h, description=h)
+    h = ("in flight: make the loaded vessel NAME active. A decoupler leaves the root's side active, and a part dropped "
+         "from 'X Probe' is named 'X Probe' again: among equal names the one with a command part wins")
+    p = add("switch", cmd_switch, help=h, description=h)
+    p.add_argument("name", help="exact name, else a prefix, else a substring (case-insensitive)")
     add("node", PHASES["node"], help="execute the next maneuver node")
     p = add("survey", PHASES["survey"], help="orbital survey contract: run the experiment over each waypoint")
     p.add_argument("--kind", default="temperature")
@@ -555,11 +604,14 @@ def main(argv=None):
     add("release", PHASES["release"], help="open the Klaw")
     add("balance-fuel", PHASES["balance-fuel"], help="even out the fill level of all fuel tanks")
 
+    sub.choices["deorbit"].add_argument("--plan", action="store_true", help="print the burn (UT, m/s) and stop")
     for name in ("transfer", "correct", "match-orbit", "return", "depart"):
         sub.choices[name].add_argument("--plan", action="store_true",
                                        help="stop at the first tuned node (left in place); burn it with `ksp node`")
 
     a = ap.parse_args(argv)
+    if a.cmd == "reentry" and a.science and a.keep_until is not None:
+        ap.error("--science does not work with --keep-until")
     flight.PLAN_ONLY = getattr(a, "plan", False)
     try:
         if a.cmd in PHASES or a.cmd in ("stage", "science"):
@@ -570,7 +622,8 @@ def main(argv=None):
         else:
             r = a.fn(a)
     except flight.Planned as e:
-        print(f"PLANNED (not burned): {e}\ncheck it against the expected numbers, then `ksp node`")
+        then = "run it again without --plan" if a.cmd == "deorbit" else "`ksp node`"
+        print(f"PLANNED (not burned): {e}\ncheck it against the expected numbers, then {then}")
         return
     except flight.Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
