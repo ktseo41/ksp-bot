@@ -26,7 +26,9 @@ TECH_ICON = {'start': 'dot', 'basicRocketry': 'rocket', 'engineering101': 'wrenc
              'electronics': 'sat', 'specializedConstruction': 'wrench', 'scienceTech': 'flask', 'advLanding': 'leg',
              'fieldScience': 'flask', 'advScienceTech': 'flask', 'largeVolumeContainment': 'tank',
              'commandModules': 'kerbal', 'largeElectrics': 'bolt', 'aviation': 'air', 'automation': 'sat',
-             'heavyLanding': 'leg', 'veryHeavyRocketry': 'rocket', 'advancedMotors': 'rocket', 'specializedElectrics': 'bolt'}
+             'heavyLanding': 'leg', 'veryHeavyRocketry': 'rocket', 'advancedMotors': 'rocket', 'specializedElectrics': 'bolt',
+             'experimentalElectrics': 'bolt', 'highPerformanceFuelSystems': 'tank', 'propulsionSystems': 'rocket',
+             'unmannedTech': 'sat', 'composites': 'wrench', 'advMetalworks': 'wrench', 'ionPropulsion': 'bolt'}
 HOW_COL = {'회수': '#56c8ff', '전송': '#b28cff', '실험실 전송': '#a8e8cf'}
 
 css = '''
@@ -56,6 +58,8 @@ css = '''
 .tn .hx{width:38px;height:38px;border-radius:11px;background:linear-gradient(160deg,#3b2c6e,#241a47);border:1.5px solid #7c62d6;display:flex;align-items:center;justify-content:center;flex:none}
 .tn .t{font-size:17px;color:#c3cbe3;line-height:1.12;font-weight:500;letter-spacing:-.01em}
 '''
+if len(TECH) > 42:  # an 8th row of techs: tighter rows so the grid stays above the footer
+    css += '.tg{gap:2px 10px}.tn{height:46px}.hauls{gap:3px}.hr{height:46px}'
 
 mx = max(h['gain'] for h in H)
 seen = set()
