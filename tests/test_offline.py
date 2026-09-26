@@ -1,6 +1,8 @@
 """Offline checks of the pure helpers in kspbot.flight (no KSP): `uv run python -m unittest discover tests`."""
 import math
+import time
 import unittest
+from types import SimpleNamespace as NS
 
 from kspbot import flight as F
 
@@ -118,6 +120,37 @@ class Deorbit(unittest.TestCase):
         self.assertAlmostEqual(F._elevation((0, 0, 5), (1, 0, 1)), 45.0)
         self.assertAlmostEqual(F._elevation((0, 0, 1), (0, 0, -3)), -90.0)
         self.assertAlmostEqual(F._elevation((0, 2, 0), (1, 0, 0)), 0.0)
+
+
+class LandScience(unittest.TestCase):
+    def test_background_sets_do_not_block(self):
+        calls = []
+
+        def slow(v, label, queue):
+            time.sleep(0.5)  # _entry_science waits up to 8 s for the reports
+            calls.append(label)
+        saved = F._entry_science, F._await_queue, F.do_science, F.ut
+        F._entry_science, F.ut = slow, lambda: 0.0
+        F._await_queue = lambda v, q: calls.append("settle")
+        F.do_science = lambda **kw: calls.append("landed")
+        try:
+            v = NS(situation=NS(name="sub_orbital"), orbit=NS(body=NS(flying_high_altitude_threshold=18000)))
+            fl = NS(mean_altitude=60000)
+            tick, finish = F._entry_science_bg(v, fl)
+            worst = 0.0
+            for name, alt in (("sub_orbital", 60000), ("flying", 30000), ("flying", 25000), ("flying", 12000),
+                              ("flying", 5000)):
+                v.situation.name, fl.mean_altitude = name, alt
+                for _ in range(12):
+                    t0 = time.time()
+                    tick()
+                    worst = max(worst, time.time() - t0)
+                    time.sleep(0.1)
+            self.assertLess(worst, 0.05)
+            finish()
+            self.assertEqual(calls, ["flying high", "flying low", "settle", "landed"])
+        finally:
+            F._entry_science, F._await_queue, F.do_science, F.ut = saved
 
 
 if __name__ == "__main__":

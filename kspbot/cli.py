@@ -310,6 +310,14 @@ def _reentry(a):
     return flight.reentry(a.main_alt, a.main_speed, a.keep_until, a.science)
 
 
+def _land(a):
+    if flight.vessel().orbit.body.has_atmosphere:
+        return flight.land_atmo(a.pe, ignore_link=a.ignore_link, science=a.science)
+    if a.science:
+        print("--science is for atmospheric landings (flying high/low sets); here run `science --transmit` after")
+    return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)
+
+
 def cmd_science(a):
     flight.do_science(transmit=a.transmit or a.all, min_single=a.min_single, all_=a.all)
 
@@ -423,7 +431,7 @@ PHASES = {
     "correct": lambda a: flight.correct_course(a.body, a.pe, a.inc, a.inc_to),
     "soi": lambda a: flight.warp_to_soi(a.force),
     "capture": lambda a: flight.capture(a.apo, a.early),
-    "land": lambda a: (flight.land_atmo(a.pe, ignore_link=a.ignore_link) if flight.vessel().orbit.body.has_atmosphere else flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at)),
+    "land": _land,
     "liftoff": lambda a: flight.liftoff(a.alt, a.heading),
     "return": lambda a: flight.return_to_parent(a.pe),
     "depart": lambda a: flight.depart_planet(a.body, a.pe, a.at, a.max_arrival, a.horizon),
@@ -545,6 +553,9 @@ def main(argv=None):
     p.add_argument("--pe", type=float, default=5000, help="atmosphere: deorbit burn (now) to this periapsis first")
     p.add_argument("--ignore-link", action="store_true",
                    help="atmosphere, uncrewed: burn even with Kerbin < 20 deg up at the predicted periapsis")
+    p.add_argument("--science", action="store_true",
+                   help="atmosphere, one-way probe: flying high/low science on the way down (in the background, "
+                        "the descent control never waits), then the landed set and leftovers like `science --all`")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)

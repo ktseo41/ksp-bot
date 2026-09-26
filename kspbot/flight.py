@@ -2676,8 +2676,9 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
     _powered_descent(v, fl, ap, safety, final_speed, max_decel)
 
 
-def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
-    """Throttled suicide burn down to touchdown, holding surface retrograde (drag and chutes only help)."""
+def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick=None):
+    """Throttled suicide burn down to touchdown, holding surface retrograde (drag and chutes only help).
+    tick: called every loop (land --science's situation check; it must not block)."""
     body = v.orbit.body
     g = body.surface_gravity
     v.control.legs = True
@@ -2685,6 +2686,8 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
     feet = -v.bounding_box(v.reference_frame)[0][1]  # CoM to the lowest point (legs) along the vessel axis
     say(f"descending (feet {feet:.1f} m below CoM)")
     while v.situation.name not in ("landed", "splashed"):
+        if tick:
+            tick()
         auto_stage(v)
         h = fl.surface_altitude - feet
         a_max = v.available_thrust / v.mass
@@ -2712,12 +2715,63 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0):
     say(f"landed on {body.name} at {v.flight().latitude:.2f}, {v.flight().longitude:.2f}")
 
 
+def _entry_science_bg(v, fl):
+    """land --science: reentry --science's sets (flying high, flying low) without holding up the descent control.
+    A new flying situation queues its label for a worker thread that runs _entry_science (up to 8 s for the
+    reports, then transmissions queued without waiting) over the same kRPC connection (the client serialises its
+    calls). Returns (tick, finish): tick() checks the situation once a second and never raises; finish(), after the
+    touchdown, waits for the worker, lets the queued transmissions settle and sends the landed set and leftovers
+    (do_science(transmit, all_), as reentry does)."""
+    import queue
+    import threading
+    jobs = queue.Queue()
+    sent = {"mits": 0.0, "ut": ut()}
+    done = set()
+    high = v.orbit.body.flying_high_altitude_threshold
+    nxt = [0.0]
+
+    def work():
+        while True:
+            label = jobs.get()
+            if label is None:
+                return
+            try:
+                _entry_science(v, label, sent)
+            except Exception as ex:  # science must never end the descent
+                say(f"{label} science failed: {ex.__class__.__name__}: {str(ex).splitlines()[0][:80]}")
+    th = threading.Thread(target=work, daemon=True)
+    th.start()
+
+    def tick():
+        if time.time() < nxt[0]:
+            return
+        nxt[0] = time.time() + 1.0
+        try:
+            if v.situation.name != "flying":
+                return
+            sit = "flying high" if fl.mean_altitude > high else "flying low"
+        except Exception:
+            return
+        if sit not in done:
+            done.add(sit)
+            jobs.put(sit)
+
+    def finish():
+        jobs.put(None)
+        th.join(timeout=120)
+        _await_queue(v, sent)
+        do_science(transmit=True, all_=True)
+    return tick, finish
+
+
 @_contained(_fallback_descent)
-def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False):
+def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False, science=False):
     """Land on a body with a thin atmosphere (Duna) from a low orbit: deorbit burn to periapsis pe_alt,
     hold surface retrograde through entry, arm every parachute (they open when safe), and fly the powered
     descent below burn_alt. Its own deorbit burn (from above the atmosphere) is checked like `deorbit`'s: the
-    periapsis ground point, refused for an uncrewed craft with Kerbin < 20 deg up there unless ignore_link."""
+    periapsis ground point, refused for an uncrewed craft with Kerbin < 20 deg up there unless ignore_link.
+    science (one-way probe, Duna 2): flying high / flying low science on the way down in the background
+    (_entry_science_bg), the landed set after the touchdown."""
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
@@ -2737,10 +2791,13 @@ def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False):
     ap.target_direction = (0, -1, 0)
     ap.engaged = True
     say(f"entry: holding retrograde, {fl.speed:.0f} m/s at {fl.mean_altitude:.0f} m")
+    tick, finish = _entry_science_bg(v, fl) if science else (None, None)
     # only chutes that get dropped later (the lander's): the capsule's own chutes are needed at home
     chutes = [c for c in v.parts.parachutes if c.part.decouple_stage >= 0] or list(v.parts.parachutes)
     armed = False
     while fl.surface_altitude > burn_alt and v.situation.name not in ("landed", "splashed"):
+        if tick:
+            tick()
         if not armed and fl.mean_altitude < atmo * 0.6:
             for c in chutes:
                 if not _chute_deployed(c):
@@ -2753,7 +2810,9 @@ def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False):
             if not _chute_deployed(c):
                 c.arm()
     say(f"powered descent from {fl.surface_altitude:.0f} m AGL at {fl.speed:.0f} m/s")
-    _powered_descent(v, fl, ap)
+    _powered_descent(v, fl, ap, tick=tick)
+    if finish:
+        finish()
 
 
 def _chute_deployed(c, default=False):
