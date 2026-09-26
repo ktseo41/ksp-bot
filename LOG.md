@@ -876,6 +876,10 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   64.5 km; entry 4,384 m/s at 92 km, peak q 1.6 kPa at 61 km, AoA <= 0.5, all 25 parts, subsonic at 45 km, 4.7 m/s under
   2 Mk2-R, **splashed in the Eastern Sea** (UT 45.817M). Science flying high/low + splashed **+432 (sci 5,677)**;
   **funds 3.65 -> 4.81M** (Explore Eve + Eve surface science + firsts), rep 575.9. Photo docs/media/2026-09-27_eve-2-splashdown.png.
+- Lab visit UT 45.82M (late: 472.8 of the 500 cap) +473 (sci 6,150; lab data 477/750, falling ~100 per visit).
+  Research experimentalScience (OrbitalScanner, LargeTank), advUnmanned, largeUnmanned -> sci 3,600.
+- Next (in work, opus): Gilly transfer/landing for the Eve 2 carrier (~2,200 m/s left), `transfer` moon-SOI avoidance,
+  `stage` safety + `activate`/`decouple` helpers.
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
