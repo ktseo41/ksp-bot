@@ -600,7 +600,7 @@ Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pil
    port to swap scientists (levels rise only on recovery) and bring home the storage unit's data.
 4. Tooling fixes found in the 2026-09-26 Q&A with the user (do before they bite again):
    a. (done: the CLI already exits 1/2/3; the chains ran on because of `| tail` pipes: use `set -o pipefail` or no pipes)
-   b. Real-time guard for waits: warp_to should estimate real minutes from the rails-warp cap at the current
+   b. (partly done: warp_to prints the real-minute estimate from the rails cap when > 5 min) Real-time guard for waits: warp_to should estimate real minutes from the rails-warp cap at the current
       altitude; long waits in a low orbit (Minmus 22 km: 8.2 d took 36 real minutes) -> raise the orbit first
       (Mun: 400 km, fast) or at least say it. Lesson is only in LOG so far.
    c. Moon-to-moon transfers in code: transfer_planet from a moon matches the velocity at the SOI edge, wrong for

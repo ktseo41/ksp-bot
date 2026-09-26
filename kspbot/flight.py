@@ -63,6 +63,13 @@ def warp_to(t, lead=0.0):
         if dt > 120 and b.has_atmosphere and v.flight().mean_altitude < b.atmosphere_depth \
                 and v.situation.name not in ("landed", "splashed", "pre_launch"):
             say(f"waiting {dt:.0f} s inside the atmosphere: no rails warp, ~{dt / 4 / 60:.0f}-{dt / 60:.0f} real min")
+        elif dt > 3600:
+            # the rails cap depends on the altitude: 60 km over Duna ran ~4x effective (Duna 1 waited 25 real min
+            # for 5,800 s); from a low orbit say it, far waits belong at the space center (`warp-sc`, then `fly`)
+            rate = (1, 5, 10, 50, 100, 1000, 10000, 100000)[min(7, sc().maximum_rails_warp_factor)]
+            if dt / rate > 300:
+                say(f"waiting {dt:.0f} s at most {rate}x here: >= {dt / rate / 60:.0f} real min "
+                    "(a far wait is faster from the space center: `scene space_center`, `warp-sc`, `fly`)")
     except Exception:
         pass
     sc().warp_to(t - lead)
