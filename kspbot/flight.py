@@ -227,8 +227,11 @@ def _execute_node(node, tol, capture_pe):
         auto_stage(v)
     bt, lead = burn_time(v, dv), burn_lead(v, dv)
     ap = v.auto_pilot
-    ap.reference_frame = node.reference_frame
-    ap.target_direction = (0, 1, 0)
+    # steer in an inertial frame: the node's own frame turns with the orbit being changed, and near the end of a
+    # burn its small remainder swings about: Moho 1's trims spun up to 11 deg/s in the last 5 m/s every time
+    frame = v.orbit.body.non_rotating_reference_frame
+    ap.reference_frame = frame
+    ap.target_direction = _norm(node.burn_vector(frame))
     ap.engaged = True
     say(f"burn {dv:.0f} m/s, ~{bt:.0f}s (start {lead:.0f}s before the node), in {node.ut - ut():.0f}s")
     warp_to(node.ut - lead, lead=60)
@@ -286,9 +289,9 @@ def _execute_node(node, tol, capture_pe):
                 break
         else:
             no_thrust = None
-        rem = node.remaining_burn_vector(node.reference_frame)
+        rem = node.remaining_burn_vector(frame)
         left = node.remaining_delta_v
-        if rem[1] < 0 or left < tol:
+        if _dot(rem, ap.target_direction) < 0 or left < tol:
             break
         if left > 5:  # steer at what is still missing (long burns drift off the initial direction)
             ap.target_direction = _norm(rem)
