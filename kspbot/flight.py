@@ -2865,31 +2865,144 @@ def _biome(body, lat, lon):
     return body.biome_at(math.radians(lat), math.radians(lon))
 
 
-def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0):
-    """Earliest UT when the ground track is over one of `biomes` with gentle terrain for +-margin seconds
-    (the touchdown point; land() centres its braking burn on it)."""
+def _surface_dir(basis, lat, lon, dt, w):
+    """Direction (body's non-rotating frame) of the ground point (lat, lon) dt seconds after the basis was taken:
+    basis = the directions of (0, 0), (0, 90 E) and the north pole then, w = rotation in rad/s. The body turns
+    east: a ground point's longitude in the basis grows by w*dt (a fixed direction's falls, as in _latlon_at)
+    (pure)."""
+    la, lo = math.radians(lat), math.radians(lon) + w * dt
+    c = math.cos(la)
+    return tuple(c * math.cos(lo) * a + c * math.sin(lo) * b + math.sin(la) * n for a, b, n in zip(*basis))
+
+
+def _elev_from(basis, w, lat, lon, dt, target, r):
+    """Degrees above the local horizon of target (position from the body's centre, non-rotating frame) seen from
+    r metres from the centre over (lat, lon), dt seconds after the basis (_surface_dir). Parallax counted: Kerbin
+    seen from the Mun's limb is ~1 deg off the view from its centre (pure)."""
+    u = _surface_dir(basis, lat, lon, dt, w)
+    return _elevation(u, tuple(k - r * x for k, x in zip(target, u)))
+
+
+def _sky_grid(fetch, step):
+    """f(t) = fetch(t) linearly interpolated between samples every `step` s, each fetched once (cached); fetch(t)
+    -> tuple of vectors or None. The site search then costs a few RPCs per grid point, not per sample (pure)."""
+    cache = {}
+
+    def at(i):
+        if i not in cache:
+            cache[i] = fetch(i * step)
+        return cache[i]
+
+    def f(t):
+        i = math.floor(t / step)
+        w = t / step - i
+        return tuple(None if a is None else tuple(x + (y - x) * w for x, y in zip(a, b))
+                     for a, b in zip(at(i), at(i + 1)))
+    return f
+
+
+def _sky(body):
+    """f(t) -> (Kerbin's position, the Sun's position) relative to body at UT t, in its non-rotating frame, from the
+    orbit chains in the Sun's frame (_chain_pos, as _link_forecast); Kerbin None at Kerbin. Sampled every
+    period/2000 s, 30-600 s (Kerbin turns < 0.2 deg per step seen from the Mun, far less from a planet)."""
+    cb = _sun_chain(body)
+    ck = None if body.name == "Kerbin" else _sun_chain(sc().bodies["Kerbin"])
+
+    def fetch(t):
+        pb = _chain_pos(cb, t)
+        k = None if ck is None else tuple(a - b for a, b in zip(_chain_pos(ck, t), pb))
+        return k, tuple(-a for a in pb)
+    return _sky_grid(fetch, min(600.0, max(30.0, body.orbit.period / 2000)))
+
+
+def _descent_timeline(t, hs, acc, g, h0, safety=1.3, max_decel=3.0):
+    """(burn start UT, touchdown UT) of land() on the ground point under the track at UT t: the horizontal kill (hs
+    m/s at acc m/s2) starts half a burn before it and 10 s more (touchdowns landed ~10 s past the site), its throttle
+    tails off below 50 m/s (hs/50: 50/acc x ln 10 s from 50 to 5); then the free fall from h0 m and the braking
+    curve at a_d of land() / _powered_descent. Good to ~1 min (the fall during the kill, the mass loss) (pure)."""
+    start = t - hs / acc / 2 - 10
+    kill = max(0.0, hs - 50) / acc + 50 / acc * math.log(max(min(hs, 50.0), 5.0) / 5)
+    a_d = min(max(acc - g, 0.1) / safety, max_decel)
+    t1 = math.sqrt(2 * a_d * max(h0, 0.0) / (g * g + a_d * g))
+    return start, start + kill + t1 + g * t1 / a_d
+
+
+def _link_ok(e_start, e_td, min_elev):
+    """The landing keeps its CommNet link (relays not counted): Kerbin >= min_elev deg up from the site at the
+    touchdown and >= half of it from the vessel at the burn start (Moho 1 flew > 20 and > 10). Always true for
+    min_elev <= 0 (crewed) or at Kerbin (None) (pure)."""
+    return min_elev <= 0 or e_td is None or (e_td >= min_elev and e_start >= min_elev / 2)
+
+
+def _site_sky(track, sky, basis, w, t0, timeline, r_orb, R):
+    """f(t) -> (Kerbin's elevation from the vessel at the burn start, Kerbin's from the site at the touchdown, the
+    Sun's from the site then, burn start UT, touchdown UT) for a landing on the ground point under the track at UT t.
+    timeline(t) -> (start, touchdown) (_descent_timeline); the vessel is r_orb from the centre at the start, the site
+    R. Elevations in deg, Kerbin's None at Kerbin (pure: faked in the tests)."""
+    def f(t):
+        ts, td = timeline(t)
+        k_s = sky(ts)[0]
+        k_d, s_d = sky(td)
+        site = track(t)
+        e_s = None if k_s is None else _elev_from(basis, w, *track(ts), ts - t0, k_s, r_orb)
+        e_d = None if k_d is None else _elev_from(basis, w, *site, td - t0, k_d, R)
+        return e_s, e_d, _elev_from(basis, w, *site, td - t0, s_d, R), ts, td
+    return f
+
+
+def _landing_sky(v, track, safety=1.3, max_decel=3.0):
+    """_site_sky for this vessel on its current (near-circular) orbit, with its speed and thrust now."""
+    body = v.orbit.body
+    if v.available_thrust <= 0:
+        raise Refused(f"no thrust on {v.name} (stage {v.control.current_stage}): stage the engine first")
+    hs = v.flight(body.reference_frame).horizontal_speed
+    acc, g = v.available_thrust / v.mass, body.surface_gravity
+    R, r_orb = body.equatorial_radius, v.orbit.semi_major_axis
+    frame = body.non_rotating_reference_frame
+    t0 = ut()
+    basis = [_norm(body.msl_position(la, lo, frame)) for la, lo in ((0, 0), (0, 90), (90, 0))]
+    return _site_sky(track, _sky(body), basis, body.rotational_speed, t0,
+                     lambda t: _descent_timeline(t, hs, acc, g, r_orb - R, safety, max_decel), r_orb, R)
+
+
+def _sky_note(s):
+    e_s, e_d, sun, ts, td = s
+    k = "" if e_d is None else f"Kerbin {e_s:.0f} deg up at the burn start (UT {ts:.0f}), {e_d:.0f} at the touchdown " \
+                               f"(UT ~{td:.0f}); "
+    return k + f"Sun {sun:.0f} deg up ({'day' if sun > 0 else 'night'})"
+
+
+def find_site(biomes, max_slope=5.0, orbits=8, step=5.0, margin=10.0, track=None, ok=None, t_a=None, t_b=None,
+              quiet=False):
+    """Earliest UT when the ground track is over one of `biomes` (None: any) with gentle terrain for +-margin
+    seconds (the touchdown point; land() centres its braking burn on it) and ok(t) holds (land's link check,
+    tested first: it is cheap). Searched from now + 120 s (or t_a) for `orbits` orbits (or up to t_b)."""
     v = vessel()
     body = v.orbit.body
-    track = _track(v)
+    track = track or _track(v)
     t0 = ut()
-    t = t0 + 120
-    while t < t0 + orbits * v.orbit.period:
+    t = t0 + 120 if t_a is None else t_a
+    end = t0 + orbits * v.orbit.period if t_b is None else t_b
+    while t < end:
         mid = track(t)
-        if _biome(body, *mid) in biomes:
+        if (ok is None or ok(t)) and (biomes is None or _biome(body, *mid) in biomes):
             pts = [track(t - margin), mid, track(t + margin)]
-            if all(_biome(body, *p) in biomes for p in pts) and max(_slope(body, *p) for p in pts) < max_slope:
-                say(f"site: {_biome(body, *mid)} at {mid[0]:.2f}, {mid[1]:.2f} in {t - t0:.0f} s")
+            if (biomes is None or all(_biome(body, *p) in biomes for p in pts)) and \
+                    max(_slope(body, *p) for p in pts) < max_slope:
+                if not quiet:
+                    say(f"site: {_biome(body, *mid)} at {mid[0]:.2f}, {mid[1]:.2f} in {t - t0:.0f} s")
                 return t
         t += step
     return None
 
 
-def find_point(lat, lon, tol_km=2.0, orbits=20, step=5.0):
-    """Earliest UT when the ground track passes within tol_km of (lat, lon) (e.g. a contract waypoint); the
-    closest pass if none is that close."""
+def find_point(lat, lon, tol_km=2.0, orbits=20, step=5.0, track=None, ok=None, t_a=None, t_b=None, quiet=False):
+    """Earliest UT when the ground track passes within tol_km of (lat, lon) (e.g. a contract waypoint) on a pass
+    that ok(t) accepts (land's link check); the closest accepted pass if none is that close; None if ok accepts
+    no pass at all. Searched from now + 120 s (or t_a) for `orbits` orbits (or up to t_b)."""
     v = vessel()
     body = v.orbit.body
-    track = _track(v)
+    track = track or _track(v)
     R = body.equatorial_radius
 
     def dist(p):
@@ -2898,45 +3011,88 @@ def find_point(lat, lon, tol_km=2.0, orbits=20, step=5.0):
         return R * math.acos(max(-1.0, min(1.0, c))) / 1000.0
     t0 = ut()
     best = None
-    t = t0 + 120
-    while t < t0 + orbits * v.orbit.period:
+    t = t0 + 120 if t_a is None else t_a
+    end = t0 + orbits * v.orbit.period if t_b is None else t_b
+    while t < end:
         d = dist(track(t))
-        if best is None or d < best[0]:
-            best = (d, t)
         if d < tol_km:
             # refine to the closest point of this pass
             while dist(track(t + 1)) < d:
                 t += 1
                 d = dist(track(t))
+            if ok is None or ok(t):
+                best = (d, t)
+                break
+            t += v.orbit.period / 4  # Kerbin out of view on this pass: the next one
+            continue
+        if (best is None or d < best[0]) and (ok is None or ok(t)):
             best = (d, t)
-            break
         t += step
-    say(f"closest pass {best[0]:.1f} km from ({lat:.2f}, {lon:.2f}) in {best[1] - t0:.0f} s "
-        f"(biome {_biome(body, *track(best[1]))}, slope {_slope(body, *track(best[1])):.1f} deg)")
+    if best is None:
+        return None
+    if not quiet:
+        say(f"closest pass {best[0]:.1f} km from ({lat:.2f}, {lon:.2f}) in {best[1] - t0:.0f} s "
+            f"(biome {_biome(body, *track(best[1]))}, slope {_slope(body, *track(best[1])):.1f} deg)")
     return best[1]
 
 
 @_contained(_fallback_descent)
-def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8, at=None):
+def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0, orbits=8, at=None, min_elev=None):
     """Land on an airless body from a low orbit: kill horizontal speed, then a throttled suicide burn.
-    biomes: first wait for a pass over one of these biomes with gentle terrain; at: (lat, lon) to land near."""
-    t = None
-    if at:
-        t = find_point(at[0], at[1], orbits=max(orbits, 20))
-    elif biomes:
-        t = find_site(biomes, max_slope, orbits=orbits)
-        if t is None:
-            say(f"no site under {max_slope} deg in {biomes} within {orbits} orbits")
-            return False
+    biomes: first wait for a pass over one of these biomes with gentle terrain; at: (lat, lon) to land near.
+    min_elev: Kerbin's elevation (deg) the CommNet link needs (None: 20 for an uncrewed craft, 0 crewed): passes
+    with Kerbin lower from the site at the touchdown, or under half of it from the vessel at the burn start, are
+    skipped (_link_ok); an uncrewed craft with no biomes / at waits for such a gentle site in any biome. No site in
+    the window: names the next one (a few orbits / rotations on) and flies nothing. PLAN_ONLY: print the site, stop."""
     v = vessel()
-    _antennas(v, False, panels_only=True)  # panels break on touchdown; antennas stay (a probe needs its link)
     body = v.orbit.body
+    if min_elev is None:
+        min_elev = 0.0 if _crewed(v) else 20.0
+    linked = min_elev > 0 and body.name != "Kerbin"
+    t = None
+    if at or biomes or linked:
+        track = _track(v)
+        sky = _landing_sky(v, track, safety, max_decel)
+        ok = (lambda tt: _link_ok(*sky(tt)[:2], min_elev)) if linked else None
+        n = max(orbits, 20) if at else orbits
+
+        def search(**kw):
+            if at:
+                return find_point(at[0], at[1], orbits=n, track=track, ok=ok, **kw)
+            return find_site(biomes, max_slope, orbits=n, track=track, ok=ok, **kw)
+        t = search()
+        where = f"near ({at[0]:.2f}, {at[1]:.2f})" if at else f"under {max_slope} deg in {biomes or 'any biome'}"
+        need = f" with Kerbin >= {min_elev:.0f} deg up at the touchdown ({min_elev / 2:.0f} at the burn start)" \
+            if linked else ""
+        if t is None:
+            per = v.orbit.period
+            t_a = ut() + n * per
+            t_b = t_a + min(max(body.rotational_period, 5 * n * per), 60 * per)
+            say(f"no site {where}{need} within {n} orbits; searching on to UT {t_b:.0f} "
+                f"(+{(t_b - ut()) / 3600:.1f} h)")
+            t2 = search(t_a=t_a, t_b=t_b, step=15.0, quiet=True)
+            if t2 is None:
+                say(f"none up to UT {t_b:.0f} either: other biomes (--biome), a lower --min-elev, or a relay")
+            else:
+                lat, lon = track(t2)
+                k = math.ceil((t2 - ut()) / per) + 1
+                say(f"next site: UT {t2:.0f} (in {(t2 - ut()) / 3600:.1f} h, ~{k} orbits), {_biome(body, lat, lon)} at "
+                    f"{lat:.2f}, {lon:.2f}; {_sky_note(sky(t2))}. Fly it with --orbits {k}, or `warp` to UT "
+                    f"{t2 - 900:.0f} and land again")
+            return False
+        s = sky(t)
+        say(f"landing at UT {t:.0f}: {_sky_note(s)}" + (f" (link needs {min_elev / 2:.0f} / {min_elev:.0f})"
+                                                        if linked else ""))
+        if PLAN_ONLY:
+            lat, lon = track(t)
+            raise Planned(f"land {where} at {lat:.2f}, {lon:.2f}, UT {t:.0f} (burn start UT {s[3]:.0f}, touchdown "
+                          f"~{s[4]:.0f}); {_sky_note(s)}")
+    _antennas(v, False, panels_only=True)  # panels break on touchdown; antennas stay (a probe needs its link)
     fl = v.flight(body.reference_frame)
     start = None
     if t is not None:
         # the braking burn covers ~hs*burn/2 of ground: start it half a burn before the site
-        burn = fl.horizontal_speed / (v.available_thrust / v.mass)
-        start = t - burn / 2 - 10  # measured: touchdowns landed 1.4-1.7 km (~10 s) past the site
+        start = _descent_timeline(t, fl.horizontal_speed, v.available_thrust / v.mass, body.surface_gravity, 0.0)[0]
         warp_to(start, lead=40)
     ap = v.auto_pilot
     ap.reference_frame = v.surface_velocity_reference_frame
