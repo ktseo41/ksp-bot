@@ -613,28 +613,50 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   needed; no error); with a full battery the second worked: **sci 330 -> 829**. Topped up to 731/750. Next visit before
   ~UT 28.43M (54 days at ~9.3/day). Tooling: `lab transmit` should check EC first and wait until science rises.
 
+## 2026-09-26 — Eve 1 leaves Eve, Duna 1 home (Valentina), science into the pod
+- Lab visit UT 28.40M: 485 sci transmitted, **sci 829 -> 1314**, topped up to 734/750.
+- **Eve 1 (Jeb)**, fable's offline plan to the metre: `depart Kerbin --pe 30000 --plan` tilt 104.6 m/s at the apoapsis
+  (expected 105), dry-run ejection 215 (planned 215) -> burned; run 2 `--at 29029189` 214.8 m/s -> escaping, Eve SOI exit
+  UT 29,087,752, Sun ap 15.96 Gm. `correct Kerbin` then found **no encounter** (coarse search 48 m/s, "no encounter").
+  The orbit passes Kerbin at 39 Mm (SOI 84) on UT ~35,464,577, and even a test node bringing the closest approach to
+  0.26 Mm showed no Kerbin patch. fable diagnosed (decompiled PatchedConics._CheckEncounter / Orbit._SolveClosestApproach,
+  reproduced with kspbot/kepler.py): the solver seeds from the first of the two orbit-crossing points (+23 d, 308 Mm);
+  the second candidate time is wrapped to (-P/2, P/2] and the gap (4,303,298 s) exceeds P/2 by 10 h, so it lands in
+  the past and the real pass (+73 d) is never examined. **SOI switching does not depend on the prediction**
+  (OrbitDriver.CheckDominantBody by position, on rails and at 1x). Once UT > ~31.2M the first crossing is in the
+  past and the game shows the encounter: then `correct Kerbin --pe 30000 --plan` (~9 m/s) and check it against kepler.py.
+- **Duna 1 home**: Kerbin SOI UT 29,268,764 with pe 204 km. `correct` stopped at pe 64.7 (10 m/s): lower paths cross the
+  Mun's SOI on the way in (inbound, before the periapsis) and the tuner's moon penalty blocks them (right here; a
+  change I made to ignore moons after an atmospheric periapsis doesn't apply to this case). Scratch grid: no Mun-free
+  path under 57 km; **via a 2,200 km Mun flyby** 1.2 m/s gives the final Kerbin pe 30 km -> burned, 31.0 km after the
+  Mun. Reentry, splashdown, **Valentina recovered: funds 2.35 -> 2.53M, sci 1,329 -> 1,626 (+297)**, "Explore Duna" done.
+  The "surface science from Duna" contract stayed open: the Duna surface goo and thermometer data sat on the lander
+  stage that `reentry` jettisons (~80 sci lost). Fix: KspBot `StoreScience` moves every experiment's data into the
+  root part's container (the Mk1 pod's own "Collect All" is disabled: canTransferInVessel = false), called by
+  `collect_science` before the jettison (crewed). Tested on Eve 1: 7 items stored, 11 held in the pod.
+- KSP restarted for the mod (Windows before: commit 24.8 GB, nonpaged pool 1.20 GB, available 3.1 GB; at session start
+  15.4 GB / 0.89 GB / 3.6 GB). Sandbox photo shoot for the summary cards (shoot_crafts.py): 6 of 8 crafts (Minmus
+  Science 2 and Survey 1 timed out on launch).
+- Progress cards v2 (user request: fable leads, opus builds): docs/summary-cards-plan.md, tools/summary/v2/,
+  docs/media/summary/v2/ (10 cards), career.json extended.
+
 ### Next steps (plan)
-State (2026-09-26, after Rescue 6): KSP running, at the space center, UT ~23.68M, funds 2.19M, sci 925, rep 438.
-Save-NRE fix verified live. Timeline ahead (UT): 25,054,465 Ike Station 1 window; 26,854,269 Duna 1 mid-course;
-~27.5M lab visit (500 cap ~53 days after 23.456M); 28,925,295 / 29,029,189 Eve 1 tilt / ejection; 29,273,095 Duna 1
-Kerbin SOI.
-Jool 1 (uncrewed, ~4,540 m/s) cruising: mid-course UT 27,263,628 (`correct Jool --pe 250000 --inc-to 0 --plan`),
-Jool SOI UT 52,787,080, then `soi`, `capture --apo 100000000` (~445 m/s), science (docs/jool-1-plan.md).
-Duna 1 (Valentina, ~378 sci, 623 m/s) on the way home: Kerbin pass pe 11,514 km inc 56.5 -> correct at UT 26,854,269.
-Eve 1 (Jeb, ~1017 sci, 3762 m/s) in a 142 x 40,000 km Eve orbit, inc 73 (return plan: item 2).
-Minmus Lab 1 (Bob, Gwenbro) 13.6 x 15 km polar Minmus orbit, lab 731/750, ~9.5 sci/day, transmitted at 27.26M:
-next visit before UT ~28.43M (cap 500 = 54 days), then every <= 50 days.
-Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
-Ike Station 1 (uncrewed, Poodle ~1,850 m/s) cruising to Duna: SOI UT 30,679,045 -> `correct Duna --pe 60000
---inc-to 0 --plan` inside, `capture` (~640), `transfer Ike --pe 50000 --plan` (docs/ike-station-plan.md).
+State (2026-09-26, after Duna 1's return): KSP running at the space center, UT ~29.36M, funds 2.53M, sci 1,626,
+rep ~458. Timeline (UT): lab visit before ~29.57M (then every <= 50 days); **Ike Station 1 Duna SOI 30,679,045**;
+Eve 1 correction after ~31.2M (encounter shows then), Kerbin pass ~35.46M; **Jool 1 Jool SOI 52,787,080**.
+Jool 1 (uncrewed, ~4,540 m/s): Jool pe -655 km inc 15.9 after the mid-course: trim pe to 250 km inside Jool's SOI,
+`capture --apo 100000000` (~445), science (docs/jool-1-plan.md).
+Eve 1 (Jeb, ~1,017 sci now in the pod container, ~3,440 m/s): see above; reentry at ~3.9 km/s, `reentry` collects
+science first.
+Minmus Lab 1 (Bob, Gwenbro) lab 734/750, ~9.5 sci/day. Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
+Ike Station 1 (uncrewed, Poodle ~1,850 m/s) cruising to Duna: at the SOI `correct Duna --pe 60000 --inc-to 0 --plan`,
+`capture` (~640), `transfer Ike --pe 50000 --plan` (docs/ike-station-plan.md).
 Active contracts: **Ike station** (Ike Station 1 en route), Duna x2 (complete on recovery),
 Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
 Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
 Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
-1. **Duna 1 return**: ejected (762 m/s). At UT 26,854,269 (90 deg before arrival; warp there from the space center)
-   `correct Kerbin --pe 30000 --plan`: expect ~10 m/s (plane) -> Kerbin pe 30 km; stop if > 40. Then warp-sc to the Kerbin
-   SOI (29,273,095), `correct` again inside (a few m/s), reentry (Mk1 pod + heat shield, v_inf ~830).
+1. (done: Duna 1 home.) Duna surface science contract still open (needs surface data from Duna: Ike Station can't).
 2. **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
    29029189 ... tilt ... 105 m/s + ejection 215 = 320"; tilt at the apoapsis UT 28,925,295, dry-run v_inf error
    < ~5 m/s) -> node; then `depart Kerbin --pe 30000 --at 29029189 --plan` (~215 m/s, encounter) -> node; after the
