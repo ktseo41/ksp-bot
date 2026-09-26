@@ -837,6 +837,9 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   the Poodle alone (160 left). Sun orbit 13.34 x 42.70 Gm (plan 42.74). Arrival ~UT 59.19M.
 - Lab visit UT 43.37M +441 (sci 6,022; storage unit empty: `lab process` added nothing). Research unmannedTech,
   composites, advMetalworks, ionPropulsion -> sci 4,572. Contract sync check after the scene switch: 6 = 6.
+- Contract "Position Mun Sat 1 in an adjusted orbit of the Mun" (offered after the restart; 61.8k + 21k advance):
+  inc 134.70, e 0.240, sma 859.5 km, LAN 313.0, argPe 140.6. New `match-orbit` (first flight): plane 25.9 deg 125 m/s
+  (plan 127), pe side 47, ap 17.4, pe trim 0.6 -> argPe off 0.2 deg: **contract done** (+61,774, rep 545.6), 190 m/s.
 ### Next steps (plan)
 **State (2026-09-27, session end): KSP at the space center, UT ~41.40M, funds 3.30M, sci 5,270, rep 543.
 In flight: Eve 2 (#49) cruising to Eve: SOI ~UT 45.20M, pe ~45.30M; Eve pe 10,358 km, inc 2.8, Poodle 2,390, lander
