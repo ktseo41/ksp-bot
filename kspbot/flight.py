@@ -777,7 +777,7 @@ def planet_window(target_name, origin=None, lookback_days=40, flight_time=False)
     # 40-day lookback returned one five periods old (Survey 1)
     back = min(lookback_days * day, 0.15 * syn)
     t, (prev, _) = now - back, f(now - back)
-    while t < now + syn + 2 * day:
+    while t < now + 1.5 * syn:  # eccentric targets drift off the mean synodic period (Moho's came 2.5 d past it)
         t2 = t + day
         cur, _ = f(t2)
         if prev * cur <= 0 and abs(prev - cur) < 1.0:  # a real zero, not the +-pi wrap
