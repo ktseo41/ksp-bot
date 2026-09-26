@@ -695,7 +695,43 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
 - Records: writeup 7.19-7.24 (opus), career.json fixes, card 02 past-event ETA, cards rebuilt.
 - Windows before the PC restart (KSP up ~6 h this run): commit 32.8 GB, nonpaged pool 1.57 GB, available 1.9 GB.
 
+## 2026-09-26 — Moho 1 lost on ascent (reverted), Eve 2 pad check, code gaps for Moho 1 + Eve 2 (before a PC restart)
+- KSP start after the PC restart: commit 18.6 -> 26.0 GB, nonpaged pool 1.18 -> 1.22 GB, available 3.1 -> 1.6 GB.
+  Before this PC restart (KSP up ~1.5 h): commit 26.2 GB, pool 1.28 GB, available 2.4 GB.
+- **Eve 2 pad check** (career pad, recovered, full refund): 1776 SL / 1526 SL / 3321 vac (plan 1775 / 1518 / 3287), height
+  accepted. The lander's Terrier stage shows no Δv: KSP's calculator follows the root (carrier) side of the TD-12;
+  part stats give 828 vac. Sandbox pad photos of Moho 1 and Eve 2 (daylight) cropped for the cards; the shield drum
+  sits between the deorbit stage and the lander body as specified.
+- Lab visits: UT 36.45M **+417** (charged 1 h to 3,810 EC first), UT 37.50M **+456** -> sci **3,636**; data topped up
+  to 739 / 728 of 750. Next visit **before UT ~38.58M** (~10 sci/day, 500 cap).
+- Code (opus): `science --all` (goo/Jr transmitted), EC-aware per-experiment transmit (charges in sunlight, waits for
+  the science), capture never pauses/warps for a lost link + `capture --early S`, transfer T golden-section refine,
+  `soi` refuses a predicted pe below terrain (`--force`), far-out `correct` re-reads the pe 60 s after the burn.
+  Eve 2 gaps 3-6 (opus, worktree, merged): `switch NAME`, `deorbit --pe X [--at UT | --under Kerbin --sunward 30]
+  [--plan]`, `inflate`, `reentry --science`; `_deorbit_now` no longer loops without thrust; reentry holds retrograde
+  through the heat pulse even with pre-staged chutes. **Eve 2 sequence changes** (see docs/eve-2-plan.md "Lander
+  sequence (code)"): after dropping the deorbit stage the SPENT Terrier stage stays active -> `switch "Eve 2 Probe"` again.
+  None of this new code has flown yet.
+- **Moho 1 launch #46 (UT 38,425,025): lost at 3:58, reverted to launch, recovered (full refund).** Pad numbers matched
+  (1430 / 1198 / 3513 / 4218). Recorder: Twin-Boar staged at 15.5 km / 638 m/s, pitch 38; the Skipper (TWR 0.85) kept
+  following the altitude pitch program (12 deg at 34 km) while the apoapsis crept 24 -> 38 km: the craft flew level at
+  38 km, 2 km/s, the top OKTO reached 1206/1200 K and exploded (OX-STAT-XLs 1452 K). **Cause: ascent guidance** — phase 1
+  has no time-to-apoapsis guard; earlier launchers staged higher so it never showed. **Fix (committed 7c10f00, untested):**
+  above 12 km and inside the atmosphere, pitch += 1.5 x (45 - t_apo) when t_apo < 45 s (still clamped to AoA 15).
+  Also my chain ran `circularize` after `ascent` exited 2 (`;` instead of `&&`): always chain flight phases with `&&`.
+  The user spotted the explosion on screen while I waited for the background notice: poll the background output
+  every minute or two during an ascent (read the file), don't only wait for the end.
+
 ### Next steps (plan)
+**State (2026-09-26, before a 2nd PC restart): KSP saved at the space center, UT 38,425,858, funds 3.18M, sci 3,636,
+rep 528. Nothing in flight needs attention; no burns pending. Moho 1 is NOT flying (reverted + recovered, craft file
+unchanged). Next: relaunch Moho 1 at once (window UT 38,450,305 is ~24,000 s away: fine); watch the ascent's new
+t_apo guard (expect apoapsis rising steadily after the Skipper takes over, no flat flight at 38 km; stop rule: any
+`damage`/`attitude` event or apoapsis < 45 km at 3:00 -> revert). Then transfer per docs/moho-1-plan.md.
+Lab visit before UT ~38.58M (during Moho cruise: `scene space_center`, `warp-sc`, `fly "Minmus Lab 1"`).
+Record TODO (opus): career.json launch #46 Moho 1 (result reverted, note: OKTO overheated in a flat ascent), then
+#47 for the reflight; cards; writeup (current through 7.24).**
+Older state (before the first PC restart, kept for reference):
 State (2026-09-26, before a PC restart): KSP saved at the space center, UT ~35.476M, funds 3.18M, sci 2,764, rep 528.
 All crews home except Bob + Gwenbro (Minmus Lab 1). No burns pending, nothing in flight that needs attention.
 Timeline (UT): **lab visit before 36.55M** (then every ~1.08M, charge > 3,000 EC first); **Moho 1 launch for the window

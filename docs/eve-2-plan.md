@@ -117,7 +117,16 @@ in, in that order.
 | carrier again | `scene space_center`, `fly "Eve 2"` | | 1300 | |
 | Gilly (optional, only if ≥ 500 left) | `transfer Gilly --pe 15000 --plan` (expect a refusal on the 12 deg plane: then `match-orbit` to Gilly's plane first) | aim at Gilly's **apoapsis (48.8 Mm)**: 132 m/s prograde + 12 deg fold = **~200**, 2.5 d, arrival v_inf ~30 (at its pe it would be ~300); capture ~35, land ~35 on the Poodle bell at < 2 m/s (no legs; Gilly g 0.049); Gilly landed goo (the 2nd goo) + thermo/baro/grav ~100 sci, low/high space ~100 | ~1000 | |
 
-## Code gaps (all found in kspbot/flight.py, kspbot/cli.py; none written yet)
+## Lander sequence (code, 2026-09-26: gaps 1-6 written, none flown yet)
+`stage` (TD-12 release; the carrier stays active) -> `switch "Eve 2 Probe"` -> `stage` (Terrier) ->
+`deorbit --pe 65000 --under Kerbin --sunward 30 --plan` (offline: 450-499 m/s of the 828) -> same without `--plan` ->
+`stage` (drop the deorbit stage: KSP keeps the SPENT Terrier stage active, the lander body becomes a new
+"Eve 2 Probe") -> **`switch "Eve 2 Probe"` again** (the command-part tiebreak picks the lander body) -> `inflate`
+(refuses while an engine is aboard) -> `stage` (chutes) -> `reentry --science` (queues flying-high at ~90 km and
+flying-low sets without blocking; landed set + leftovers after touchdown). Keep carrier and lander loaded (no far warps).
+Unverified in game: kRPC event names for the shield, `active_vessel` switch, transmission queueing during entry.
+
+## Code gaps (as found before the fixes; 1-6 and 10 are now written: see above)
 1. **`do_science(transmit=True)` transmits only rerunnable experiments** (`if transmit and e.rerunnable`): goo and Science
    Jr data are kept "for recovery" — both craft here are never recovered (~150 sci lost per craft). Fix: `science --all`
    -> transmit every experiment with data; before each transmit check EC ≥ Mits x EC/Mit of the antenna (Jool plan's stall).
@@ -187,8 +196,7 @@ in, in that order.
 - The capture blackout (-6..+55 deg) uses the 184-d Kerbin direction; recompute from the live positions inside the SOI
   (Kerbin vs the vessel's pe direction in Eve's non-rotating frame) before choosing the node lead.
 - Eve science values (x8 landed, x6 flying) and the transmit fractions are stock numbers, not read from this save.
-- Gaps 1-6 are unwritten code; the lander phase cannot fly as-is (goo/Jr never transmitted, `land` would loop without an
-  engine, no inflate, no vessel switch).
+- Gaps 1-6 written 2026-09-26 (commits fb230ff, 11db0d4), not yet flown.
 
 ## What the tooling lacks (summary for the flight)
 Gaps 1-6 are needed before the lander phase (1, 2 before the capture); 7-10 are conveniences. Nothing new is needed for
