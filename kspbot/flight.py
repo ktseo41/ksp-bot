@@ -469,6 +469,12 @@ def ascent(target_alt=80000, heading=90.0, turn_start=250, turn_end=45000, shape
         spd = fl.speed
         if spd > 80 and alt > turn_start:
             vel_pitch = math.degrees(math.atan2(fl.vertical_speed, max(fl.horizontal_speed, 1e-3)))
+            # low-TWR upper stages: the altitude program alone laid Moho 1 flat at 38 km (apoapsis never above it,
+            # 2 km/s in the air, the OKTO overheated): above 12 km hold the apoapsis >= 45 s ahead while in the air
+            if 12000 < alt < atmo:
+                t_apo = v.orbit.time_to_apoapsis if fl.vertical_speed > 0 else 0.0
+                if t_apo < 45:
+                    pitch += 1.5 * (45 - t_apo)
             pitch = min(max(pitch, vel_pitch - max_aoa), vel_pitch + max_aoa)
         # at most 1.5 deg/s: the sqrt program starts with an infinite slope at turn_start, and that kick set the
         # tall 1.25 m Rescue 3/4 stacks swaying (+-1 deg/s at 0.3 Hz) from 250 m until past max Q
