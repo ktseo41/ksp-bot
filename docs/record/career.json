@@ -3,9 +3,9 @@
  "career_now": {
   "date": "2026-09-26",
   "real_days": 3,
-  "ut": 29550000,
-  "ut_note": "game UT at the last update (main session, 2026-09-26, just after the third Minmus Lab visit following Duna 1's Kerbin recovery)",
-  "funds": 2534973,
+  "ut": 30752200,
+  "ut_note": "game UT at the last update (main session, 2026-09-26, Ike Station 1 contract done in Ike orbit)",
+  "funds": 3526795,
   "science": 2118.0,
   "reputation": 458.2,
   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 2, "AstronautComplex": 2, "R&D": 3},
