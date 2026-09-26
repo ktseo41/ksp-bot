@@ -687,6 +687,8 @@ def _inc_off(orbit, inc_to):
 
 
 def _node_cost(node, target, pe_alt, min_inc=None, inc_to=None):
+    """Periapsis error (km) + inclination terms, read only off the patch around target (a heliocentric patch's
+    inclination means nothing for inc_to); with no encounter, the closest approach behind a fixed miss penalty."""
     time.sleep(0.04)  # let KSP recompute patches
     if node.orbit.body.name == target.name:  # already inside the target SOI: just shape the periapsis
         return abs(node.orbit.periapsis_altitude - pe_alt) / 1000.0 + _inc_short(node.orbit, min_inc) \
@@ -1420,14 +1422,70 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     """Mid-course correction toward target periapsis pe_alt (small burn now + 120 s); min_inc: also tilt the
     arrival orbit to at least this inclination (cheap far out, e.g. for survey sites at high latitude);
     inc_to: aim for this arrival inclination (0..180, e.g. 25 to meet a prograde target; flipping from a
-    retrograde pass means crossing an impact path, so seed from a grid first)."""
+    retrograde pass means crossing an impact path, so seed from a grid first).
+    Far out the search is scaled to the lever arm (the aim point moves ~ dv x time to go) and its cost carries a
+    dv term: with no encounter around the target's parent the node is seeded from a Lambert solve; with an
+    encounter > 1 day out, --inc-to/--inc use a small grid and are capped at 3x the estimate. Moho 1's plain
+    tuner planned 390 m/s where 77 did."""
     v = vessel()
     target = sc().bodies[target_name]
     node = v.control.add_node(ut() + 120, 0, 0, 0)
     cost = lambda n: _node_cost(n, target, pe_alt, min_inc, inc_to)
+    dv_cost = lambda n: cost(n) + n.delta_v  # 1 m/s weighs like 1 km of periapsis or 5 deg of inclination
     expect = None
-    if inc_to is not None and (v.orbit.eccentricity > 1 if v.orbit.body.name == target_name
-                               else _encounter(v.orbit, target) is not None):
+    far = None  # (step prograde/radial, step normal) of the far-out search
+    cap = None
+    lam = None
+    by_design = False
+    day = 21600.0
+    inside = v.orbit.body.name == target_name
+    enc0 = None if inside else _encounter(v.orbit, target)
+    t_in = _t_entry(v.orbit, target) if enc0 else None
+    if not inside and enc0 is None and v.orbit.body.name == target.orbit.body.name:
+        # no encounter around the target's parent (Moho 1 after a late ejection: closest approach 331,674 km): the
+        # +-6 m/s grid never reaches the SOI and the tuner walks off (390 m/s planned); Lambert from the node instead
+        moon = target.orbit.body.orbit is not None
+        lam = _lambert_seed(node, target)
+        if lam is None and not moon:
+            node.remove()
+            say("Lambert found no path to the target; not burning")
+            return False
+    if lam is not None:
+        expect, t_arr, vi_arr, z2, flat = lam
+        lever = t_arr - node.ut
+        b = _aim_radius(target, pe_alt, vi_arr)
+        lev = _levers(v.orbit, target, lever)
+        if _encounter(node.orbit, target) is None and flat and abs(z2) > 0.5 * target.sphere_of_influence:
+            by_design = True  # the plane change is dear here (near the node line): burn the in-plane part now
+        elif _encounter(node.orbit, target) is None:
+            # the two-body arc and KSP's patches disagree a little: pull the closest approach in (the dv term keeps
+            # the tuner from pumping the orbit up)
+            s = 0.5 * target.sphere_of_influence / lever
+            say(f"Lambert seed has no encounter in KSP's prediction; tuning the closest approach (step {s:.2f} m/s)")
+            tune_node(node, dv_cost, steps=(("prograde", s), ("normal", s), ("radial", s)), min_step=s / 50)
+        if not by_design and _encounter(node.orbit, target):
+            far = (0.1 * b / lev[0], 0.1 * b / lev[1])  # one step moves the aim point by ~b/10
+        elif not by_design and moon:
+            # around a planet the old coarse grid (a Mun flyby's deflection) is the fallback; around the Sun it
+            # was the 390 m/s walk-off
+            say("Lambert seed found no encounter; falling back to the coarse search")
+            node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+            lam, expect = None, None
+    elif enc0 and t_in and t_in - node.ut > day and (inc_to is not None or min_inc):
+        # far out with an encounter: the aim-point seed below (built for turns inside the SOI, Eve 1) lost the
+        # encounter on every trial from Duna 1's aphelion and the tuner then walked off to 80 m/s
+        imp = _impact(node, target)
+        vi = imp[2] if imp else math.sqrt(target.gravitational_parameter / abs(enc0[1].semi_major_axis))
+        b = _aim_radius(target, pe_alt, vi)
+        lev = _levers(v.orbit, target, t_in - node.ut)
+        far = (0.1 * b / lev[0], 0.1 * b / lev[1])
+        b_now = math.sqrt(_dot(imp[0], imp[0])) if imp else 0.0
+        # the pe change in the plane + at most half a turn around the aim ring (chord 2b), each over its lever arm
+        expect = abs(b_now - b) / lev[0] + 2 * b / lev[1]
+        cap = 3 * expect + 0.5
+        say(f"far out ({(t_in - node.ut) / day:.1f} d to the SOI): aim radius {b / 1000:.0f} km (now "
+            f"{b_now / 1000:.0f}), estimate <= {expect:.2f} m/s; grid steps {far[0]:.3f} / {far[1]:.3f} m/s")
+    elif inc_to is not None and (v.orbit.eccentricity > 1 if inside else enc0 is not None):
         # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the aim
         # point (impact vector b) around the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg inside the
         # SOI, far beyond the +-6 m/s grid below
@@ -1444,8 +1502,13 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
                     if best is None or c < best[0]:
                         best = (c, nm, rd)
         node.prograde, node.normal, node.radial = 0.0, best[1], best[2]
-    tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
-    if _encounter(node.orbit, target) is None and v.orbit.body.name != target.name:
+    if far:
+        _far_grid(node, dv_cost, *far)
+        tune_node(node, dv_cost, steps=(("prograde", far[0]), ("normal", far[1]), ("radial", far[0])),
+                  min_step=far[0] / 8)
+    elif lam is None:
+        tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
+    if _encounter(node.orbit, target) is None and not inside and lam is None:
         # far off course (e.g. deflected by a Mun flyby): seed from a coarse prograde x radial grid, then tune
         say("no encounter nearby; coarse search")
         best = None
@@ -1460,17 +1523,33 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     enc = _encounter(node.orbit, target)
     inc = math.degrees(enc[1].inclination) if enc else None
     say(f"correction {node.delta_v:.1f} m/s -> pe {enc[0] if enc else None}, inc {inc}")
-    if enc is None and v.orbit.body.name != target.name:
+
+    def plane_later():
+        """The plane where its lever arm is long: ~90 deg of true anomaly before arrival (transfer_planet's rule)."""
+        o = v.orbit
+        t90 = o.ut_at_true_anomaly(o.true_anomaly_at_ut(t_arr) - math.pi / 2)
+        if not ut() < t90 < t_arr:  # already inside the last 90 deg
+            t90 = ut()
+        say(f"next: `ksp correct {target_name} --pe {pe_alt:.0f}` around UT {t90:.0f} "
+            f"({(t90 - ut()) / day:.0f} days from now) for the plane")
+        return True
+    if by_design:
+        say(f"no encounter by design: {target_name} {z2 / 1000:+.0f} km out of our plane at arrival (SOI "
+            f"{target.sphere_of_influence / 1000:.0f} km); this burn fixes the in-plane miss only")
+    elif enc is None and not inside:
         node.remove()
         say("no encounter reachable; not burning")
         return False
     if node.delta_v < 0.3:
         node.remove()
-        return enc is not None
+        return plane_later() if by_design else enc is not None
     if v.orbit.body.orbit is None and inc_to is None and min_inc is None and node.delta_v < 1.0:
         # around the Sun a few mm/s of burn error move the pass by 100s of km (Duna 1 chased 0.1 m/s trims for
         # 48 days): periapsis trims belong inside the target's SOI
         node.remove()
+        if by_design:
+            say("far out: an in-plane trim under 1 m/s is below the burn accuracy here; the plane burn takes it")
+            return plane_later()
         say("far out: a trim under 1 m/s is below the burn accuracy here; do it inside the SOI")
         return enc is not None
     if v.orbit.body.orbit is None and node.delta_v > 20 and not math.isnan(v.orbit.time_to_soi_change):
@@ -1490,6 +1569,9 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
             node.remove()
             raise Refused(f"{dv:.0f} m/s with the arrival {ang:.0f} deg ahead (plane changes are dear on "
                           f"the node line): correct ~90 deg before arrival, UT {t90:.0f}")
+    if cap is not None and node.delta_v > cap:
+        raise Refused(f"{node.delta_v:.2f} m/s is over 3x the far-out estimate ({expect:.2f}): the requested "
+                      "inclination is dear from here (near the node line?); node left for inspection")
     _approve(node, expect or node.delta_v, pe_alt if v.orbit.body.name == target_name else None,
              allow_flip=inc_to is not None)
     execute_node(node, tol=0.05)
@@ -1502,7 +1584,139 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
         say(f"60 s after the burn: {target_name} pe " + (f"{enc[0] / 1000:.1f} km" if enc else "none (no encounter)")
             + (f" -- BELOW the terrain + margin ({floor / 1000:.1f} km): trim it before `soi`"
                if enc and enc[0] < floor else ""))
+    if by_design and enc is None:
+        return plane_later()
     return enc is not None
+
+
+def _t_entry(orbit, target):
+    """UT at which this trajectory enters target's SOI (now if already inside), else None."""
+    o, t = orbit, ut()
+    while o.body.name != target.name:
+        if o.next_orbit is None:
+            return None
+        t = ut() + o.time_to_soi_change
+        o = o.next_orbit
+    return t
+
+
+def _aim_radius(target, pe_alt, vinf):
+    """Impact parameter b (m) of a hyperbola at target with periapsis altitude pe_alt."""
+    rp = target.equatorial_radius + pe_alt
+    return rp * math.sqrt(1 + 2 * target.gravitational_parameter / (rp * vinf ** 2))
+
+
+def _levers(orbit, target, t_go):
+    """(in-plane, out-of-plane) lever arms (s): a burn dv now moves the arrival point by ~dv x lever. In the plane
+    ~ the time to go; a normal burn only tilts the plane, so out of it at most 1/n of our orbit around the target's
+    parent (and ~0 on the node line: the cap in correct_course catches that)."""
+    p = _patch_around(orbit, target.orbit.body.name)
+    out = p.period / (2 * math.pi) if p is not None and p.eccentricity < 1 else t_go
+    return t_go, min(t_go, out)
+
+
+def _far_grid(node, cost, sp, sn):
+    """Two-level prograde x normal grid around the node's components (steps 4 sp x 4 sn over +-6, then sp x sn over
+    +-4 around the best); leaves the best in place. Moho 1's hand grid (+-0.12 m/s in 0.01 steps) found pe 25-40 km
+    on the prograde side where the tuner alone did not."""
+    best = (cost(node), node.prograde, node.normal)
+    for k, half in ((4.0, 6), (1.0, 4)):
+        cp, cn = best[1], best[2]
+        for i in range(-half, half + 1):
+            for j in range(-half, half + 1):
+                node.prograde, node.normal = cp + i * k * sp, cn + j * k * sn
+                c = cost(node)
+                if c < best[0]:
+                    best = (c, node.prograde, node.normal)
+    node.prograde, node.normal = best[1], best[2]
+    say(f"far grid: cost {best[0]:.1f}, {node.delta_v:.2f} m/s", screen=False)
+    return best[0]
+
+
+def _lambert_seed(node, target):
+    """Seed the node (burn at node.ut) for a craft around target's parent with no encounter. The arrival time is
+    scanned over +-5 % around the next closest approach and a Hohmann-like flight time; two variants: straight to the
+    target's position ("direct"), and to it projected onto our orbital plane ("in-plane", the plane left for a later
+    burn, as transfer_planet does: near a 180 deg arc the direct one tilts the whole path). The direct one wins unless
+    it costs > 1.2x the in-plane total (in-plane dv + a plane change ~90 deg before arrival) and the arc still to fly
+    is > 120 deg. Moho 1: the plain tuner planned 390 m/s; the in-plane Lambert 77 (Moho 92 km out of our plane),
+    KSP then showed an encounter (pe -188 km).
+    Returns (dv now, arrival UT, arrival v_inf, z2, in_plane) or None."""
+    v = vessel()
+    o, par = v.orbit, target.orbit.body
+    mu = par.gravitational_parameter
+    frame = par.non_rotating_reference_frame
+    t1 = node.ut
+    r1, v1 = o.position_at(t1, frame), _vel_at(o, t1, frame)
+    h = _norm(_cross(r1, v1))
+    R1 = math.sqrt(_dot(r1, r1))
+
+    def at(t2, flat):
+        r2 = target.orbit.position_at(t2, frame)
+        z2 = _dot(r2, h)
+        zp = z2 if flat else 0.0
+        r2p = tuple(x - zp * y for x, y in zip(r2, h))
+        th = math.atan2(_dot(h, _cross(r1, r2p)), _dot(r1, r2p)) % (2 * math.pi)  # arc still to fly
+        sol = _lambert(mu, r1, r2p, t2 - t1, h)
+        if sol is None:
+            return math.inf, t2, None, z2, None, th
+        dv = tuple(a - b for a, b in zip(sol[0], v1))
+        plane = 0.0
+        if flat:
+            # the later plane change, ~90 deg of arc before arrival (or now on a shorter arc): tilt the path so it
+            # rises by z2 at arrival, at the speed there (the arrival speed over-counts inward transfers)
+            d = min(th, math.pi / 2)
+            tr = kepler.Orbit.from_state(mu, r1, sol[0], t1)
+            rb = tr.radius_at_nu(tr.true_anomaly(t2) - d)
+            vb = math.sqrt(max(0.0, mu * (2 / rb - 1 / tr.a)))
+            tilt = math.atan2(abs(zp), math.sqrt(_dot(r2, r2)) * math.sin(d))
+            plane = 2 * vb * math.sin(tilt / 2)
+        return math.sqrt(_dot(dv, dv)) + plane, t2, dv, z2, sol[1], th
+
+    centres = []
+    try:
+        tc = o.next_closest_approach(target.orbit).ut
+        if tc > t1 + 600:
+            centres.append(tc - t1)
+    except Exception:  # no closest approach reported: the flight-time estimate alone
+        pass
+    centres.append(math.pi * math.sqrt(((R1 + target.orbit.semi_major_axis) / 2) ** 3 / mu))
+    best = {}
+    for flat in (True, False):
+        for T0 in centres:
+            rows = [at(t1 + T0 * (0.95 + 0.0025 * i), flat) for i in range(41)]
+            b = min(rows, key=lambda r: r[0])
+            if b[0] < math.inf:  # the 0.25 % grid can straddle a narrow minimum (transfer_planet's Moho lesson)
+                d = 0.0025 * T0
+                fine = _golden_min(lambda t, f=flat: at(t, f), max(t1 + 600, b[1] - d), b[1] + d)
+                b = min(b, fine, key=lambda r: r[0])
+            if flat not in best or b[0] < best[flat][0]:
+                best[flat] = b
+    if best[True][0] == math.inf and best[False][0] == math.inf:
+        return None
+    # deferring the plane only makes sense with > ~120 deg to go: else this is the plane burn (no endless deferral)
+    flat = best[False][0] > 1.2 * best[True][0] + 5 and (best[True][5] > math.radians(120)
+                                                         or best[False][0] == math.inf)
+    tot, t2, dv, z2, v2, _th = best[flat]
+    dvn = math.sqrt(_dot(dv, dv))
+    vt = _vel_at(target.orbit, t2, frame)
+    vinf = math.dist(v2, vt)
+    day = 21600.0
+    say(f"Lambert: direct {best[False][0]:.1f} m/s, in-plane {best[True][0]:.1f} m/s (incl. the plane later) -> "
+        f"{'in-plane' if flat else 'direct'}: {dvn:.1f} m/s now, arrival in {(t2 - t1) / day:.1f} d, "
+        f"v_inf {vinf:.0f}; {target.name} {z2 / 1000:+.0f} km out of our plane at arrival (SOI "
+        f"{target.sphere_of_influence / 1000:.0f} km)" + (f", plane later ~{tot - dvn:.1f} m/s" if flat else ""))
+    basis = {}
+    for k in ("prograde", "normal", "radial"):  # KSP's node axes, whatever its handedness
+        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+        setattr(node, k, 1.0)
+        basis[k] = node.burn_vector(frame)
+    node.prograde, node.normal, node.radial = (_dot(dv, basis[k]) for k in ("prograde", "normal", "radial"))
+    time.sleep(0.1)
+    enc = _encounter(node.orbit, target)
+    say(f"Lambert seed: prograde {node.prograde:.2f} normal {node.normal:.2f} radial {node.radial:.2f} -> "
+        + (f"{target.name} pe {enc[0] / 1000:.0f} km" if enc else "no encounter in KSP's prediction"))
+    return dvn, t2, vinf, z2, flat
 
 
 def _impact(node, target):
@@ -1567,9 +1781,7 @@ def _aim_point_seed(node, target, pe_alt, cost):
     steps) solve for the burn with a numerical Jacobian of the predicted impact vector (twice: re-linearised),
     judged by KSP's own patch (cost); the tuner finishes it. Returns the seed's dv (the estimate)."""
     b_old, s, vinf = _impact(node, target)
-    mu = target.gravitational_parameter
-    rp = target.equatorial_radius + pe_alt
-    b = rp * math.sqrt(1 + 2 * mu / (rp * vinf ** 2))
+    b = _aim_radius(target, pe_alt, vinf)
     u1 = _norm(b_old)
     u2 = _cross(s, u1)
     best = None
