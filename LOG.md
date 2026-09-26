@@ -622,8 +622,8 @@ Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pil
    l. `correct` far out: the aim-point seed crashed (all 36 tries lost the encounter, best None: now falls back) and the
       plain tuner walks off to 80 m/s (its step grows 1.5x per success and the cost has no dv term): add a dv term / cap the step.
    m. (done: the "pad check" is the pad-area debris sweep, flight-scene only; now it just runs only in flight)
-   n. `transfer` to Minmus: check Minmus' out-of-plane offset at arrival (> SOI -> say when the next good departure is)
-      instead of tuning an escape trajectory (1094 m/s planned for Rescue 6).
+   n. (done: `transfer` to a moon refuses when the moon will be > 0.8 SOI out of our plane at arrival and names the
+      day offset of the next good departure; Rescue 6's tuner had planned a 1094 m/s escape path)
    o. (done: kill_relative / approach / grab call _ensure_control first)
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.

@@ -650,6 +650,19 @@ def transfer_to(target_name, pe_alt):
     if wait < 120:
         wait += 2 * math.pi / (n1 - n2)
     dv = math.sqrt(mu / r1) * (math.sqrt(2 * r2 / (r1 + r2)) - 1)
+    # an inclined moon (Minmus 6 deg) can sit farther out of our plane at arrival than its SOI: Rescue 6's tuner then
+    # found a 1094 m/s escape path instead of 930; say when the moon crosses our plane instead
+    frame = v.orbit.body.non_rotating_reference_frame
+    h = _norm(_cross(v.position(frame), v.velocity(frame)))
+    off = lambda t: abs(_dot(target.orbit.position_at(t, frame), h))
+    soi = target.sphere_of_influence
+    if off(ut() + wait + t_trans) > 0.8 * soi:
+        day = 21600.0
+        good = next((k for k in range(1, int(target.orbit.period / day) + 1)
+                     if off(ut() + wait + k * day + t_trans) < 0.3 * soi), None)
+        raise Refused(f"{target_name} will be {off(ut() + wait + t_trans) / 1e6:.1f} Mm out of our plane at arrival "
+                      f"(SOI {soi / 1e6:.1f} Mm)" + (f"; depart ~{good} days later (warp from the space center)"
+                                                   if good else ""))
     node = v.control.add_node(ut() + wait, dv, 0, 0)
     say(f"transfer to {target_name}: {dv:.0f} m/s in {wait:.0f}s, tuning")
     c = tune_node(node, lambda n: _node_cost(n, target, pe_alt),
