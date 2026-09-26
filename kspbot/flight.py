@@ -1770,10 +1770,21 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
             say(f"far out ({(t_in - node.ut) / day:.1f} d to the SOI): aim radius {b / 1000:.0f} km (now "
                 f"{b_now / 1000:.0f}), estimate <= {expect:.2f} m/s; grid steps {far[0]:.3f} / {far[1]:.3f} m/s")
         elif inc_to is not None and (v.orbit.eccentricity > 1 if inside else enc0 is not None):
-            # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the aim
-            # point (impact vector b) around the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg inside the
-            # SOI, far beyond the +-6 m/s grid below
-            expect = _aim_point_seed(node, target, pe_alt, cost)
+            # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the plane
+            # about the line to the target (the incoming asymptote before the SOI) by the angle inc_to needs; Eve 1
+            # needed ~80 m/s for 10 -> 90 deg inside the SOI, far beyond the +-6 m/s grid below
+            seed, est = _aim_point_seed(node, target, pe_alt, cost, inc_to)
+            if est is not None:
+                # the tuner below has no dv term and could walk off (Mun Sat 1's flip): cap it like the far path
+                expect, cap = max(est, 0.1), 3 * est + 0.5
+                side = inc_to > 90
+
+                def cost(n, c0=cost):
+                    i = _arrival_inc(n, target)
+                    return c0(n) + (1000.0 if i is None or (i > 90) != side else 0.0) \
+                        + (1000.0 + n.delta_v if n.delta_v > cap else 0.0)
+            else:
+                expect = seed
         elif inc_to is not None:
             # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
             # whole target, so scan a fine grid as well
@@ -1854,7 +1865,7 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
             raise Refused(f"{dv:.0f} m/s with the arrival {ang:.0f} deg ahead (plane changes are dear on "
                           f"the node line): correct ~90 deg before arrival, UT {t90:.0f}")
     if cap is not None and node.delta_v > cap:
-        raise Refused(f"{node.delta_v:.2f} m/s is over 3x the far-out estimate ({expect:.2f}): the requested "
+        raise Refused(f"{node.delta_v:.2f} m/s is over 3x the analytic estimate ({expect:.2f}): the requested "
                       "inclination is dear from here (near the node line?); node left for inspection")
     _approve(node, expect or node.delta_v, pe_alt if v.orbit.body.name == target_name else None,
              allow_flip=inc_to is not None)
@@ -1990,12 +2001,7 @@ def _lambert_seed(node, target):
         f"{'in-plane' if flat else 'direct'}: {dvn:.1f} m/s now, arrival in {(t2 - t1) / day:.1f} d, "
         f"v_inf {vinf:.0f}; {target.name} {z2 / 1000:+.0f} km out of our plane at arrival (SOI "
         f"{target.sphere_of_influence / 1000:.0f} km)" + (f", plane later ~{tot - dvn:.1f} m/s" if flat else ""))
-    basis = {}
-    for k in ("prograde", "normal", "radial"):  # KSP's node axes, whatever its handedness
-        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
-        setattr(node, k, 1.0)
-        basis[k] = node.burn_vector(frame)
-    node.prograde, node.normal, node.radial = (_dot(dv, basis[k]) for k in ("prograde", "normal", "radial"))
+    _set_node_dv(node, dv, frame)
     time.sleep(FAR_SETTLE)
     enc = _encounter(node.orbit, target)
     say(f"Lambert seed: prograde {node.prograde:.2f} normal {node.normal:.2f} radial {node.radial:.2f} -> "
@@ -2003,9 +2009,20 @@ def _lambert_seed(node, target):
     return dvn, t2, vinf, z2, flat
 
 
-def _impact(node, target):
-    """(impact vector b, asymptote direction s, v_inf) of the node's predicted hyperbola at target, in the target's
-    non-rotating frame, read off KSP's patch (inside the SOI: the node's own orbit)."""
+def _set_node_dv(node, dv, frame):
+    """Set the node's (prograde, normal, radial) to the burn vector dv given in frame (KSP's node axes read off
+    burn_vector, whatever its handedness)."""
+    basis = {}
+    for k in ("prograde", "normal", "radial"):
+        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+        setattr(node, k, 1.0)
+        basis[k] = node.burn_vector(frame)
+    node.prograde, node.normal, node.radial = (_dot(dv, basis[k]) for k in ("prograde", "normal", "radial"))
+
+
+def _target_patch(node, target):
+    """(patch around target, reference UT on it) of the node's trajectory: inside the SOI the node's own orbit at
+    the node, else 60 s after the SOI entry; None without an encounter."""
     o = node.orbit
     t_ref = node.ut
     while o.body.name != target.name:
@@ -2013,6 +2030,16 @@ def _impact(node, target):
             return None
         t_ref = ut() + o.time_to_soi_change + 60
         o = o.next_orbit
+    return o, t_ref
+
+
+def _impact(node, target):
+    """(impact vector b, asymptote direction s, v_inf) of the node's predicted hyperbola at target, in the target's
+    non-rotating frame, read off KSP's patch (inside the SOI: the node's own orbit)."""
+    tp = _target_patch(node, target)
+    if tp is None:
+        return None
+    o, t_ref = tp
     frame = target.non_rotating_reference_frame
     r, vel = o.position_at(t_ref, frame), _vel_at(o, t_ref, frame)
     s = _norm(vel)  # far out the velocity is ~ the asymptote (Eve 1: 84 Mm, v 926 vs v_inf 815)
@@ -2060,34 +2087,129 @@ def _solve3(A, b):
     return [M[i][3] / M[i][i] if M[i][i] else 0.0 for i in range(3)]
 
 
-def _aim_point_seed(node, target, pe_alt, cost):
-    """Seed a node that turns the hyperbola's plane about its incoming asymptote: for each new aim angle (10 deg
-    steps) solve for the burn with a numerical Jacobian of the predicted impact vector (twice: re-linearised),
-    judged by KSP's own patch (cost); the tuner finishes it. Returns the seed's dv (the estimate)."""
-    b_old, s, vinf = _impact(node, target)
+def _turn_angles(n0, axis, pole, inc_to):
+    """Turns (rad) of an orbital plane (unit normal n0) about a line in it (unit axis) that give the inclination
+    inc_to (deg; cos i = n . pole). The normal sweeps a circle, n(phi) = kepler.rotate(n0, axis, phi), so
+    cos i = A cos(phi - phi0): two turns, one each way, or, when inc_to is out of reach (the axis lies |dec| off the
+    equator: no inclination under |dec| or over 180 - |dec|), the one closest to it on its side (prograde /
+    retrograde). Returns [(phi, inclination reached in deg)], the smallest |phi| first (pure: unit-tested)."""
+    w = _cross(axis, n0)
+    c0, c1 = _dot(n0, pole), _dot(w, pole)
+    A = math.hypot(c0, c1)
+    if A < 1e-9:  # the axis is the pole: every turn keeps 90 deg
+        return [(0.0, 90.0)]
+    phi0 = math.atan2(c1, c0)
+    ct = math.cos(math.radians(inc_to))
+    if abs(ct) <= A:
+        d = math.acos(ct / A)
+        phis = [phi0 + d, phi0 - d]
+    else:
+        phis = [phi0 if ct > 0 else phi0 + math.pi]
+    out = []
+    for f in phis:
+        f = (f + math.pi) % (2 * math.pi) - math.pi
+        out.append((f, math.degrees(math.acos(max(-1.0, min(1.0, A * math.cos(f - phi0)))))))
+    return sorted(out, key=lambda x: abs(x[0]))
+
+
+def _turn_estimate(v_t, phi, vinf, db, r):
+    """Analytic dv (m/s) of a turn by phi (rad) inside the SOI: the velocity across the line to the target (v_t)
+    rotates, 2 v_t sin(phi/2), plus moving the impact parameter by db at radius r (h = b v_inf: v_t changes by
+    v_inf db / r). Pure."""
+    return 2 * v_t * abs(math.sin(phi / 2)) + vinf * abs(db) / r
+
+
+def _arrival_inc(node, target):
+    """Inclination (deg) of the node's patch around target, or None without an encounter."""
+    enc = _encounter(node.orbit, target)
+    return math.degrees(enc[1].inclination) if enc else None
+
+
+def _aim_point_seed(node, target, pe_alt, cost, inc_to):
+    """Seed a node that turns the arrival hyperbola's plane by the angle inc_to asks for, no more. Inside the
+    target's SOI the new plane must hold the line to the target, so the burn rotates our velocity about it (exact:
+    same pe, same v_inf; dv = 2 v_t sin(phi/2), _turn_estimate); before the SOI the aim point (impact vector b, set
+    to the aim radius for pe_alt) turns about the incoming asymptote, solved with a numerical Jacobian of KSP's
+    patch (twice: re-linearised). An inclination leaves two turns, one each way (_turn_angles): both are tried and
+    judged by KSP's own patch (cost + dv, a pass on the wrong side of inc_to ruled out). The pole's sign in KSP's
+    left-handed frames is read off the patch's own inclination (both signs tried near 90 deg).
+    Mun Sat 1: the old seed scanned 36 aim angles for the lowest cost and chose a 180 deg flip: 371 m/s to inc 6.7
+    for a 28 deg turn to 146 (~75 m/s).
+    Returns (seed dv, analytic estimate), or (None, None) when every trial lost the encounter."""
+    v = vessel()
+    frame = target.non_rotating_reference_frame
+    mu = target.gravitational_parameter
+    inside = v.orbit.body.name == target.name
+    node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+    if inside:
+        o, t_ref = v.orbit, node.ut
+    else:
+        time.sleep(0.04)
+        tp = _target_patch(node, target)
+        if tp is None:
+            say("aim-point seed: no encounter to turn; tuning from zero")
+            return None, None
+        o, t_ref = tp
+    r, vel = o.position_at(t_ref, frame), _vel_at(o, t_ref, frame)
+    vinf = math.sqrt(mu / abs(o.semi_major_axis))
+    inc_now = math.degrees(o.inclination)
+    h = _cross(r, vel)
+    n0 = _norm(h)
+    if inside:
+        axis = _norm(r)  # the new plane must hold the line to the target
+        b_now = math.sqrt(_dot(h, h)) / vinf  # h = b v_inf
+    else:
+        axis = _norm(vel)  # far out the velocity is ~ the asymptote (see _impact)
+        b_old = tuple(x - _dot(r, axis) * y for x, y in zip(r, axis))
+        b_now = math.sqrt(_dot(b_old, b_old))
     b = _aim_radius(target, pe_alt, vinf)
-    u1 = _norm(b_old)
-    u2 = _cross(s, u1)
-    best = None
-    for k in range(36):
-        phi = math.radians(10 * k)
-        want = tuple(b * (math.cos(phi) * x + math.sin(phi) * y) for x, y in zip(u1, u2))
+    # kRPC frames: y is the north pole; the sign of r x v vs the true normal depends on the handedness: read it off
+    ip = math.degrees(math.acos(max(-1.0, min(1.0, n0[1]))))
+    signs = [sg for sg, i in ((1.0, ip), (-1.0, 180 - ip)) if abs(i - inc_now) < 2.0]
+    if len(signs) != 1:
+        signs = [1.0, -1.0]
+    retro = inc_to > 90
+    lev = None if inside else _levers(v.orbit, target, t_ref - node.ut)
+    dec = math.degrees(math.asin(min(1.0, abs(axis[1]))))
+    best, tried = None, []
+    for sg in signs:
+        for phi, i_want in _turn_angles(n0, axis, (0.0, sg, 0.0), inc_to):
+            if inside:
+                vt = math.sqrt(max(0.0, _dot(vel, vel) - _dot(vel, axis) ** 2))
+                est = _turn_estimate(vt, phi, vinf, b_now - b, math.sqrt(_dot(r, r)))
+                _set_node_dv(node, tuple(x - y for x, y in zip(kepler.rotate(vel, axis, phi), vel)), frame)
+            else:
+                est = abs(b_now - b) / lev[0] + 2 * b * abs(math.sin(phi / 2)) / lev[1]
+                want = tuple(b * x for x in kepler.rotate(_norm(b_old), axis, phi))
+                node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+                try:
+                    for _ in range(2):
+                        node.prograde, node.normal, node.radial = _solve_dv(node, target, want)
+                except (TypeError, ZeroDivisionError):
+                    tried.append(f"{math.degrees(phi):+.1f} deg: lost the encounter")
+                    continue
+            c = cost(node) + node.delta_v
+            inc = _arrival_inc(node, target)
+            if inc is None or (inc > 90) != retro:
+                c += 1000.0
+            tried.append(f"{math.degrees(phi):+.1f} deg: {node.delta_v:.1f} m/s -> inc "
+                         + (f"{inc:.1f}" if inc is not None else "none"))
+            if best is None or c < best[0]:
+                best = (c, node.prograde, node.normal, node.radial, node.delta_v, phi, i_want, est)
+    if best is None:
         node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
-        try:
-            for _ in range(2):
-                node.prograde, node.normal, node.radial = _solve_dv(node, target, want)
-        except (TypeError, ZeroDivisionError):
-            continue  # a trial burn lost the encounter
-        c = cost(node)
-        if best is None or c < best[0]:
-            best = (c, node.prograde, node.normal, node.radial, node.delta_v, 10 * k)
-    if best is None:  # Duna 1 from the aphelion: every trial lost the encounter (TypeError below)
-        node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
-        say("aim-point seed: every trial lost the encounter; tuning from zero")
-        return None
-    node.prograde, node.normal, node.radial = best[1:4]
-    say(f"aim-point seed: {best[4]:.0f} m/s (turn {best[5]} deg), cost {best[0]:.1f}")
-    return best[4]
+        say("aim-point seed: every trial lost the encounter; tuning from zero (" + "; ".join(tried) + ")")
+        return None, None
+    c, node.prograde, node.normal, node.radial, dv, phi, i_want, est = best
+    reach = "" if abs(i_want - inc_to) < 0.1 else \
+        (f"; inc {inc_to:.1f} is out of reach from here (the {'line to' if inside else 'asymptote at'} "
+         f"{target.name} lies {dec:.1f} deg off its equator): closest {i_want:.1f}; the line turns as we fall in, "
+         "a later `correct` gets more")
+    say(f"aim-point seed: turn {math.degrees(phi):+.1f} deg about the "
+        + (f"line to {target.name}" if inside else "incoming asymptote")
+        + f" (inc {inc_now:.1f} -> {i_want:.1f}): {dv:.1f} m/s, analytic {est:.1f}, cost {c:.1f} [tried "
+        + "; ".join(tried) + "]" + reach)
+    return dv, est
 
 
 # highest terrain (m) per body: a periapsis below it may hit a peak (Jool 1's far-out trim left pe -655 km)

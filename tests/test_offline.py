@@ -67,6 +67,144 @@ class FarCorrection(unittest.TestCase):
         self.assertLess(dv, 1.3 * 24.5)
 
 
+class AimPointTurn(unittest.TestCase):
+    """_turn_angles: the plane turns about a line in it (the line to the target inside its SOI) by the least angle
+    that gives inc_to. Test frame right-handed, pole +z; KSP's normal sign is handled by the caller."""
+    pole = (0.0, 0.0, 1.0)
+
+    @staticmethod
+    def plane(inc, lan=0.0, u=0.0):
+        """(unit normal, unit in-plane direction at argument of latitude u), angles in deg."""
+        i, l = math.radians(inc), math.radians(lan)
+        n = (math.sin(i) * math.sin(l), -math.sin(i) * math.cos(l), math.cos(i))
+        return n, F.kepler.rotate((math.cos(l), math.sin(l), 0.0), n, math.radians(u))
+
+    def inc_after(self, n0, axis, phi):
+        n = F.kepler.rotate(n0, axis, phi)
+        return math.degrees(math.acos(max(-1.0, min(1.0, F._dot(n, self.pole)))))
+
+    def test_mun_sat_turn_is_28_not_180(self):
+        # Mun Sat 1: pass at inc 174 (retrograde), contract plane 146: turning about the node line takes 28 deg
+        n0, axis = self.plane(174.0, lan=30.0, u=0.0)
+        c = F._turn_angles(n0, axis, self.pole, 146.0)
+        self.assertEqual(len(c), 2)
+        self.assertAlmostEqual(abs(math.degrees(c[0][0])), 28.0, places=6)
+        for phi, reached in c:  # both ways reach it, and the plane really is at 146 after the turn
+            self.assertAlmostEqual(reached, 146.0, places=6)
+            self.assertAlmostEqual(self.inc_after(n0, axis, phi), 146.0, places=6)
+        # at the SOI edge (v_t ~154 m/s) that is ~75 m/s, not the 371 of the flip
+        self.assertAlmostEqual(F._turn_estimate(154.0, c[0][0], 352.0, 0.0, 2.43e6), 74.5, delta=0.5)
+        self.assertGreater(F._turn_estimate(154.0, math.pi, 352.0, 0.0, 2.43e6), 300)
+
+    def test_axis_off_the_node_line(self):
+        # the line to the target 40 deg past the node: a longer turn, still retrograde, still < 90 deg
+        n0, axis = self.plane(174.0, lan=275.0, u=40.0)
+        c = F._turn_angles(n0, axis, self.pole, 146.0)
+        phi, reached = c[0]
+        self.assertAlmostEqual(reached, 146.0, places=6)
+        self.assertAlmostEqual(self.inc_after(n0, axis, phi), 146.0, places=6)
+        self.assertLess(abs(math.degrees(phi)), 60.0)
+        self.assertLessEqual(abs(c[0][0]), abs(c[1][0]))
+
+    def test_inc_to_zero_from_three_is_small(self):
+        # Eve 2: pass at inc 3, wants 0; the line to Eve on the node line: a 3 deg turn, a few m/s
+        n0, axis = self.plane(3.0, lan=100.0, u=0.0)
+        phi, reached = F._turn_angles(n0, axis, self.pole, 0.0)[0]
+        self.assertAlmostEqual(abs(math.degrees(phi)), 3.0, places=4)
+        self.assertAlmostEqual(reached, 0.0, places=4)
+        self.assertLess(F._turn_estimate(100.0, phi, 900.0, 0.0, 85e6), 6.0)
+        # 60 deg past the node the line to Eve is 2.6 deg off the equator: 0 is out of reach, the closest (2.6,
+        # prograde) costs a turn under 3 deg, never a flip
+        n0, axis = self.plane(3.0, lan=100.0, u=60.0)
+        c = F._turn_angles(n0, axis, self.pole, 0.0)
+        self.assertEqual(len(c), 1)
+        phi, reached = c[0]
+        dec = math.degrees(math.asin(abs(F._dot(axis, self.pole))))
+        self.assertAlmostEqual(reached, dec, places=6)
+        self.assertAlmostEqual(self.inc_after(n0, axis, phi), dec, places=6)
+        self.assertLess(abs(math.degrees(phi)), 3.0)
+
+    def test_side_kept_when_out_of_reach(self):
+        # retrograde 174 asked for 179 with the axis 3.9 deg off the equator: closest on the retrograde side
+        n0, axis = self.plane(174.0, u=40.0)
+        (phi, reached), = F._turn_angles(n0, axis, self.pole, 179.0)
+        self.assertGreater(reached, 170.0)
+        self.assertAlmostEqual(self.inc_after(n0, axis, phi), reached, places=6)
+        # no turn needed: zero
+        n0, axis = self.plane(20.0, u=10.0)
+        self.assertAlmostEqual(F._turn_angles(n0, axis, self.pole, 20.0)[0][0], 0.0, places=6)
+
+    def seed_inside(self, mu, R, vinf, pe_alt, inc, r_now, inc_to, lan=275.0, argpe=40.0):
+        """_aim_point_seed inside the SOI on a fake KSP: two-body patches (kepler), kRPC's left-handed frame
+        (y = north: components (x, z, y) of a right-handed state), node axes prograde / normal / radial."""
+        K = lambda p: (p[0], p[2], p[1])  # right-handed <-> kRPC (a swap: its own inverse)
+        body = NS(name="Mun", gravitational_parameter=mu, equatorial_radius=R, non_rotating_reference_frame="f")
+
+        class Patch:
+            def __init__(self, kep):
+                self.k, self.body, self.next_orbit = kep, body, None
+                self.inclination, self.semi_major_axis, self.eccentricity = kep.inc, kep.a, kep.e
+                self.periapsis_altitude = kep.periapsis - R
+
+            def position_at(self, t, frame):
+                return K(self.k.position(t))
+
+        rp = R + pe_alt
+        a = -mu / vinf ** 2
+        e = 1 - rp / a
+        hyp = F.kepler.Orbit(mu, a, e, math.radians(inc), math.radians(lan), math.radians(argpe), 0.0, 0.0)
+        nu = -math.acos((a * (1 - e * e) / r_now - 1) / e)  # inbound at r_now
+        r0, v0 = hyp.state_at_nu(nu)
+        now = Patch(F.kepler.Orbit.from_state(mu, r0, v0, 0.0))
+
+        class Node:
+            ut = 120.0
+            prograde = normal = radial = 0.0
+
+            def axes(self):
+                r, v = now.k.state(self.ut)
+                pg = F._norm(v)
+                nm = F._norm(F._cross(r, v))
+                return pg, nm, F._cross(pg, nm)
+
+            def dv(self):
+                return tuple(self.prograde * a + self.normal * b + self.radial * c for a, b, c in zip(*self.axes()))
+
+            def burn_vector(self, frame):
+                return K(self.dv())
+
+            delta_v = property(lambda self: math.sqrt(F._dot(self.dv(), self.dv())))
+
+            @property
+            def orbit(self):
+                r, v = now.k.state(self.ut)
+                return Patch(F.kepler.Orbit.from_state(mu, r, tuple(x + y for x, y in zip(v, self.dv())), self.ut))
+
+        saved = F.vessel, F._node_cost.__globals__["time"].sleep
+        F.vessel = lambda: NS(orbit=now)
+        F._node_cost.__globals__["time"].sleep = lambda s: None
+        try:
+            node = Node()
+            cost = lambda n: F._node_cost(n, body, pe_alt, None, inc_to)
+            dv, est = F._aim_point_seed(node, body, pe_alt, cost, inc_to)
+            return node, dv, est
+        finally:
+            F.vessel, F._node_cost.__globals__["time"].sleep = saved
+
+    def test_seed_on_a_fake_patch(self):
+        # Mun Sat 1 at the Mun SOI edge: v_inf 352, pe 458 km, inc 174 -> 146: a turn of ~28-40 deg, not the flip
+        node, dv, est = self.seed_inside(6.5138398e10, 200e3, 352.0, 458e3, 174.0, 2.4e6, 146.0)
+        o = node.orbit
+        self.assertAlmostEqual(math.degrees(o.inclination), 146.0, delta=0.05)
+        self.assertAlmostEqual(o.periapsis_altitude, 458e3, delta=100)  # a pure turn: same pe
+        self.assertAlmostEqual(dv, est, delta=0.01 * est)
+        self.assertLess(dv, 150.0)
+        # Eve 2 inside Eve's SOI: inc 3 -> 0 (or the closest the line to Eve allows): a few m/s
+        node, dv, est = self.seed_inside(8.1717302e12, 700e3, 900.0, 120e3, 3.0, 80e6, 0.0, lan=100.0, argpe=0.0)
+        self.assertLess(math.degrees(node.orbit.inclination), 3.0)
+        self.assertLess(dv, 10.0)
+
+
 class CaptureLink(unittest.TestCase):
     def test_ray_clearance(self):
         R = 700e3
