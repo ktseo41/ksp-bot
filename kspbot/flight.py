@@ -467,6 +467,8 @@ def circularize(at="apoapsis"):
         else:
             _raise_pe_now(v, body.atmosphere_depth + 8000)
         o = v.orbit
+    if not body.has_atmosphere or o.periapsis_altitude > body.atmosphere_depth:
+        _antennas(v, True)  # in orbit: open antennas and solar panels (retracted again before reentry/liftoff)
     say(f"orbit {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m")
 
 
@@ -1324,6 +1326,23 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
         node.remove()
         say("far out: a trim under 1 m/s is below the burn accuracy here; do it inside the SOI")
         return enc is not None
+    if v.orbit.body.orbit is None and node.delta_v > 20 and not math.isnan(v.orbit.time_to_soi_change):
+        # Duna 1's return from the aphelion: the arrival point lay 180 deg ahead, on the line a normal burn turns
+        # the plane about, so pulling Kerbin's 14 Mm out-of-plane pass in cost 80 m/s (~10 m/s 90 deg out)
+        o = v.orbit
+        frame = o.body.non_rotating_reference_frame
+        t_arr = ut() + o.time_to_soi_change
+        a, b = o.position_at(ut(), frame), o.position_at(t_arr, frame)
+        ang = math.degrees(math.acos(max(-1.0, min(1.0, _dot(_norm(a), _norm(b))))))
+        if ang > 135:
+            nu = o.true_anomaly_at_ut(t_arr) - math.pi / 2
+            t90 = o.ut_at_true_anomaly(nu)
+            while t90 < ut():
+                t90 += o.period
+            dv = node.delta_v
+            node.remove()
+            raise Refused(f"{dv:.0f} m/s with the arrival {ang:.0f} deg ahead (plane changes are dear on "
+                          f"the node line): correct ~90 deg before arrival, UT {t90:.0f}")
     _approve(node, expect or node.delta_v, pe_alt if v.orbit.body.name == target_name else None,
              allow_flip=inc_to is not None)
     execute_node(node, tol=0.05)
@@ -1782,6 +1801,7 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
             say(f"no site under {max_slope} deg in {biomes} within {orbits} orbits")
             return False
     v = vessel()
+    _antennas(v, False, panels_only=True)  # panels break on touchdown; antennas stay (a probe needs its link)
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
     start = None
@@ -2142,12 +2162,17 @@ def _reentry_keep(main_alt, main_speed, keep_until):
 
 # ---------------------------------------------------------------- science
 
-def _antennas(v, extend):
-    """Extend (before transmitting: a stowed Communotron can't) or retract (before atmosphere/liftoff) antennas."""
-    ants = [a for a in v.parts.antennas if a.deployable and a.deployed != extend]
-    for a in ants:
-        a.deployed = extend
-    if ants:
+def _antennas(v, extend, panels_only=False):
+    """Extend (before transmitting: a stowed Communotron can't) or retract (before atmosphere/liftoff) antennas,
+    and the deployable solar panels with them (Ike Station 1's Gigantors: nothing else opens them)."""
+    parts = ([] if panels_only else list(v.parts.antennas)) + list(v.parts.solar_panels)
+    parts = [a for a in parts if a.deployable and a.deployed != extend]
+    for a in parts:
+        try:
+            a.deployed = extend
+        except Exception as ex:  # a non-retractable panel refuses to close
+            say(f"{a.part.title}: {ex}")
+    if parts:
         time.sleep(6)
 
 
