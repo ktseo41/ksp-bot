@@ -62,7 +62,7 @@ Space center: `status`, `contracts [-v]`, `accept N`, `decline N`, `tech [--all]
 Flight phases (each returns when the phase is done): `ascent --alt 80000`, `circularize`,
 `transfer Minmus --pe 15000` (plans, burns, auto-corrects), `correct BODY --pe X`, `soi`,
 `capture [--apo X]`, `land`, `science [--transmit]`, `liftoff --alt 15000`, `return --pe 30000`,
-`reentry`, `periapsis --alt X`, `node`, `stage`, `warp +SECONDS`, `vessel`, `log`;
+`reentry`, `periapsis --alt X`, `node`, `stage` (refuses to skip an engine or fire a heat shield), `activate ENGINE`, `decouple PART [--parent NAME]`, `warp +SECONDS`, `vessel`, `log`;
 `depart BODY --pe X [--at UT]` (planet departure from an eccentric/inclined orbit: run 1 tilts the plane at the
 apoapsis, run 2 ejects at the periapsis; `tools/plan_eve_return.py` is its offline check).
 Long phases (transfer, soi, capture, reentry) may exceed 10 min: run them in the background.
