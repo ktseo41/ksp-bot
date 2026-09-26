@@ -119,9 +119,25 @@ def _can_plan():
 
 # ---------------------------------------------------------------- burns
 
+def _ensure_control(v):
+    """With Require Signal for Control a probe-controlled craft has no throttle without a CommNet link. Minmus Lab 1:
+    the stowed HG-55 left only the OKTO's own antenna (~16 Mm with DSN 2), and the capture burn at Minmus sat at
+    throttle 1 / thrust 0 until the burn-time guard gave up. Extend antennas in vacuum, else refuse."""
+    if v.control.state.name == "full":
+        return
+    if v.flight().static_pressure < 1:
+        _antennas(v, True)
+        time.sleep(2)
+    if v.control.state.name != "full":
+        raise Refused(f"no control ({v.control.state.name}): no CommNet link (signal {v.comms.signal_strength:.2f}); "
+                      "a pilot aboard, an antenna or a relay is needed")
+    say("antennas extended: control restored")
+
+
 def execute_node(node=None, tol=0.2):
     """Execute a maneuver node (default: the first one). Handles pointing, warp, staging and fine throttle."""
     v = vessel()
+    _ensure_control(v)
     node = node or v.control.nodes[0]
     dv = node.delta_v
     if v.available_thrust <= 0:  # a spent stage still attached (Mun Tanker 1: burn time read 0 s, burn started late)
@@ -278,6 +294,7 @@ def manual_burn(t, prograde=0.0, normal=0.0, radial=0.0, tol=0.3):
     """Node-less burn: fixed inertial direction from the orbital frame at t, delivered dv integrated
     from thrust/mass."""
     v = vessel()
+    _ensure_control(v)
     body = v.orbit.body
     frame = body.non_rotating_reference_frame
     r = v.orbit.position_at(t, frame)
@@ -1418,11 +1435,15 @@ def capture(target_apo=None):
     v = vessel()
     o = v.orbit
     mu = o.body.gravitational_parameter
-    rp = o.periapsis
+    t = ut() + o.time_to_periapsis
+    if o.eccentricity >= 1 and o.time_to_periapsis < 60:
+        # already past the periapsis of a hyperbola (Minmus Lab 1's first capture never fired): burn now
+        t = ut() + 60
+    rp = o.radius_at(t)
     v_now = math.sqrt(mu * (2 / rp - 1 / o.semi_major_axis))
     ra = rp if target_apo is None else o.body.equatorial_radius + target_apo
     v_new = math.sqrt(mu * (2 / rp - 2 / (rp + ra)))
-    burn_at(ut() + o.time_to_periapsis, prograde=v_new - v_now)
+    burn_at(t, prograde=v_new - v_now)
     o = v.orbit
     say(f"captured: {o.periapsis_altitude:.0f} x {o.apoapsis_altitude:.0f} m around {o.body.name}")
 

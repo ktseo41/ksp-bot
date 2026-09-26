@@ -288,7 +288,13 @@ def cmd_eva(a):
     """out | state | report | flag | board (the first crew member; science via kRPC on the EVA kerbal)."""
     b = bot()
     if a.action == "out":
+        # the kerbal's spawn kicks the vessel (MPL: ~0.08 m/s, ~6 deg/s): let its SAS damp that
+        ship = flight.vessel()
+        ship.control.sas = True
         print(b.eva_spawn())
+        time.sleep(6)
+        o = ship.orbit
+        print(f"{ship.name} after the EVA: pe {o.periapsis_altitude / 1000:.1f} km, ap {o.apoapsis_altitude / 1000:.1f} km")
     elif a.action == "state":
         print(b.eva_state())
     elif a.action == "check":
