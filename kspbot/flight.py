@@ -856,6 +856,95 @@ def _node_cost(node, target, pe_alt, min_inc=None, inc_to=None):
     return miss + ca / 1000.0
 
 
+FAR_SETTLE = 0.3  # s from a node edit to reading its patches far out: at 0.04 s Eve 2's costs (185 d out) came back
+# inconsistent from run to run
+
+
+def _far_cost(dv, pe, inc, pe_alt, w_pe, min_inc=None, inc_to=None, retro=None):
+    """Cost of a far-out correction with an encounter (pure: no kRPC): dv + w_pe per km of periapsis error + 0.3 per
+    deg of inclination off inc_to (or short of min_inc) + 1000 for a pass on the wrong side (retro True: it must be
+    retrograde, False: prograde, None: either). Eve 2's grid, with no dv term and no side, ended at 30.8 m/s and a
+    retrograde pass (inc 156) where 7.7 m/s did."""
+    c = dv + w_pe * abs(pe - pe_alt) / 1000.0
+    if inc_to is not None:
+        c += 0.3 * abs(inc - inc_to)
+    if min_inc:
+        c += 0.3 * max(0.0, min_inc - min(inc, 180 - inc))
+    if retro is not None and (inc > 90) != retro:
+        c += 1000.0
+    return c
+
+
+def _pattern_search(f, x0, steps, max_steps, min_steps, iters=60):
+    """Compass search (pure): try +-step on each coordinate, keep the first improvement and grow that step x1.3
+    (capped at max_steps: the old tuner's x1.5 grew without bound and walked off), halve it on no improvement;
+    stop when every step is under min_steps. Returns (f(best), best)."""
+    x, fx, st = list(x0), f(list(x0)), list(steps)
+    for _ in range(iters):
+        improved = False
+        for k in range(len(x)):
+            for s in (1, -1):
+                y = list(x)
+                y[k] += s * st[k]
+                fy = f(y)
+                if fy < fx:
+                    x, fx, improved = y, fy, True
+                    st[k] = min(st[k] * 1.3, max_steps[k])
+                    break
+            else:
+                st[k] *= 0.5
+        if not improved and all(a < b for a, b in zip(st, min_steps)):
+            break
+    return fx, x
+
+
+def _far_search(node, target, pe_alt, seeds, steps, cap, w_pe, min_inc=None, inc_to=None, retro=None):
+    """Far-out correction (craft around the Sun): a compass search on (prograde, normal, radial) from each seed,
+    judged by KSP's own patches read FAR_SETTLE s after every edit; cost _far_cost, a miss ranks behind any
+    encounter by its closest approach, dv over cap is never tried. Leaves the best in place (re-read after 1 s) and
+    returns (dv, pe, inc) or None with no encounter. Takes minutes (~0.4 s per trial): run it in the background."""
+    trials = [0]
+
+    def f(x):
+        dv = math.sqrt(sum(a * a for a in x))
+        if dv > cap:
+            return 1e6 + dv
+        node.prograde, node.normal, node.radial = x
+        trials[0] += 1
+        return cost(FAR_SETTLE)[0]
+
+    def cost(settle):
+        time.sleep(settle)
+        dv = math.sqrt(node.prograde ** 2 + node.normal ** 2 + node.radial ** 2)
+        enc = _encounter(node.orbit, target)
+        if enc:
+            inc = math.degrees(enc[1].inclination)
+            return _far_cost(dv, enc[0], inc, pe_alt, w_pe, min_inc, inc_to, retro) \
+                + _moon_penalty(enc[1], target), enc[0], inc
+        o = _patch_around(node.orbit, target.orbit.body.name)
+        if o is None:
+            return 1e9, None, None
+        return 1e5 + dv + w_pe * o.next_closest_approach(target.orbit).distance / 1000.0, None, None
+
+    best = None
+    for s in seeds:
+        c, x = _pattern_search(f, s, steps, [10 * a for a in steps], [max(0.005, a / 100) for a in steps])
+        say(f"far search from {[round(a, 2) for a in s]}: cost {c:.2f} at {[round(a, 3) for a in x]}", screen=False)
+        if best is None or c < best[0]:
+            best = (c, x, s)
+    node.prograde, node.normal, node.radial = best[1]
+    c, pe, inc = cost(1.0)
+    dv = math.sqrt(sum(a * a for a in best[1]))
+    if abs(c - best[0]) > 0.5 + 0.05 * abs(best[0]):
+        say(f"WARNING: the best node re-read after 1 s costs {c:.2f}, not {best[0]:.2f}: KSP's prediction is unsteady "
+            "here; check the node before burning")
+    say(f"far search ({trials[0]} trials, {len(seeds)} seeds, cap {cap:.2f} m/s): best {dv:.2f} m/s from seed "
+        f"{[round(a, 2) for a in best[2]]} -> " + (f"{target.name} pe {pe / 1000:.1f} km, inc {inc:.1f}"
+                                                   + (" RETROGRADE" if inc > 90 else "") if pe is not None
+                                                   else "no encounter"))
+    return (dv, pe, inc) if pe is not None else None
+
+
 def tune_node(node, cost, steps=(("prograde", 5.0), ("normal", 5.0), ("radial", 5.0), ("ut", 30.0)),
               iters=80, min_step=0.01):
     """Coordinate-descent on node components to minimise cost(node)."""
@@ -1570,10 +1659,12 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     arrival orbit to at least this inclination (cheap far out, e.g. for survey sites at high latitude);
     inc_to: aim for this arrival inclination (0..180, e.g. 25 to meet a prograde target; flipping from a
     retrograde pass means crossing an impact path, so seed from a grid first).
-    Far out the search is scaled to the lever arm (the aim point moves ~ dv x time to go) and its cost carries a
-    dv term: with no encounter around the target's parent the node is seeded from a Lambert solve; with an
-    encounter > 1 day out, --inc-to/--inc use a small grid and are capped at 3x the estimate. Moho 1's plain
-    tuner planned 390 m/s where 77 did."""
+    Far out (craft around the Sun, no encounter or > 1 day to the SOI): a compass search (_far_search) from the zero
+    node, the Lambert seed (no encounter) and a small prograde / retrograde burn, steps scaled to the lever arm (the
+    aim point moves ~ dv x time to go), cost dv + periapsis error + inclination (_far_cost; with --inc-to a pass on
+    the other side is ruled out, without it the present side is kept), dv capped at 3x the analytic estimate + 0.5.
+    It takes minutes. Moho 1's plain tuner planned 390 m/s where 77 did; Eve 2's grid 30.8 m/s retrograde where 7.7
+    did. Around a planet (moons) the older grid/tuner paths below still apply."""
     v = vessel()
     target = sc().bodies[target_name]
     node = v.control.add_node(ut() + 120, 0, 0, 0)
@@ -1588,85 +1679,131 @@ def correct_course(target_name, pe_alt, min_inc=None, inc_to=None):
     inside = v.orbit.body.name == target_name
     enc0 = None if inside else _encounter(v.orbit, target)
     t_in = _t_entry(v.orbit, target) if enc0 else None
-    if not inside and enc0 is None and v.orbit.body.name == target.orbit.body.name:
-        # no encounter around the target's parent (Moho 1 after a late ejection: closest approach 331,674 km): the
-        # +-6 m/s grid never reaches the SOI and the tuner walks off (390 m/s planned); Lambert from the node instead
-        moon = target.orbit.body.orbit is not None
-        lam = _lambert_seed(node, target)
-        if lam is None and not moon:
-            node.remove()
-            say("Lambert found no path to the target; not burning")
-            return False
-    if lam is not None:
-        expect, t_arr, vi_arr, z2, flat = lam
-        lever = t_arr - node.ut
-        b = _aim_radius(target, pe_alt, vi_arr)
-        lev = _levers(v.orbit, target, lever)
-        if _encounter(node.orbit, target) is None and flat and abs(z2) > 0.5 * target.sphere_of_influence:
-            by_design = True  # the plane change is dear here (near the node line): burn the in-plane part now
-        elif _encounter(node.orbit, target) is None:
-            # the two-body arc and KSP's patches disagree a little: pull the closest approach in (the dv term keeps
-            # the tuner from pumping the orbit up)
-            s = 0.5 * target.sphere_of_influence / lever
-            say(f"Lambert seed has no encounter in KSP's prediction; tuning the closest approach (step {s:.2f} m/s)")
-            tune_node(node, dv_cost, steps=(("prograde", s), ("normal", s), ("radial", s)), min_step=s / 50)
-        if not by_design and _encounter(node.orbit, target):
-            far = (0.1 * b / lev[0], 0.1 * b / lev[1])  # one step moves the aim point by ~b/10
-        elif not by_design and moon:
-            # around a planet the old coarse grid (a Mun flyby's deflection) is the fallback; around the Sun it
-            # was the 390 m/s walk-off
-            say("Lambert seed found no encounter; falling back to the coarse search")
-            node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
-            lam, expect = None, None
-    elif enc0 and t_in and t_in - node.ut > day and (inc_to is not None or min_inc):
-        # far out with an encounter: the aim-point seed below (built for turns inside the SOI, Eve 1) lost the
-        # encounter on every trial from Duna 1's aphelion and the tuner then walked off to 80 m/s
-        imp = _impact(node, target)
-        vi = imp[2] if imp else math.sqrt(target.gravitational_parameter / abs(enc0[1].semi_major_axis))
+    far_out = not inside and v.orbit.body.orbit is None and v.orbit.body.name == target.orbit.body.name \
+        and (enc0 is None or (t_in is not None and t_in - node.ut > day))
+    if far_out:
+        # around the Sun (Moho 1, Eve 2): KSP's patches need >= 0.3 s after a node edit, the old grid + tuner had no
+        # dv term and no side (Eve 2: 30.8 m/s and a retrograde pass where 7.7 did): compass search from a few seeds
+        seeds = [(0.0, 0.0, 0.0)]
+        if enc0 is None:
+            lam = _lambert_seed(node, target)
+            if lam is None:
+                node.remove()
+                say("Lambert found no path to the target; not burning")
+                return False
+            expect, t_arr, vi, z2, flat = lam
+            lever = t_arr - node.ut
+            by_design = _encounter(node.orbit, target) is None and flat \
+                and abs(z2) > 0.5 * target.sphere_of_influence  # the plane change is dear here: in-plane part now
+            seeds.append((node.prograde, node.normal, node.radial))
+            b_now, inc_now = None, None
+        else:
+            time.sleep(FAR_SETTLE)
+            imp = _impact(node, target)
+            vi = imp[2] if imp else math.sqrt(target.gravitational_parameter / abs(enc0[1].semi_major_axis))
+            lever = t_in - node.ut
+            b_now = math.sqrt(_dot(imp[0], imp[0])) if imp else 0.0
+            inc_now = math.degrees(enc0[1].inclination)
         b = _aim_radius(target, pe_alt, vi)
-        lev = _levers(v.orbit, target, t_in - node.ut)
-        far = (0.1 * b / lev[0], 0.1 * b / lev[1])
-        b_now = math.sqrt(_dot(imp[0], imp[0])) if imp else 0.0
-        # the pe change in the plane + at most half a turn around the aim ring (chord 2b), each over its lever arm
-        expect = abs(b_now - b) / lev[0] + 2 * b / lev[1]
+        lev = _levers(v.orbit, target, lever)
+        sp, sn = 0.1 * b / lev[0], 0.1 * b / lev[1]  # one step moves the aim point by ~b/10
+        if b_now is not None:
+            # the pe change in the plane + the turn around the aim ring (chord 2b sin(phi/2)) the inclination asks
+            phi = abs(inc_now - inc_to) if inc_to is not None else \
+                max(0.0, (min_inc or 0.0) - min(inc_now, 180 - inc_now))
+            expect = abs(b_now - b) / lev[0] + 2 * b * math.sin(math.radians(min(phi, 180.0)) / 2) / lev[1]
         cap = 3 * expect + 0.5
-        say(f"far out ({(t_in - node.ut) / day:.1f} d to the SOI): aim radius {b / 1000:.0f} km (now "
-            f"{b_now / 1000:.0f}), estimate <= {expect:.2f} m/s; grid steps {far[0]:.3f} / {far[1]:.3f} m/s")
-    elif inc_to is not None and (v.orbit.eccentricity > 1 if inside else enc0 is not None):
-        # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the aim
-        # point (impact vector b) around the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg inside the
-        # SOI, far beyond the +-6 m/s grid below
-        expect = _aim_point_seed(node, target, pe_alt, cost)
-    elif inc_to is not None:
-        # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
-        # whole target, so scan a fine grid as well
-        best = None
-        for g in (0.5, 0.05):
-            for nm in [x * g for x in range(-12, 13)]:
-                for rd in [x * g for x in range(-12, 13)]:
-                    node.prograde, node.normal, node.radial = 0.0, nm, rd
+        retro = inc_to > 90 if inc_to is not None else (inc_now > 90 if inc_now is not None else None)
+        w_pe = max(0.02, 3000.0 / lever)  # a km of pe weighs >= 3x the dv that moves the aim point by a km
+        say(f"far out ({lever / day:.1f} d to go): aim radius {b / 1000:.0f} km"
+            + (f" (now {b_now / 1000:.0f}, inc {inc_now:.1f})" if b_now is not None else "")
+            + f", estimate {expect:.2f} m/s, cap {cap:.2f}; steps {sp:.3f} / {sn:.3f} m/s, pe weight {w_pe:.3f}/km"
+            + ("" if retro is None else f", pass must be {'retrograde' if retro else 'prograde'}"))
+        if by_design:
+            pass  # burn the in-plane Lambert seed as it is
+        else:
+            seeds += [(2 * sp, 0.0, 0.0), (-2 * sp, 0.0, 0.0)]  # small prograde / retrograde
+            _far_search(node, target, pe_alt, seeds, (sp, sn, sp), cap, w_pe, min_inc, inc_to, retro)
+    else:
+        if not inside and enc0 is None and v.orbit.body.name == target.orbit.body.name:
+            # no encounter around the target's parent (Moho 1 after a late ejection: closest approach 331,674 km): the
+            # +-6 m/s grid never reaches the SOI and the tuner walks off (390 m/s planned); Lambert from the node instead
+            moon = target.orbit.body.orbit is not None
+            lam = _lambert_seed(node, target)
+            if lam is None and not moon:
+                node.remove()
+                say("Lambert found no path to the target; not burning")
+                return False
+        if lam is not None:
+            expect, t_arr, vi_arr, z2, flat = lam
+            lever = t_arr - node.ut
+            b = _aim_radius(target, pe_alt, vi_arr)
+            lev = _levers(v.orbit, target, lever)
+            if _encounter(node.orbit, target) is None and flat and abs(z2) > 0.5 * target.sphere_of_influence:
+                by_design = True  # the plane change is dear here (near the node line): burn the in-plane part now
+            elif _encounter(node.orbit, target) is None:
+                # the two-body arc and KSP's patches disagree a little: pull the closest approach in (the dv term keeps
+                # the tuner from pumping the orbit up)
+                s = 0.5 * target.sphere_of_influence / lever
+                say(f"Lambert seed has no encounter in KSP's prediction; tuning the closest approach (step {s:.2f} m/s)")
+                tune_node(node, dv_cost, steps=(("prograde", s), ("normal", s), ("radial", s)), min_step=s / 50)
+            if not by_design and _encounter(node.orbit, target):
+                far = (0.1 * b / lev[0], 0.1 * b / lev[1])  # one step moves the aim point by ~b/10
+            elif not by_design and moon:
+                # around a planet the old coarse grid (a Mun flyby's deflection) is the fallback; around the Sun it
+                # was the 390 m/s walk-off
+                say("Lambert seed found no encounter; falling back to the coarse search")
+                node.prograde, node.normal, node.radial = 0.0, 0.0, 0.0
+                lam, expect = None, None
+        elif enc0 and t_in and t_in - node.ut > day and (inc_to is not None or min_inc):
+            # far out with an encounter: the aim-point seed below (built for turns inside the SOI, Eve 1) lost the
+            # encounter on every trial from Duna 1's aphelion and the tuner then walked off to 80 m/s
+            imp = _impact(node, target)
+            vi = imp[2] if imp else math.sqrt(target.gravitational_parameter / abs(enc0[1].semi_major_axis))
+            b = _aim_radius(target, pe_alt, vi)
+            lev = _levers(v.orbit, target, t_in - node.ut)
+            far = (0.1 * b / lev[0], 0.1 * b / lev[1])
+            b_now = math.sqrt(_dot(imp[0], imp[0])) if imp else 0.0
+            # the pe change in the plane + at most half a turn around the aim ring (chord 2b), each over its lever arm
+            expect = abs(b_now - b) / lev[0] + 2 * b / lev[1]
+            cap = 3 * expect + 0.5
+            say(f"far out ({(t_in - node.ut) / day:.1f} d to the SOI): aim radius {b / 1000:.0f} km (now "
+                f"{b_now / 1000:.0f}), estimate <= {expect:.2f} m/s; grid steps {far[0]:.3f} / {far[1]:.3f} m/s")
+        elif inc_to is not None and (v.orbit.eccentricity > 1 if inside else enc0 is not None):
+            # on the way in (inside the SOI or with an encounter ahead): a new arrival plane means turning the aim
+            # point (impact vector b) around the incoming asymptote; Eve 1 needed ~80 m/s for 10 -> 90 deg inside the
+            # SOI, far beyond the +-6 m/s grid below
+            expect = _aim_point_seed(node, target, pe_alt, cost)
+        elif inc_to is not None:
+            # far out (heliocentric, Duna 1) 0.1 m/s moves the pass by ~3,500 km: a 0.5 m/s grid steps over the
+            # whole target, so scan a fine grid as well
+            best = None
+            for g in (0.5, 0.05):
+                for nm in [x * g for x in range(-12, 13)]:
+                    for rd in [x * g for x in range(-12, 13)]:
+                        node.prograde, node.normal, node.radial = 0.0, nm, rd
+                        c = cost(node)
+                        if best is None or c < best[0]:
+                            best = (c, nm, rd)
+            node.prograde, node.normal, node.radial = 0.0, best[1], best[2]
+        if far:
+            _far_grid(node, dv_cost, *far)
+            tune_node(node, dv_cost, steps=(("prograde", far[0]), ("normal", far[1]), ("radial", far[0])),
+                      min_step=far[0] / 8)
+        elif lam is None:
+            tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
+        if _encounter(node.orbit, target) is None and not inside and lam is None:
+            # far off course (e.g. deflected by a Mun flyby): seed from a coarse prograde x radial grid, then tune
+            say("no encounter nearby; coarse search")
+            best = None
+            for pg in range(-150, 151, 5):
+                for rd in (-40, -20, 0, 20, 40):
+                    node.prograde, node.normal, node.radial = pg, 0.0, rd
                     c = cost(node)
                     if best is None or c < best[0]:
-                        best = (c, nm, rd)
-        node.prograde, node.normal, node.radial = 0.0, best[1], best[2]
-    if far:
-        _far_grid(node, dv_cost, *far)
-        tune_node(node, dv_cost, steps=(("prograde", far[0]), ("normal", far[1]), ("radial", far[0])),
-                  min_step=far[0] / 8)
-    elif lam is None:
-        tune_node(node, cost, steps=(("prograde", 1.0), ("normal", 1.0), ("radial", 1.0)))
-    if _encounter(node.orbit, target) is None and not inside and lam is None:
-        # far off course (e.g. deflected by a Mun flyby): seed from a coarse prograde x radial grid, then tune
-        say("no encounter nearby; coarse search")
-        best = None
-        for pg in range(-150, 151, 5):
-            for rd in (-40, -20, 0, 20, 40):
-                node.prograde, node.normal, node.radial = pg, 0.0, rd
-                c = cost(node)
-                if best is None or c < best[0]:
-                    best = (c, pg, rd)
-        node.prograde, node.normal, node.radial = best[1], 0.0, best[2]
-        tune_node(node, cost, steps=(("prograde", 2.0), ("normal", 2.0), ("radial", 2.0)))
+                        best = (c, pg, rd)
+            node.prograde, node.normal, node.radial = best[1], 0.0, best[2]
+            tune_node(node, cost, steps=(("prograde", 2.0), ("normal", 2.0), ("radial", 2.0)))
     enc = _encounter(node.orbit, target)
     inc = math.degrees(enc[1].inclination) if enc else None
     say(f"correction {node.delta_v:.1f} m/s -> pe {enc[0] if enc else None}, inc {inc}")
@@ -1859,7 +1996,7 @@ def _lambert_seed(node, target):
         setattr(node, k, 1.0)
         basis[k] = node.burn_vector(frame)
     node.prograde, node.normal, node.radial = (_dot(dv, basis[k]) for k in ("prograde", "normal", "radial"))
-    time.sleep(0.1)
+    time.sleep(FAR_SETTLE)
     enc = _encounter(node.orbit, target)
     say(f"Lambert seed: prograde {node.prograde:.2f} normal {node.normal:.2f} radial {node.radial:.2f} -> "
         + (f"{target.name} pe {enc[0] / 1000:.0f} km" if enc else "no encounter in KSP's prediction"))
