@@ -654,23 +654,33 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   at once: **funds 2.53 -> 3.53M**. Tooling: before an uncrewed burn, predict the link over the burn window (or at
   least fail loudly and retry when the link returns, instead of timing out).
 
+## 2026-09-26 — Eve 1 home (Jeb): +620 sci; lab visits; a KSP crash
+- Lab visits: UT 30.75M +498 (sci 2,118 -> 2,620), 33.0M +495 (-> 3,114); **31.88M and 34.1M transmitted nothing**
+  (EC 2,056 / 2,102: the silent-fail threshold is between 2,102 and 2,425 EC); retried 34.1M after warping in sunlight to
+  EC 3,176: -> 3,590. Rule until `lab transmit` checks it (4q): charge to > 3,000 EC first.
+- KSP was found closed (kRPC connect timeout) after the lab script; restarted at UT 34,100,165, nothing lost (last save
+  at the space center). Windows: commit 25.7 GB, nonpaged pool 1.52 GB (0.89 at session start: still rising).
+- **Eve 1**: after UT 31.2M the game showed the Kerbin encounter as fable predicted (pe ~39 Mm): `correct` 3.6 m/s ->
+  pe 28.5 planned, 1,809 km after the burn error; at UT 34.5M 3.2 m/s -> **pe 30.3 km** (no Mun on the way in).
+  Reentry from v_inf 2,126 (collect_science: 0 new, 11 held in the pod), drogues 20 km at 771 m/s, landed in the
+  Grasslands, **Jeb recovered: sci 3,594 -> 4,214 (+620), funds 3.61 -> 3.64M**.
+
 ### Next steps (plan)
-State (2026-09-26, after Duna 1's return): KSP running at the space center, UT ~29.36M, funds 2.53M, sci 1,626,
-rep ~458. Timeline (UT): lab visit before ~29.57M (then every <= 50 days); **Ike Station 1 Duna SOI 30,679,045**;
-Eve 1 correction after ~31.2M (encounter shows then), Kerbin pass ~35.46M; **Jool 1 Jool SOI 52,787,080**.
-Jool 1 (uncrewed, ~4,540 m/s): Jool pe -655 km inc 15.9 after the mid-course: trim pe to 250 km inside Jool's SOI,
-`capture --apo 100000000` (~445), science (docs/jool-1-plan.md).
-Eve 1 (Jeb, ~1,017 sci now in the pod container, ~3,440 m/s): see above; reentry at ~3.9 km/s, `reentry` collects
-science first.
-Minmus Lab 1 (Bob, Gwenbro) lab 734/750, ~9.5 sci/day. Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
-Ike Station 1 in Ike orbit 33.7 x 523.5 km (contract done), ~920 m/s left: a future crew/fuel depot (ISRU, docking).
+State (2026-09-26, after Eve 1's return): KSP running at the space center, UT ~35.47M, funds 3.64M, sci 4,214,
+rep ~521. All crews home except Bob + Gwenbro (Minmus Lab 1). No burns pending.
+Timeline (UT): lab visits every ~50 days (last 34.10M -> next before ~35.26M+... i.e. now-ish, then +1.08M each; charge
+to > 3,000 EC before `lab transmit`); **Jool 1 Jool SOI 52,787,080** (pe -655 km, inc 15.9: trim pe to 250 km inside the
+SOI, then `capture --apo 100000000` ~445 m/s; docs/jool-1-plan.md).
+Jool 1 (uncrewed, ~4,540 m/s) cruising. Ike Station 1 in Ike orbit 33.7 x 523.5 km, ~920 m/s (contract done).
+Minmus Lab 1 (Bob, Gwenbro) lab ~722/750, ~9.5 sci/day; the storage unit's backlog is nearly used up.
+Keo Relay 3 spare (4617 m/s) in keosynchronous orbit.
 Active contracts: **Ike station** (Ike Station 1 en route), Duna x2 (complete on recovery),
 Minmus temperature survey (will lapse), two part-recovery contracts (skip, small parts rule).
 Offered: Minmus satellite (magnetometer, 134k), Duna rover construction (741k), VIP ferry.
 Crew at KSC: Daphrick (scientist), Bill, Elfry (engineers), Mitbro, Jedgard (pilots), Barzor.
 0. CLAUDE.md "How to decide": expected numbers incl. real time before each phase; --plan for big burns.
 1. (done: Duna 1 home.) Duna surface science contract still open (needs surface data from Duna: Ike Station can't).
-2. **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
+2. (done: Eve 1 home, +620 sci.) Old plan text: **Eve 1 return** (fable's plan, see Rescue 5 entry): `depart Kerbin --pe 30000 --plan` (expect "pe pass UT
    29029189 ... tilt ... 105 m/s + ejection 215 = 320"; tilt at the apoapsis UT 28,925,295, dry-run v_inf error
    < ~5 m/s) -> node; then `depart Kerbin --pe 30000 --at 29029189 --plan` (~215 m/s, encounter) -> node; after the
    SOI exit `correct Kerbin --pe 30000` (a few m/s); reentry at ~3.9 km/s: pod-side goo/thermo/baro hold ~385 sci:

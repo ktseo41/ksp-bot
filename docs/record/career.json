@@ -3,14 +3,14 @@
  "career_now": {
   "date": "2026-09-26",
   "real_days": 3,
-  "ut": 30752200,
-  "ut_note": "game UT at the last update (main session, 2026-09-26, Ike Station 1 contract done in Ike orbit)",
-  "funds": 3526795,
-  "science": 2118.0,
-  "reputation": 458.2,
+  "ut": 35470000,
+  "ut_note": "game UT at the last update (main session, 2026-09-26, Eve 1 recovered)",
+  "funds": 3638132,
+  "science": 4213.5,
+  "reputation": 521.2,
   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 2, "AstronautComplex": 2, "R&D": 3},
   "funds_start": 25000,
-  "funds_peak": 3526795,
+  "funds_peak": 3638132,
   "funds_peak_note": "after Rescue 4 (#36), LOG \"Rescue Mitbro done: funds 2.84M\"",
   "funds_spent_on_facilities": "MC2 75k, TS2 + Pad2, VAB2 225k, AC2, R&D2 451k, R&D3 1.69M",
   "funds_timeline_note": "funds after the launch (tick \"#n\") or after a facility purchase (tick \"facility\"); funds null = purchase with no balance in the LOG (marker only). Sources: LOG.md mission entries",
@@ -43,7 +43,7 @@
     {"tick": "#42", "funds": 1810000, "label": null},
     {"tick": "#43", "funds": 2190000, "label": "2.19M"},
     {"tick": "#45", "funds": 2038738, "label": "2.04M"},
-    {"tick": "R30", "funds": 2534973, "label": "2.53M"}, {"tick": "Ike", "funds": 3526795, "label": "3.53M"}
+    {"tick": "R30", "funds": 2534973, "label": "2.53M"}, {"tick": "Ike", "funds": 3526795, "label": "3.53M"}, {"tick": "R37", "funds": 3638132, "label": "3.64M"}
    ]
  },
  "firsts": [
@@ -99,7 +99,7 @@
    {"n":34,"craft":"Rescue 3","slug":"rescue-3","dest":"kerbin-orbit","stat":"no grab","crew":"-","goal":"same rescue with RCS translation","result":"reverted","note":"RCS held the Klaw square (0.03-0.07 m off-axis); 2 contacts bounced; orbit sank to 64.8 km unnoticed; reverted","date":"2026-09-25"},
    {"n":35,"craft":"Rescue 3","slug":"rescue-3","dest":"kerbin-orbit","stat":"rescued","crew":"-","goal":"Klaw diagnosis + rescue Gwenbro","result":"success","note":"found the Klaw bug: our .craft files had no MODULE nodes, so ModuleGrappleNode.OnLoad never ran and Grapple() threw a NullReferenceException on every contact (KSP.log); reloading the vessel fixed it: grabbed on the first contact; Gwenbro moved to the pod, splashdown, contract done; SRB thrust limit cut max Q 51 -> 36 kPa","date":"2026-09-26"},
    {"n":36,"craft":"Rescue 4","slug":"rescue-4","dest":"minmus","stat":"rescued","crew":"-","goal":"rescue Mitbro from Minmus orbit (176 x 199 km, inc 21.5)","result":"success","note":"first craft built with MODULE nodes: grabbed on the first contact without any reload; Mitbro moved to the pod with the new MoveCrew; the Dv gate refused the return burn because its own estimate was wrong (fixed); landed at night","date":"2026-09-26"},
-   {"n":37,"craft":"Eve 1","slug":"eve-1","dest":"eve","stat":"eve orbit","crew":"Jeb","goal":"Eve high/low orbit science + orbital EVA report per biome, return","result":"in progress","note":"first live Lambert (broken-plane) transfer: 1027 m/s ejection, 372 m/s mid-course plane change, Eve pe 147 km as planned; aim-point seed turned the arrival 10 -> 73 deg for 69 m/s; 11 of 15 Eve biomes in orbital EVA reports over 7 periapsis passes; ~1017 sci aboard (no antenna reach from Eve); waiting for the return window","date":"2026-09-26"},
+   {"n":37,"craft":"Eve 1","slug":"eve-1","dest":"eve","stat":"eve orbit","crew":"Jeb","goal":"Eve high/low orbit science + orbital EVA report per biome, return","result":"success","note":"first live Lambert (broken-plane) transfer: 1027 m/s ejection, 372 m/s mid-course plane change, Eve pe 147 km as planned; aim-point seed turned the arrival 10 -> 73 deg for 69 m/s; 11 of 15 Eve biomes in orbital EVA reports over 7 periapsis passes; ~1017 sci aboard (no antenna reach from Eve); waiting for the return window; home: a 105 m/s tilt and a 215 m/s periapsis ejection, KSP hid the Kerbin encounter until UT 31.2M (a solver bug), pe 30 km, landed in the Grasslands, +620 sci","date":"2026-09-26"},
    {"n":38,"craft":"Minmus Science 2","slug":"minmus-science-2","dest":"minmus","stat":"landed x5","crew":"Bob","goal":"materials bay + goo + barometer in 5 Minmus biomes, collected into a storage unit","result":"success","note":"Lowlands, Poles, Flats, Highlands, Lesser Flats, storage count checked after each; +1166 science on recovery (84 -> 1250). A failed EVA made eva report run every experiment in high space (5 Science Jrs, 6 goo): the stock Reset got them back. Return planner fixed (it chose a retrograde 229 m/s root over the prograde 164)","date":"2026-09-26"},
    {"n":39,"craft":"Survey 1","slug":"survey-1","dest":"mun","stat":"orbits","crew":"Bob","goal":"orbit-only science: Kerbin high, Mun and Minmus high/low, magnetometer, EVA report over every biome","result":"success","note":"all 17 Mun and all 9 Minmus biomes in low-orbit EVA reports, magnetometer at 5 situations, first moon-to-moon transfer (Mun -> Minmus, waited 14 days for the polar orbit to line up); +1601 science (11 -> 1613); the pad EVA test dropped Bob onto the pad (reverted)","date":"2026-09-26"},
    {"n":40,"craft":"Rescue 5","slug":"rescue-5","dest":"kerbin-orbit","stat":"rescued x3","crew":"-","goal":"rescue Gwenbro (left behind by Rescue 3), Daphrick and Jedgard from LKO in one flight","result":"success","note":"Mk1-3 pod with a Klaw; the first grab caught Rescue 3's empty can of the same name; three first-contact grabs, all three crew home; two rescue contracts done","date":"2026-09-26"},
@@ -241,7 +241,7 @@
  "real_days": [
    {"date": "2026-09-24", "n_first": 1, "n_last": 20, "ut_end": 1790000, "approx": true, "src": "LOG 09-24 entry: Duna window computed \"from UT 1.79M\" after #18 (lower bound)"},
    {"date": "2026-09-25", "n_first": 21, "n_last": 34, "ut_end": 11790000, "approx": true, "src": "LOG 09-26 Eve 1 entry: \"now ~11,790,000\" early on day 3 (upper bound)"},
-   {"date": "2026-09-26", "n_first": 35, "n_last": 45, "ut_end": 30752200, "approx": true, "src": "career_now.ut"}
+   {"date": "2026-09-26", "n_first": 35, "n_last": 45, "ut_end": 35470000, "approx": true, "src": "career_now.ut"}
   ],
  "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation"},
  "landings_by_body": {"_note": "crewed/landing MISSIONS that landed and came home (launch numbers), not touchdowns", "minmus": [10, 18, 20, 22, 25, 38], "mun": [16, 23], "duna": [30]},
@@ -280,7 +280,6 @@
  "live_missions": [
    {"slug": "jool-1", "n": 44, "type": "probe", "body": "jool", "crew": [], "where_ko": "Jool로 이동 중", "next_ko": "Jool 도착", "next_ut": 52787080, "from": "kerbin", "to": "jool"},
    {"slug": "ike-station-1", "n": 45, "type": "probe", "body": "ike", "crew": [], "where_ko": "Ike 궤도 (정거장)", "next_ko": "계약 완료", "next_ut": 30752200},
-   {"slug": "eve-1", "n": 37, "type": "crewed", "body": "eve", "crew": ["Jeb"], "where_ko": "Eve → Kerbin", "next_ko": "Kerbin 도착", "next_ut": 35460000, "sci_aboard": 1017, "from": "eve", "to": "kerbin"},
    {"slug": "minmus-lab-1", "n": 41, "type": "station", "body": "minmus", "crew": ["Bob", "Gwenbro"], "where_ko": "Minmus 극궤도 14 km", "next_ko": "실험실 방문", "sci_per_day": 9.3},
    {"slug": "polar-relay-1", "n": 27, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-1", "n": 31, "type": "satellite", "body": "kerbin"},
@@ -296,10 +295,9 @@
    {"n": 41, "gain": 498, "how": "실험실 전송"},
    {"n": 41, "gain": 273, "how": "실험실 전송"},
    {"n": 41, "gain": 485, "how": "실험실 전송"},
-   {"n": 41, "gain": 492, "how": "실험실 전송"}
+   {"n": 41, "gain": 492, "how": "실험실 전송"}, {"n": 41, "gain": 498, "how": "실험실 전송"}, {"n": 41, "gain": 495, "how": "실험실 전송"}, {"n": 41, "gain": 475, "how": "실험실 전송"}, {"n": 37, "gain": 620, "how": "회수"}
   ],
  "science_aboard": [
-   {"slug": "eve-1", "sci": 1017, "approx": true},
    {"slug": "minmus-lab-1", "data": "730/750"}
   ]
 }

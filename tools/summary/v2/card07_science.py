@@ -1,8 +1,18 @@
 from common2 import *
 
-H = RECORD['science_hauls']
-total = sum(h['gain'] for h in H)
-headline = f'큰 수확 {len(H)}번, 합계 {num(total)}'
+H0 = RECORD['science_hauls']
+total = sum(h['gain'] for h in H0)
+# repeated lab transmissions share one row (count + sum), so the list keeps its height as visits pile up
+H, _lab = [], {}
+for h in H0:
+    if h['how'] == '실험실 전송':
+        if h['n'] not in _lab:
+            _lab[h['n']] = {'n': h['n'], 'gain': 0, 'how': h['how'], 'count': 0}
+            H.append(_lab[h['n']])
+        _lab[h['n']]['gain'] += h['gain']; _lab[h['n']]['count'] += 1
+    else:
+        H.append(dict(h))
+headline = f'큰 수확 {len(H0)}번, 합계 {num(total)}'
 NAMES = RECORD['research_names']
 TECH = RECORD['research']
 rd = CN['facilities']['R&D']
@@ -58,7 +68,7 @@ for h in H:
     w = max(h['gain'] / mx * 80, 3)  # leave room for the label after the longest bar
     rows.append(f'<div class="hr">{th}<div class="nm">{esc(craft_name(l["slug"]))}<span>#{h["n"]}</span></div>'
                 f'<div class="tr"><div class="fill" style="width:{w:.1f}%;background:{col}"></div>'
-                f'<span class="how" style="left:calc({w:.1f}% + 12px);color:{col}">{esc(h["how"])}</span></div>'
+                f'<span class="how" style="left:calc({w:.1f}% + 12px);color:{col}">{esc(h["how"])}{" ×" + str(h["count"]) if h.get("count", 1) > 1 else ""}</span></div>'
                 f'<div class="v" style="color:{col}">+{num(h["gain"])}</div></div>')
 
 ab = []
