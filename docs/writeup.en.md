@@ -4,7 +4,7 @@ Korean original: [writeup.ko.md](writeup.ko.md)
 
 This document collects material for a blog post. The detailed per-mission journal is in `LOG.md`, the design lessons
 are in `docs/design-guide.md` §0, and raw material pulled from earlier session transcripts (the user's messages verbatim,
-a minute-by-minute timeline of the start, statistics) is in a local note, `docs/transcript-notes.md` (not in the public repo). Flight telemetry is in
+a minute-by-minute timeline of the start, statistics) is in `docs/transcript-notes.md`. Flight telemetry is in
 `runs/flights/*.jsonl` (not in git), screenshots are in `docs/media/`. Update this file whenever a new milestone is reached.
 
 ## 1. One-line summary
@@ -62,7 +62,7 @@ KSP 1.12.5 (Windows)
   (CLAUDE.md + LOG.md + memory are the handoff material).
 
 ## 2.5 Getting started: from an empty folder to the first flight (about 2 hours)
-The minute-by-minute timeline is in a local note (`docs/transcript-notes.md` §2, not in the public repo). Summary:
+`docs/transcript-notes.md` §2 has the minute-by-minute timeline. Summary:
 1. Found the Steam install path and settled three opening questions (Normal difficulty, kRPC + a homemade helper mod, revert policy).
 2. Downloaded and installed kRPC 0.6.0 from GitHub. The kRPC server didn't start automatically, so to turn it on without clicks,
    Claude dug through DLL strings and the kRPC source and found the `autoStartServers` setting key.
