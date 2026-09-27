@@ -5,3 +5,4 @@ mod/**/obj/
 runs/
 .claude/
 HANDOFF.md
+docs/transcript-notes.md

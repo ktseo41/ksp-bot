@@ -4,7 +4,7 @@ English version: [writeup.en.md](writeup.en.md)
 
 블로그 글을 쓸 때 쓸 재료를 모아 둔 문서다. 미션별 상세 일지는 `LOG.md`, 설계 교훈은
 `docs/design-guide.md` §0, 이전 세션 대화 기록에서 뽑은 원자료(사용자 메시지 원문, 시작 과정의 분 단위
-타임라인, 통계)는 `docs/transcript-notes.md`에 있다. 비행 텔레메트리는 `runs/flights/*.jsonl`(git에는
+타임라인, 통계)는 로컬 메모 `docs/transcript-notes.md`에 있다(공개 저장소에는 없음). 비행 텔레메트리는 `runs/flights/*.jsonl`(git에는
 안 올라감), 스크린샷은 `docs/media/`에 있다. 새 이정표를 달성하면 여기도 갱신한다.
 
 ## 1. 한 줄 요약
@@ -62,7 +62,7 @@ KSP 1.12.5 (Windows)
   (CLAUDE.md + LOG.md + 메모리가 인계 자료).
 
 ## 2.5 시작 과정: 빈 폴더에서 첫 비행까지 (약 2시간)
-`docs/transcript-notes.md` §2에 분 단위 타임라인이 있다. 요약:
+분 단위 타임라인은 로컬 메모(`docs/transcript-notes.md` §2, 공개 저장소에는 없음)에 있다. 요약:
 1. Steam 설치 경로를 찾고, 시작 질문 3개로 합의했다(난이도 Normal, kRPC + 자작 보조 모드, revert 정책).
 2. GitHub에서 kRPC 0.6.0을 받아 설치했다. kRPC 서버가 자동으로 시작되지 않아서, 클릭 없이 켜려고 DLL 문자열과
    kRPC 소스를 뒤져 `autoStartServers` 설정 키를 찾았다.
