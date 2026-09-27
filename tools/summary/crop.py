@@ -38,21 +38,22 @@ C={
  'duna-2':(0.50,0.098,0.78,0.07),
 }
 W,H=2560,1440
-for s,(cx,t,b,cw) in C.items():
-    if sys.argv[1:] and s not in sys.argv[1:]:  # `crop.py slug ...` crops only those
-        continue
-    im=Image.open(SRC%s).convert('RGB')
-    A=0.696 if s in WIDE else ASPECT
-    h=(b-t)*H*1.12
-    w=max(h*A, cw*W*2.2)
-    h=w/A
-    cy=(t+b)/2*H
-    y0=cy-h/2; 
-    y0=max(0,min(y0,H-h))
-    x0=cx*W-w/2
-    box=tuple(int(round(v)) for v in (x0,y0,x0+w,y0+h))
-    c=im.crop(box)
-    tw=min(480,c.width)
-    c=c.resize((tw,int(tw/A)),Image.LANCZOS)
-    c.save(OUT%s,quality=84,optimize=True,progressive=True)
-    print(s,box,c.size)
+if __name__ == '__main__':
+    for s,(cx,t,b,cw) in C.items():
+        if sys.argv[1:] and s not in sys.argv[1:]:  # `crop.py slug ...` crops only those
+            continue
+        im=Image.open(SRC%s).convert('RGB')
+        A=0.696 if s in WIDE else ASPECT
+        h=(b-t)*H*1.12
+        w=max(h*A, cw*W*2.2)
+        h=w/A
+        cy=(t+b)/2*H
+        y0=cy-h/2; 
+        y0=max(0,min(y0,H-h))
+        x0=cx*W-w/2
+        box=tuple(int(round(v)) for v in (x0,y0,x0+w,y0+h))
+        c=im.crop(box)
+        tw=min(480,c.width)
+        c=c.resize((tw,int(tw/A)),Image.LANCZOS)
+        c.save(OUT%s,quality=84,optimize=True,progressive=True)
+        print(s,box,c.size)

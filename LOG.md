@@ -897,6 +897,19 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   sci 4,985, rep 586.** Next on resume: Duna 2 trim ~UT 51.18M (`correct Duna --pe 100000 --inc-to 0 --plan`), Duna SOI
   51.61M; Eeloo 1 mid-course UT 51.15-53.3M (expect 380-450, > 550 don't burn); Jool 1 SOI 52.79M; lab visit ~51.8M;
   Dres 1 mid-course 56,159,878; windows Dres 53.87M / Eeloo 53.95M / Jool 54.25M (Jool 2 to design).
+
+## 2026-09-27 — photo session (summary cards, Reddit images): pad photos, a Gilly bounce, one quickload
+- Records/cards updated through #53 (commits 3599757, ce94e5c). Sandbox pad photos for Minmus Science 2, Survey 1,
+  Dres 1, Eeloo 1, Duna 2 (the sandbox needs a fresh kerbal per crewed pod: "Warning: No Control!").
+- Career photo trip (`ksp fly "Moho 1"`, then switching vessels in flight): Moho 1 clean shot OK (sun 21 deg);
+  Eve 2's lander in the sea at dusk (sun -3 deg, not used). **Switching to Eve 2 on Gilly threw it up at ~11 m/s on
+  the physics load** (sub_orbital, radar 440 m and climbing, 28/28 parts). Tooling caused (our vessel switch) ->
+  **quickload**: the switch had saved persistent at UT 50,805,895 with Eve 2 LANDED (alt 4,114 m). Loading that copy
+  bounced it again (it was the save's active vessel), so a copy with only `activeVessel` changed to Moho 1 (index 57
+  instead of 59, one byte) was loaded -> Eve 2 LANDED on rails, back to the space center (saved UT 50,805,927).
+  Backups: saves/kspbot/restore_photo_111038.sfs (original), restore_photo_moho.sfs (edited).
+- **Eve 2 on Gilly jumps ~11 m/s every time it is loaded with physics** (reproduced twice). Before flying it again:
+  expect the bounce (apex ~1.2 km, back down after ~7 min) and be ready to `land`, or don't switch to it.
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
