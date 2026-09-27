@@ -955,6 +955,19 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   no open node. Sci 495 left. From here science is no longer a constraint; the goal left is every planet (Jool 1
   arriving 52.79M, Dres 1 59.19M, Eeloo 1 69.10M) and their moons.
 
+- Launch pad and VAB upgraded to level 3 (282k + 845k: no mass / part limits) for the Jool moon landers; funds 4.66M.
+  "Explore Ike" (science from Ike) is offered but Ike Station 1 carries no experiment: an Ike lander waits for the
+  Duna window UT 64.06M. Records (opus): career.json, cards 01/02/05/07/10, writeup 7.34 (commit 76bb6a7).
+- **Jool 1 at Jool**: SOI UT 52.792M (v_inf 1,679; pe -655 km, inc 15.9): `correct Jool --pe 250000 --inc-to 0`
+  16.5 m/s -> pe 257 km, inc 5.1. `capture --apo 100000000` at UT 54.082M: **416 m/s** (plan 445 at v_inf 1,760),
+  link forecast clear, 75 s on the Nerv -> **257 x 100,095 km around Jool** (period 1.82 d), 4,377 m/s left. Science
+  low +519, high +352 (sci 1,370); Jool firsts +72k (funds 4.73M).
+- Jool 1 is now the scout for the moon landers (no sandbox: moon targeting and captures in the Jool system get their
+  first flight on it). `transfer <moon> --plan` from the ellipse (Lambert, automatic from an eccentric orbit): Vall
+  727 + capture 348 = 1,075; Laythe 674 + 865 = 1,540; Tylo 1,240 + 933 = 2,173 (retrograde pass). **Vall**: burned
+  727.6 at UT 54,155,117 -> Jool 37,540 x 99,828 km, Vall pe 22 km; `correct Vall --pe 60000` 2.8 m/s -> 63.4 km,
+  inc 15.8, v_inf 270. Vall SOI UT 54.2697M, pe ~54.2737M (after the Jool window's launches). 3,650 m/s left.
+
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
