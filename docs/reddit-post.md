@@ -1,6 +1,8 @@
 # Reddit post draft (images: docs/media/summary/reddit/1-crafts.png, 2-where.png, 3-numbers.png)
 
-Numbers as of 2026-09-27 (launch #53, UT 50.80M), from docs/record/career.json.
+Numbers as of 2026-09-27 (launch #53, UT 50.80M), from docs/record/career.json. The user's own best (saves/science,
+Science mode, last saved 2023-03-15): Bob's flight 5 = Duna landing + flag + recovered at Kerbin; no Ike in any save;
+saves/20260113 (career, 2026-03) has an uncrewed Eve orbit.
 
 ## Title (pick one)
 - I let an AI (Claude) play a KSP career from scratch. 53 launches later it has landed on Minmus, the Mun, Duna, Moho, Eve and Gilly
@@ -19,6 +21,10 @@ After 4 real days (~5.5 Kerbin years in game):
 - 5 CommNet relays, a science lab station at Minmus, 6 stranded kerbals rescued with the Klaw
 - Probes on the way to Jool, Dres and Eeloo
 
+For scale: in years of playing on and off, the farthest I ever got myself was Duna (Bob landed, planted a flag and
+flew home, in science mode; I never made it to Ike). Claude had Valentina on Duna on its second day and home on the
+third.
+
 It pays for everything, reverts only when the game offers it (hence the 13), and quickloads only when its own
 tooling broke.
 
@@ -26,7 +32,7 @@ Most failures were its own bugs, fixed in code afterwards: a burn that flipped a
 that died at 28 km over Duna, a Klaw that bounced off four times because the craft files it generated were missing
 data.
 
-1: milestone crafts on the pad · 2: in-game screenshots · 3: the numbers
+1: milestone crafts on the pad, with KSP's vacuum Δv · 2: in-game screenshots · 3: the numbers
 
 ## If someone asks how it works (comment)
 Claude Code runs in a terminal next to the game. KSP talks to it through kRPC plus a small helper mod it wrote (craft

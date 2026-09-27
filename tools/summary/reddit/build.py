@@ -56,7 +56,9 @@ CRAFTS = [('hopper-1', 1, 'first hop · 16 km'), ('orbiter-1', 4, 'first orbit')
           ('minmus-lander-1', 10, 'first Minmus landing'), ('mun-lander-3', 16, 'first Mun landing'),
           ('duna-1', 30, 'Duna and back'), ('jool-1', 44, 'nuclear probe to Jool'),
           ('eve-2', 49, 'Eve splashdown + Gilly landing'), ('eeloo-1', 52, 'on its way to Eeloo')]
-CELL_W, PHOTO_H = 357, 680
+CELL_W, PHOTO_H = 357, 640
+DV = {r['slug']: r for r in RECORD['pad_dv']}
+DV_MORE = {'eve-2': ' + lander'}  # KSP lists no delta-v for Eve 2's lander stage on the pad (pad_dv_note)
 
 
 def pad_photo(slug):
@@ -78,17 +80,21 @@ def card1():
         crew = l.get('crew', '')
         who = f' · {esc(crew)}' if crew and not crew.startswith('-') else ''
         cells.append(f'<div class="cr"><div class="ph"><img src="{pad_photo(slug)}"><span class="n">#{n}</span></div>'
-                     f'<div class="nm">{esc(craft_name(slug))}</div><div class="cp">{esc(cap)}{who}</div></div>')
+                     f'<div class="nm">{esc(craft_name(slug))}</div>'
+                     f'<div class="dv">Δv {num(DV[slug]["vac"])} m/s{DV_MORE.get(slug, "")}</div>'
+                     f'<div class="cp">{esc(cap)}{who}</div></div>')
     css = f'''
-.grid{{display:grid;grid-template-columns:repeat(4,{CELL_W}px);gap:34px 20px;margin-top:40px}}
+.note{{font-size:24px;color:var(--muted);margin-top:14px}}
+.grid{{display:grid;grid-template-columns:repeat(4,{CELL_W}px);gap:30px 20px;margin-top:30px}}
 .cr .ph{{height:{PHOTO_H}px;border-radius:22px;overflow:hidden;position:relative;border:1px solid var(--line)}}
 .cr .ph img{{width:100%;height:100%;object-fit:cover;display:block}}
 .cr .n{{position:absolute;top:14px;left:14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:26px;background:rgba(7,11,23,.78);border-radius:10px;padding:4px 12px}}
 .cr .nm{{font-size:32px;font-weight:700;margin-top:14px;letter-spacing:-.01em}}
+.cr .dv{{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--sci);margin-top:6px}}
 .cr .cp{{font-size:23px;color:var(--muted);margin-top:4px;line-height:1.25}}
 '''
     body = header_r('An AI plays <b>Kerbal Space Program</b>', f'{len(LAUNCHES)} launches, from a hopper<br>to an Eeloo probe') \
-        + f'<div class="grid">{"".join(cells)}</div>'
+        + '<div class="note">Δv: KSP\'s own stage sum, in vacuum</div>' + f'<div class="grid">{"".join(cells)}</div>'
     return page_r('Crafts', css, body, 1, 11)
 
 

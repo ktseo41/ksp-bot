@@ -365,5 +365,16 @@
   ],
  "science_aboard": [
    {"slug": "minmus-lab-1", "data": "256/750"}
+  ],
+ "pad_dv_note": "KSP's own per-stage delta-v (Vessel.stages: pad = at the pad's pressure, vac = vacuum; [stage, pad, vac]) for the current crafts/<slug>.json on the sandbox pad, 2026-09-27. Eeloo 1 matches its career pad check (LOG). Eve 2's total leaves out the lander's own Terrier stage (KSP lists no delta-v for it on the pad)",
+ "pad_dv": [
+   {"slug": "hopper-1", "vac": 872, "pad": 742, "stages": [[1, 742, 872]]},
+   {"slug": "orbiter-1", "vac": 3765, "pad": 3121, "stages": [[3, 1450, 1692], [4, 917, 1170], [5, 754, 903]]},
+   {"slug": "minmus-lander-1", "vac": 6430, "pad": 3432, "stages": [[3, 824, 3208], [4, 1274, 1624], [5, 1335, 1598]]},
+   {"slug": "mun-lander-3", "vac": 7782, "pad": 4160, "stages": [[3, 1058, 4109], [4, 1207, 1539], [5, 1895, 2134]]},
+   {"slug": "duna-1", "vac": 8449, "pad": 4067, "stages": [[3, 1001, 3893], [4, 436, 1628], [5, 1306, 1489], [6, 1324, 1438]]},
+   {"slug": "jool-1", "vac": 10432, "pad": 5015, "stages": [[0, 1608, 6615], [1, 2127, 2425], [2, 1280, 1391]]},
+   {"slug": "eve-2", "vac": 6953, "pad": 4185, "stages": [[4, 891, 3321], [5, 1526, 1741], [6, 1767, 1892]]},
+   {"slug": "eeloo-1", "vac": 9969, "pad": 4478, "stages": [[0, 953, 3683], [1, 919, 3414], [2, 1184, 1350], [3, 1421, 1521]]}
   ]
 }
