@@ -8,7 +8,8 @@ def daylight():
     for _ in range(40):
         sun = sc().bodies["Sun"].position(v.surface_reference_frame)
         r = math.sqrt(sum(x * x for x in sun))
-        if sun[0] / r > 0.45:
+        # high enough AND in the east: the camera looks west (heading 270), so an afternoon sun backlights the rocket
+        if sun[0] / r > 0.45 and sun[2] > 0:
             return
         flight.warp_to(flight.ut() + 900)
         time.sleep(1)
@@ -30,7 +31,9 @@ def main():
     out = subprocess.run(["uv", "run", "ksp", "build", spec], capture_output=True, text=True)
     if out.returncode:
         print(name, "BUILD FAILED", out.stderr[-200:]); continue
-    out = subprocess.run(["timeout", "120", "uv", "run", "ksp", "launch", name], capture_output=True, text=True)
+    # a crewed pod without a probe core needs a kerbal aboard, or KSP stops the launch at "Warning: No Control!"
+    crew = ["--crew", os.environ["SHOOT_CREW"]] if os.environ.get("SHOOT_CREW") else []
+    out = subprocess.run(["timeout", "120", "uv", "run", "ksp", "launch", name] + crew, capture_output=True, text=True)
     if "pre_launch" not in out.stdout:
         print(name, "LAUNCH FAILED", out.stdout[-200:], out.stderr[-200:]); continue
     time.sleep(3)

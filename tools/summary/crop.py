@@ -31,9 +31,16 @@ C={
  'salvage-2':(0.493,0.022,0.71,0.085),
  'moho-1':(0.494,0.070,0.785,0.07),
  'eve-2':(0.494,0.052,0.745,0.085),
+ 'minmus-science-2':(0.50,0.071,0.764,0.07),
+ 'survey-1':(0.50,0.092,0.78,0.07),
+ 'dres-1':(0.50,0.089,0.787,0.07),
+ 'eeloo-1':(0.50,0.075,0.773,0.07),
+ 'duna-2':(0.50,0.098,0.78,0.07),
 }
 W,H=2560,1440
 for s,(cx,t,b,cw) in C.items():
+    if sys.argv[1:] and s not in sys.argv[1:]:  # `crop.py slug ...` crops only those
+        continue
     im=Image.open(SRC%s).convert('RGB')
     A=0.696 if s in WIDE else ASPECT
     h=(b-t)*H*1.12

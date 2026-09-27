@@ -34,9 +34,13 @@ marked `approx` get a `~`.
 - `kerbals.roster` (`status_ko`, `flights`, deaths), `kerbals.rescued`, `incidents` (`text_ko` <= 28 characters,
   `hidden` to keep one off card 09), `landings_by_body`.
 
-## Pad photos still missing (cards 04/05 show a placeholder)
-minmus-science-2, survey-1, dres-1, eeloo-1, duna-2. Take them with `shoot_crafts.py` when the game is free,
-crop into `docs/media/summary/crafts/<slug>.jpg` (`tools/summary/crop.py`), and add the slug to `_OLD` in `v2/common2.py`.
+## Pad photos (cards 04/05 show a placeholder when one is missing)
+None missing as of #53. For a new design: `shoot_crafts.py` when the game is free, crop into
+`docs/media/summary/crafts/<slug>.jpg` (`tools/summary/crop.py <slug>`: add its fractions to `C` first; with slugs it
+crops only those), and add the slug to `_OLD` in `v2/common2.py`. A crewed pod without a probe core needs
+`SHOOT_CREW="<name>"` (KSP otherwise stops at "Warning: No Control!"); in the sandbox hire a fresh kerbal per craft
+(`ksp hire`: a kerbal just recovered isn't available again at once). `daylight()` waits for a morning sun (east,
+behind the camera): an afternoon sun backlights the rocket.
 Stand-ins in use: keo-relay-2/3 and mun-sat-1 show keo-relay-1, rescue-5/6 show rescue-3 (same design; Mun Sat 1 = Keo
 Relay 3 + three small science parts, a sandbox photo of its own would be better); eve-1, minmus-lab-1,
 minmus-science-1, polar-relay-1, keo-relay-1, rescue-1/3/4 use in-flight shots. jool-1, ike-station-1, mun-tanker-1,
