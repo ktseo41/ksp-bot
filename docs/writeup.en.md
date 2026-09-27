@@ -98,7 +98,7 @@ KSP 1.12.5 (Windows)
 - After every mission: a journal entry in LOG.md, a launch record added to `docs/record/career.json`, and photos of any new craft.
 
 ## 4. Career timeline
-Numbers are launch numbers from `docs/record/career.json` (51 as of 2026-09-27). About 10 uncrewed tests that were only tried on
+Numbers are launch numbers from `docs/record/career.json` (53 as of 2026-09-27). About 10 uncrewed tests that were only tried on
 the pad and recovered (full refund) are left out. "revert" is a revert the game offered; "died (final)" is a death that was not
 reverted and stands.
 
@@ -152,9 +152,11 @@ reverted and stands.
 | 46 | Moho 1 | First uncrewed Moho lander | revert | The ascent guidance had no time-to-apoapsis guard, flew level at 38 km, the OKTO on top exploded at 1206 K (7.25) |
 | 47 | Moho 1 | Same flight, relaunched | **Success** | **First Moho landing (uncrewed).** The escape burn settled its pointing 26 s late and missed Moho by 420,000 km → recovered with a 77 m/s Lambert burn. Capture by hand 117 s before periapsis. Landed where Kerbin is visible, science about 1,516 (7.26–7.27) |
 | 48 | Eve 2 | Eve equatorial satellite contract + uncrewed Eve lander | revert | MET 55, nose came up and flipped at 8 km in the transonic range. Blamed on the blunt inflatable heat shield at the very front. Added 4 tail fins (7.28) |
-| 49 | Eve 2 | Same flight, relaunched | In progress | Transonic AoA ≤ 1.4°. Escape 1,026 m/s; a 7.71 m/s long-range correction landed thousands of km off the prediction, Eve periapsis 10,358 km. Arrives at Eve around UT 45.3M (7.28) |
-| 50 | Mun Sat 1 | Mun specific-orbit satellite contract | Partial success | Orbit matched within KSP's tolerance, but the contract didn't complete. The save still had it as 'offered' (a stale ContractSystem after a scene change). Stays as a Mun relay (7.29) |
+| 49 | Eve 2 | Same flight, relaunched | **Success** | Transonic AoA ≤ 1.4°. Eve equatorial orbit contract done (+301,888). A `stage` mistake at the lander release → quickload (tooling). **First Eve splashdown (uncrewed)**, Eastern Sea. Then the carrier **landed on Gilly** (first Gilly). Science +1,154, funds 3.65M → 5.04M (7.28, 7.32) |
+| 50 | Mun Sat 1 | Mun specific-orbit satellite contract | Partial success | Orbit matched within KSP's tolerance, but the contract didn't complete. The save still had it as 'offered' (a stale ContractSystem after a scene change). Stays as a Mun relay (7.29) The re-offered 'Mun Sat 1 in an adjusted orbit' contract was later done with the new `match-orbit` (+61,774) (7.31) |
 | 51 | Dres 1 | First uncrewed Dres orbiter + lander | In progress | Clean ascent, escape 1,590 m/s (planned 1,600–1,620), 744-day flight, arrives at Dres around UT 59.19M (7.30) |
+| 52 | Eeloo 1 | First uncrewed Eeloo orbiter + lander | In progress | Dres 1's lander on Moho 1's Twin-Boar launcher. Escape 1,958 m/s, 1,198-day flight, arrives at Eeloo around UT 69.4M (7.31) |
+| 53 | Duna 2 | Uncrewed Duna lander for a surface science contract | In progress | The best escape path crossed the Mun's SOI and the planner failed twice → waited 14,000 s, then 1,089.8 m/s. Arrives at Duna around UT 51.61M (7.31) |
 
 (On KSP Normal difficulty, dead kerbals become available for hire again after a while.)
 
@@ -1096,6 +1098,64 @@ from the sun, so it carries an RA-100 dish and an RTG. The pad numbers matched t
   Burned on the Poodle alone (160 left). Solar orbit 13.34×42.70 Gm (planned 42.74). Dres arrival around UT 59.19M.
 - **The lab in the meantime**: UT 42.35M **+400**, 43.37M **+441**. Research: propulsionSystems (Spark/Ant), then unmannedTech,
   composites, advMetalworks, ionPropulsion. 4,572 science left.
+
+## 7.31 Eeloo 1 and Duna 2 (#52, #53), and Mun Sat 1's second contract
+- **Mun Sat 1's (#50) second contract**: after a KSP restart a new contract was offered, "Position Mun Sat 1 in an adjusted
+  orbit of the Mun" (61.8k + 21k advance): inclination 134.70°, eccentricity 0.240, semi-major axis 859.5 km. The new
+  `match-orbit`, on its first flight, matched it with a 25.9° plane change for 125 m/s (planned 127), 47 on the periapsis
+  side, 17.4 at the apoapsis and a 0.6 m/s periapsis trim; argument of periapsis off by 0.2°. **Contract done (+61,774)**,
+  190 m/s of Δv used.
+- **Eeloo 1 design**: designed by fable (`docs/eeloo-1-plan.md`). Dres 1's craft came up 2 m/s short at Eeloo (arrival
+  v_inf ~2,200, capture ~1,660, landing ~1,000), so Dres 1's lander went on Moho 1's Twin-Boar launcher and transfer
+  stage (52 parts, 138.7 t). **The mid-course plane change has to be early** (UT 51.15–53.3M, ~380–450 m/s): at the
+  planner's suggested UT 66.7M it would cost ~1,900 m/s on this eccentricity-0.67 transfer.
+- **Eeloo 1 launch (UT 43,560,016)**: the pad numbers matched the plan (1421 / 1184 / 3414 / 3683 m/s). Apoapsis 46 km at
+  3:00, AoA peak 7.7° (at 1.3 kPa, harmless). 79.3×79.5 km, Poodle 2,796 (planned ~2,860). Escape 1,958 m/s (planned
+  1,960–2,000), 1,198-day flight, arrival v_inf 2,208. At arrival Eeloo is 5,191 Mm out of our plane (by design). Sun
+  orbit 13.30×69.02 Gm; Eeloo arrival around UT 69.4M.
+- **Duna 2 launch (UT 44,620,014)**: an uncrewed lander for the Duna surface science contract (132,825). Pad numbers
+  matched (1436 / 1549 / 2466 / 1947), AoA ≤ 0.5° on the ascent, and the Skipper finished the orbit, leaving the Poodle's
+  2,466 untouched. Then `transfer Duna --plan` failed twice in exactly the same way ("v_inf error 149.9, cannot match").
+  Reading the node's patches showed that **the best escape path crossed the Mun's SOI** (Kerbin → Mun → Kerbin → Sun), so
+  the tuner could never reach it. After waiting 14,000 s (the Mun moves ~36°): 1,089.8 m/s, error 0.0, Duna periapsis
+  1,401 km, v_inf 720. Afterwards `transfer` was fixed to detect a moon's SOI on the escape path and move the ejection.
+  Duna arrival around UT 51.61M.
+
+## 7.32 Eve 2 (#49): the equatorial orbit, a lander mishap, Eve's sea, and Gilly
+- **Arrival at Eve**: 20 days out, KSP's prediction showed an Eve periapsis of -61 km at 27° inclination. The new
+  long-range `correct` made it 119 km and 23.7° for 1.0 m/s. Inside the SOI, inclination 0 was out of reach (the line to
+  Eve was 20° off the equator): 10 m/s gave 20.05°. The capture was moved 26 s earlier by the link-blackout forecast:
+  204 m/s (hand estimate 204) → 121×19,163 km.
+- **Contract orbit**: `match-orbit` wanted 575 m/s for the plane change because both nodes were near the periapsis. So the
+  periapsis was raised at the apoapsis first (444, as planned), then a 20° plane change at a node for 225, then 33 + 8 m/s
+  → **equatorial satellite contract done (+301,888)**. Science: low orbit +164, high orbit +117. Then "Explore Eve" (enter
+  the atmosphere and splash down, 351k) was accepted.
+- **Lander release mishap and a quickload**: `stage` on the carrier released the lander, but the separated lander started
+  at current_stage 2, so the next `stage` fired stage 1: the deorbit stage's TD-12 **and the inflatable heat shield's own
+  decoupler**, skipping the Terrier (stage 2). An engineless lander body was left in a 17,000 km orbit. A blind `stage` on
+  a freshly separated vessel was a tooling mistake (the plan had marked it "unverified"), so this was a **quickload**. This
+  time the parts were driven directly: `decouple()` on the release TD-12, `engine.active` on the Terrier, `decouple()` on
+  the lower TD-12 only, inflate the shield, `arm()` the parachutes. `reentry` was fixed to never stage a stage holding a
+  heat shield, and later `stage` itself was made to print what it fires and refuse a heat shield or a skipped engine.
+- **Eve splashdown**: `deorbit --pe 65000 --under Kerbin --sunward 20`, 493 m/s → a 64.5 km periapsis at longitude 54°,
+  inside the sea band (34–76°). Entry at 4,384 m/s at 92 km, peak dynamic pressure 1.6 kPa at 61 km, AoA ≤ 0.5°, all 25
+  parts intact, subsonic at 45 km, 4.7 m/s under two Mk2-Rs. **Splashed down in the Eastern Sea** (UT 45,817,458). Flying
+  high/low and splashed science +432; funds 3.65M → 4.81M (Explore Eve + Eve surface science + firsts).
+- **Gilly**: the carrier, with ~2,200 m/s left, went on to Eve's tiny moon Gilly. `transfer Gilly --pe 5000 --plan`:
+  199.0 m/s (+ capture ~77). After the burn there was no encounter (closest approach 284 km, SOI 126 km). `correct Gilly`
+  for 0.24 m/s did nothing at thrust 0.005 (too little thrust for the tolerance); again at 0.02: 0.12 m/s → Gilly
+  periapsis 13.7 km. Capture 79 m/s → 13.7×13.9 km, space-high science +177. The first capped-throttle landing in `land`
+  (TWR 531 → throttle 7.9 %), free fall from 9.4 km, **landed on Gilly** (7.88, -109.21, 28/28 parts). Surface science
+  +264, funds 4.81M → 5.04M, reputation 586, 2,070 m/s left.
+
+## 7.33 Eve 2 bounces off Gilly during a photo shoot
+To take shareable pictures, the career switched to its landers. Moho 1 came out clean with the sun 21° up; the lander in
+Eve's sea was at dusk and wasn't used. **Switching to Eve 2 on Gilly threw it up at ~11 m/s the moment physics loaded**
+(sub_orbital, radar altitude 440 m and climbing, 28/28 parts). Our switch caused it, so this was a quickload. The save
+written at the switch (UT 50,805,895) had Eve 2 landed, but loading it bounced Eve 2 again, because Eve 2 was that save's
+active vessel. A copy with only the active vessel changed to Moho 1 (a one-byte difference) loaded with Eve 2 landed on
+rails, and the game went back to the space center. Lesson: Eve 2 on Gilly jumps ~11 m/s every time it is loaded with
+physics. To fly it again, expect the bounce and be ready to `land`, or don't switch to it.
 
 ## 8. Candidates for standalone mods
 Pieces of the current KspBot mod that could be split out and released as standalone mods:
