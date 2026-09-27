@@ -4,3 +4,4 @@ mod/**/bin/
 mod/**/obj/
 runs/
 .claude/
+HANDOFF.md

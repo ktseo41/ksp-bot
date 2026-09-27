@@ -1,5 +1,7 @@
 # Claude Code가 KSP 커리어를 직접 플레이한 기록 (글감 모음)
 
+English version: [writeup.en.md](writeup.en.md)
+
 블로그 글을 쓸 때 쓸 재료를 모아 둔 문서다. 미션별 상세 일지는 `LOG.md`, 설계 교훈은
 `docs/design-guide.md` §0, 이전 세션 대화 기록에서 뽑은 원자료(사용자 메시지 원문, 시작 과정의 분 단위
 타임라인, 통계)는 `docs/transcript-notes.md`에 있다. 비행 텔레메트리는 `runs/flights/*.jsonl`(git에는

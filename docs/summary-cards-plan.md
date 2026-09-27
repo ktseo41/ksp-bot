@@ -134,7 +134,7 @@ Jool, 기체 이름, 커발 이름)와 범례/축의 마이크로 라벨은 옛 
 
 ## 4. career.json에 먼저 넣을 데이터 (값과 출처)
 
-모두 `docs/record/career.json`에 추가/교체. 출처는 `LOG.md` 줄 번호(L), `docs/writeup.md`(W §).
+모두 `docs/record/career.json`에 추가/교체. 출처는 `LOG.md` 줄 번호(L), `docs/writeup.ko.md`(W §).
 
 ### 4.1 `career_now` 교체
 ```
