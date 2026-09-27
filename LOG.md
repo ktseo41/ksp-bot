@@ -948,6 +948,13 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   climb through Mach 1 in Duna's air costs ~450 m/s more than a constant-CdA model says; (3) `pkill -f` on a
   command line kills the shell that runs it (the emergency script started 15 s late).
 
+- Lab visit UT 51.80M: `lab transmit` **+320.9** (the 170.5 that stayed aboard at 50.8M included; link 1.0 this
+  time), `lab process` added two experiments (data 226 -> 592, sciPerDay 3.0 -> 8.0). Sci 6,025.
+- **Tech tree complete (UT 51.80M)**: the last 13 nodes (5,530 sci: aerodynamics .. aerospaceTech, nanolathing,
+  metaMaterials, experimentalMotors, specializedControl, precisionPropulsion) researched in one go; `tech --all` lists
+  no open node. Sci 495 left. From here science is no longer a constraint; the goal left is every planet (Jool 1
+  arriving 52.79M, Dres 1 59.19M, Eeloo 1 69.10M) and their moons.
+
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
