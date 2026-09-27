@@ -34,6 +34,8 @@ data.
 
 1: milestone crafts on the pad, with KSP's vacuum Δv · 2: in-game screenshots · 3: the numbers
 
+Source and the mission-by-mission log: https://github.com/ktseo41/ksp-bot
+
 ## If someone asks how it works (comment)
 Claude Code runs in a terminal next to the game. KSP talks to it through kRPC plus a small helper mod it wrote (craft
 building from JSON, tech research, contracts, KSP's flight log). Each flight phase is one command it wrote in Python
