@@ -1000,5 +1000,9 @@ Crew at KSC: Jeb, Valentina, Daphrick (scientist), Bill, Elfry (engineers), Mitb
    q. (done: refuses under 3,000 EC, waits for the science to arrive, exits 1 if nothing comes) `lab transmit`: check EC >= ~2,000 first and wait until science rises (a transmit with 1,793 EC did nothing).
 5. Precision landing to within 500 m (`land --at` exists but only picks the closest pass, ~2 km): targeted
    deorbit timing + horizontal correction in the descent, short hops — needed for surface survey contracts.
+6. Launch clamps (TT18-A, `launchClamp1`, generalConstruction: researched on day one, 200 each) were never used and never
+   considered (user question 2026-09-27). They would have held Minmus Lab 1's 87 t stack when EVAs toppled it on the pad
+   (two reverts). Next tall/heavy stack or any craft with a pad EVA: add 2-4 clamps staged with the first engine; check
+   that CraftBuilder places them, the pad check still matches and `ascent`/`stage` release them at liftoff.
 6. Small: `contracts` parameter display (kRPC completed flag); duplicate vessel names (kRPC picks one).
 7. Long-term (user): Duna + Ike, refuelling station (docking), relay constellation, Eve landing, Moho, Jool.
