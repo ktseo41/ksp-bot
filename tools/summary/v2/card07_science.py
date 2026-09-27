@@ -28,7 +28,12 @@ TECH_ICON = {'start': 'dot', 'basicRocketry': 'rocket', 'engineering101': 'wrenc
              'commandModules': 'kerbal', 'largeElectrics': 'bolt', 'aviation': 'air', 'automation': 'sat',
              'heavyLanding': 'leg', 'veryHeavyRocketry': 'rocket', 'advancedMotors': 'rocket', 'specializedElectrics': 'bolt',
              'experimentalElectrics': 'bolt', 'highPerformanceFuelSystems': 'tank', 'propulsionSystems': 'rocket',
-             'unmannedTech': 'sat', 'composites': 'wrench', 'advMetalworks': 'wrench', 'ionPropulsion': 'bolt'}
+             'unmannedTech': 'sat', 'composites': 'wrench', 'advMetalworks': 'wrench', 'ionPropulsion': 'bolt',
+             'experimentalScience': 'flask', 'advUnmanned': 'sat', 'largeUnmanned': 'sat', 'aerodynamicSystems': 'fin',
+             'supersonicFlight': 'air', 'advAerodynamics': 'fin', 'highAltitudeFlight': 'air', 'heavyAerodynamics': 'fin',
+             'hypersonicFlight': 'air', 'experimentalAerodynamics': 'fin', 'aerospaceTech': 'air', 'nanolathing': 'wrench',
+             'metaMaterials': 'wrench', 'experimentalMotors': 'rocket', 'specializedControl': 'gyro',
+             'precisionPropulsion': 'rocket'}
 HOW_COL = {'회수': '#56c8ff', '전송': '#b28cff', '실험실 전송': '#a8e8cf'}
 
 css = '''
@@ -63,6 +68,10 @@ if len(TECH) > 42:  # an 8th row of techs: tighter rows so the grid stays above 
 if len(TECH) > 48:  # a 9th row: shorter haul rows and tech cells, tighter section gaps
     css += ('.tn{height:44px}.hr{height:40px}.hr .th{height:38px}.hr .nm span{margin-top:1px}.sub{margin-top:12px}'
             '.aboard{margin-top:10px}.ab{padding:8px 16px}.tg{margin-top:8px}.hauls{margin-top:16px}')
+COMPACT = len(TECH) > 54  # more than 9 rows of names: an icon-only grid (the full tree is 63 nodes)
+if COMPACT:
+    css += ('.tg{grid-template-columns:repeat(13,minmax(0,1fr));gap:10px 0;margin-top:16px}.tn{height:56px;justify-content:center}'
+            '.tn .hx{width:52px;height:52px;border-radius:14px}')
 
 mx = max(h['gain'] for h in H)
 HAUL_PHOTO = {49: 'img/eve-2-splash.jpg'}  # a milestone shot instead of the pad photo
@@ -91,8 +100,12 @@ for a in RECORD['science_aboard']:
     ab.append(f'<div class="ab">{planet(m.get("body", "kerbin"), 44)}<div class="t"><span>{esc(craft_name(a["slug"]))} · {who}</span>'
               f'<b>{v}</b><span>{unit}</span></div></div>')
 
-tech = ''.join(f'<div class="tn"><div class="hx">{icon(TECH_ICON.get(t, "gyro"), 22, "#d9ccff")}</div>'
-               f'<div class="t">{esc(NAMES.get(t, t))}</div></div>' for t in TECH)
+if COMPACT:
+    tech = ''.join(f'<div class="tn"><div class="hx">{icon(TECH_ICON.get(t, "gyro"), 28, "#d9ccff")}</div></div>' for t in TECH)
+else:
+    tech = ''.join(f'<div class="tn"><div class="hx">{icon(TECH_ICON.get(t, "gyro"), 22, "#d9ccff")}</div>'
+                   f'<div class="t">{esc(NAMES.get(t, t))}</div></div>' for t in TECH)
+done = f'<span class="badge">{T("tree complete")}</span>' if CN.get('tech_tree') == 'complete' else ''
 
 body = f'''
 {header('flask', 'Science', headline, color='var(--sci)')}
@@ -100,7 +113,7 @@ body = f'''
 <div class="tot">{T('total')} <b>+{num(total)}</b></div>
 <div class="sub lbl">{icon('flask', 22, '#56c8ff')} {T('on the way')}<span class="ln"></span></div>
 <div class="aboard">{''.join(ab)}</div>
-<div class="sub lbl">{icon('gyro', 24, '#b28cff')}<b>{len(TECH)}</b> Tech<span class="ln"></span><span class="badge">R&amp;D Lv.{rd}</span></div>
+<div class="sub lbl">{icon('gyro', 24, '#b28cff')}<b>{len(TECH)}</b> Tech<span class="ln"></span>{done}<span class="badge">R&amp;D Lv.{rd}</span></div>
 <div class="tg">{tech}</div>
 '''
 

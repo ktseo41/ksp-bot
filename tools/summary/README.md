@@ -22,6 +22,8 @@ SVG gradient ids restart per card, so a card's file doesn't depend on which othe
 
 Cards: 01 scoreboard · 02 journey (map + what is flying) · 03 how (command pipeline) · 04/05 launches (first/second half)
 · 06 crafts · 07 science · 08 crew · 09 failures · 10 game time.
+Card 07 lists tech names up to 54 nodes; beyond that (the full tree is 63) it switches to an icon-only grid, and
+`career_now.tech_tree: "complete"` adds a "tree complete" badge.
 
 Rules the scripts keep: every number and name on a card comes from `docs/record/career.json` (scripts hold only layout,
 colours, icons, the photo/crop table in `common2.py` and the KSP calendar 21,600 s/day, 426 days/year); rendering is

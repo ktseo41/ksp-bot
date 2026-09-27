@@ -3,18 +3,20 @@
  "career_now": {
   "date": "2026-09-27",
   "real_days": 4,
-  "ut": 50800305,
-  "ut_note": "game UT of the last save (LOG 2026-09-27: stopped at the user's request, saved at the space center, UT 50,800,305)",
-  "funds": 5039930,
-  "funds_note": "persistent.sfs at UT 50,800,305 (funds = 5039930.32; LOG session-end state 5.04M)",
-  "science": 4985,
-  "science_note": "persistent.sfs sci = 4985.27 (LOG: lab visits up to UT 49.8M \"(sci 4,985)\")",
-  "reputation": 586,
-  "reputation_note": "persistent.sfs rep = 586.20 (LOG: Gilly landing \"rep 586\")",
+  "ut": 51800000,
+  "ut_note": "LOG 2026-09-27 (session 4): lab visit and the last research at UT 51.80M (rounded in the LOG)",
+  "funds": 5740000,
+  "funds_note": "LOG session 4: Duna 2 test-hop \"Funds 5.20 -> 5.74M\" (rounded)",
+  "science": 495,
+  "science_note": "LOG session 4: \"Sci 495 left\" after the last 13 tech nodes (5,530 sci)",
+  "reputation": 600,
+  "reputation_note": "LOG session 4: Duna 2 test-hop \"rep 600\"",
+  "tech_tree": "complete",
+  "tech_tree_note": "LOG session 4: all 63 nodes researched at UT 51.80M (the last 13 in one go, 5,530 sci); `tech --all` lists no open node",
   "facilities": {"VAB": 2, "LaunchPad": 2, "MissionControl": 2, "TrackingStation": 3, "AstronautComplex": 2, "R&D": 3},
   "funds_start": 25000,
-  "funds_peak": 5039930,
-  "funds_peak_note": "after the Gilly landing (#49), LOG \"funds 4.81 -> 5.04M\"; still the balance at the session end",
+  "funds_peak": 5740000,
+  "funds_peak_note": "after Duna 2's landing contract and the parachute part test flown as a hop (#53), LOG \"Funds 5.20 -> 5.74M\"",
   "funds_spent_on_facilities": "MC2 75k, TS2 + Pad2, VAB2 225k, AC2, R&D2 451k, R&D3 1.69M, TS3",
   "funds_timeline_note": "funds after the launch (tick \"#n\") or after a facility purchase (tick \"facility\"); funds null = purchase with no balance in the LOG (marker only). Sources: LOG.md mission entries",
   "funds_timeline": [
@@ -53,7 +55,8 @@
     {"tick": "#51", "funds": 3322930, "label": null},
     {"tick": "#52", "funds": 3280000, "label": null},
     {"tick": "Eve", "funds": 4810000, "label": "4.81M"},
-    {"tick": "Gilly", "funds": 5039930, "label": "5.04M"}
+    {"tick": "Gilly", "funds": 5039930, "label": null},
+    {"tick": "Duna", "funds": 5740000, "label": "5.74M"}
    ]
  },
  "firsts": [
@@ -127,8 +130,8 @@
    {"n":49,"craft":"Eve 2","slug":"eve-2","dest":"eve","stat":"Eve + Gilly","crew":"-","goal":"Eve equatorial satellite contract (the carrier) + an uncrewed Eve surface lander with an inflatable heat shield, one launch","result":"success","note":"relaunch with the four tail fins (UT ~41,150,089): transonic AoA <= 1.4 deg; 79.3 x 79.5 km with the Poodle's 3,321 m/s untouched (Skipper 99 left, plan 150-250: the fins' mass and drag). Ejection 1,026 m/s (T 190 d, arrival v_inf 1,103 vs plan 850-950); the Eve miss was read before leaving Kerbin's SOI this time (34,000 km). Outside: Eve pe 29,486 km; a far-out 7.71 m/s correction came out at pe 10,358 km, inc 2.8 instead of the predicted 120 km (KSP's node prediction 185 d out is off by thousands of km: the real trim is ~20 d before the SOI). Eve SOI ~UT 45.2M, pe ~45.30M; Poodle 2,390 left, lander attached. At Eve: far-out trim 1.0 m/s (pe 119 km, inc 23.7), in-SOI 10 m/s (inc 20.05), capture 204 m/s -> 121 x 19,163 km; match-orbit 444 + 225 + 33 + 8 m/s -> equatorial contract done (+301,888). Lander release: a blind `stage` on the freshly separated lander fired the heat shield's decoupler and skipped the Terrier -> quickload (tooling) of the pre-release save UT 45,624,317, then parts driven directly. Deorbit 493 m/s, entry 4,384 m/s, 2 Mk2-R, FIRST EVE LANDING: splashed in the Eastern Sea at UT 45,817,458 (+432 sci; funds 3.65 -> 4.81M with Explore Eve). The carrier then flew to Gilly (199 + 0.12 m/s, capture 79 -> 13.7 x 13.9 km) and made the FIRST GILLY LANDING at 7.88, -109.21 (UT 46,526,189; throttle capped at TWR 531 -> 7.9 %), 28/28 parts, 2,070 m/s left; +264 surface sci, funds 4.81 -> 5.04M","date":"2026-09-27"},
    {"n":50,"craft":"Mun Sat 1","slug":"mun-sat-1","dest":"mun-orbit","stat":"contract lost","crew":"-","goal":"contract satellite in a specific Mun orbit (inc 146.04, e 0.181, sma 803 km, LAN 275.9, argPe 177.9, 3 %) with goo, magnetometer and accelerometer (Keo Relay 3 design)","result":"partial","note":"launch UT 42,350,284; LKO 85 x 87 km, transfer 874 m/s (plan 852); first capture with the link forecast in flight: Kerbin hidden from pe -183 s, so the burn moved 216 s earlier (225 m/s -> 429 x 778 km); match-orbit plane 34.6 deg + trims, then an apsides rotation by hand (16 m/s radial at the orbit intersection that had the link) and a 1 m/s pe trim: every element inside KSP's windows. The contract never completed: the save held both Mun contracts as Offered while kRPC listed them active and their advances (70.9k) had been paid, a stale ContractSystem after the lab flight's scene switch (a KSP restart cleared it). A contract accepted now can't count a vessel launched before it and re-accepting would pay the advances twice, so both were skipped; Mun Sat 1 stays as a Mun relay (RA-2, 4,264 m/s). `accept` now checks the save's active count against kRPC's. Later (same session) the re-offered contract \"Position Mun Sat 1 in an adjusted orbit of the Mun\" (inc 134.70, e 0.240, sma 859.5 km) was flown with the first `match-orbit` (125 + 47 + 17.4 + 0.6 m/s): contract done, +61,774","date":"2026-09-27"},
    {"n":51,"craft":"Dres 1","slug":"dres-1","dest":"dres","stat":"1,590 m/s","crew":"-","goal":"first Dres mission: uncrewed orbiter + lander (OKTO), Moho 1's lander on Duna 1's launcher, one way, everything transmitted","result":"en route","note":"launch UT 43,090,014; clean ascent (ap 47 km at 3:00, AoA <= 3.0 at staging), 79.4 x 79.6 km, Poodle 1,759 m/s (plan 1,500-1,650); ejection 1,590 m/s (plan 1,600-1,620) on the Poodle alone (160 left), T 744 d, arrival v_inf 1,490; Sun orbit 13.34 x 42.70 Gm (plan 42.74). Mid-course ~116 m/s at UT 56,159,878, Dres arrival ~UT 59.19M","date":"2026-09-27"},
-   {"n":52,"craft":"Eeloo 1","slug":"eeloo-1","dest":"eeloo","stat":"1,958 m/s","crew":"-","goal":"first Eeloo mission: uncrewed orbiter + lander (OKTO), Dres 1's lander on Moho 1's Twin-Boar launcher/transfer stage (52 parts, 138.7 t)","result":"en route","note":"launch UT 43,560,016; pad check matched (1421 SL / 1184 SL / 3414 / 3683); ap 46 km at 3:00, AoA peak 7.7 deg at q 1.3 kPa, 79.3 x 79.5 km, Poodle 2,796 (plan ~2,860). Ejection 1,958 m/s (plan 1,960-2,000), T 1,198 d, arrival v_inf 2,208, Eeloo +5,191 Mm out of plane; Poodle 806 left, Terrier 3,683. Sun orbit 13.30 x 69.02 Gm. The plane change must be early (UT 51.15-53.3M, ~380-450 m/s), not at the planner's UT 66.7M. Arrival ~UT 69.4M","date":"2026-09-27"},
-   {"n":53,"craft":"Duna 2","slug":"duna-2","dest":"duna","stat":"1,090 m/s","crew":"-","goal":"uncrewed Duna surface probe (OKTO) for the contract \"Science data from surface of Duna\" (132,825), one way, everything transmitted","result":"en route","note":"launch UT 44,620,014; pad matched (1436/1549/2466/1947); clean ascent (AoA <= 0.5), 79.7 x 79.9 km with the Skipper finishing the orbit: Poodle 2,466 untouched. `transfer Duna --plan` failed twice (v_inf error 149.9): the optimal ejection path crossed the Mun's SOI; waited 14,000 s, then 1,089.8 m/s, Duna pe 1,401 km, v_inf 720 (Poodle 1,387 left). Before leaving Kerbin's SOI: Duna pe 11,881 km, inc 169 (retro); trims ~UT 51.18M and inside the SOI (51.61M)","date":"2026-09-27"}
+   {"n":52,"craft":"Eeloo 1","slug":"eeloo-1","dest":"eeloo","stat":"1,958 m/s","crew":"-","goal":"first Eeloo mission: uncrewed orbiter + lander (OKTO), Dres 1's lander on Moho 1's Twin-Boar launcher/transfer stage (52 parts, 138.7 t)","result":"en route","note":"launch UT 43,560,016; pad check matched (1421 SL / 1184 SL / 3414 / 3683); ap 46 km at 3:00, AoA peak 7.7 deg at q 1.3 kPa, 79.3 x 79.5 km, Poodle 2,796 (plan ~2,860). Ejection 1,958 m/s (plan 1,960-2,000), T 1,198 d, arrival v_inf 2,208, Eeloo +5,191 Mm out of plane; Poodle 806 left, Terrier 3,683. Sun orbit 13.30 x 69.02 Gm. The plane change must be early (UT 51.15-53.3M, ~380-450 m/s), not at the planner's UT 66.7M. Arrival ~UT 69.4M. Mid-course at UT 51.15M: direct 3D Lambert 381.1 m/s (plan 380-450), pure normal; burned 381 (residual 0.2) -> Sun orbit inc 5.75, Eeloo encounter, SOI UT 69.10M (pass pe 1,094 km, inc 175 retro: trim ~20 d out and in-SOI `correct --inc-to 0` left). Poodle 425, Terrier 3,683","date":"2026-09-27"},
+   {"n":53,"craft":"Duna 2","slug":"duna-2","dest":"duna","stat":"1,090 m/s","crew":"-","goal":"uncrewed Duna surface probe (OKTO) for the contract \"Science data from surface of Duna\" (132,825), one way, everything transmitted","result":"success","note":"launch UT 44,620,014; pad matched (1436/1549/2466/1947); clean ascent (AoA <= 0.5), 79.7 x 79.9 km with the Skipper finishing the orbit: Poodle 2,466 untouched. `transfer Duna --plan` failed twice (v_inf error 149.9): the optimal ejection path crossed the Mun's SOI; waited 14,000 s, then 1,089.8 m/s, Duna pe 1,401 km, v_inf 720 (Poodle 1,387 left). Before leaving Kerbin's SOI: Duna pe 11,881 km, inc 169 (retro); trims ~UT 51.18M and inside the SOI (51.61M). Trim 20 d out: the far-out `correct` search stayed on the retrograde side; by hand 28.2 m/s (line search across the centre) -> pe 239 km, inc 1.9. Duna SOI UT 51.617M (v_inf 721), capture 351 m/s -> 100.2 x 999.2 km, circularized 100 km. Deorbit over the plain at lon 25-50 (highlands at lon -10 avoided): LANDED at 1.02, 24.97 (UT ~51.693M), 26/26 parts; contract \"Science data from surface of Duna\" done (+132,825); science +709 transmitted. The Mk2-R part test (8-10 km, 550-590 m/s) was missed on the entry (359 m/s at 8 km: drag 4.3 m/s2 at q 4 kPa), then flown as a `test-hop` from the surface: staged at 8,993 m / 555 m/s, contract done (+405,000); the climb cost ~1,370 m/s (offline 930, transonic drag), 157 left; emergency descent (broadside fall, flip at 2 km, full thrust from 714 m) -> touchdown with 0.0 fuel, 26/26 parts, lying on its side at 0.99, 33.17. Funds 5.20 -> 5.74M, rep 600","date":"2026-09-27"}
   ],
  "pad_tests_career": "about 10 uncrewed/pad-only checks (Probe A–E, PadTest B/C, Leg Test, Wide Test, Wide Test 6), recovered on the pad for a full refund",
  "kerbals": {
@@ -214,7 +217,20 @@
    "ionPropulsion",
    "experimentalScience",
    "advUnmanned",
-   "largeUnmanned"
+   "largeUnmanned",
+   "aerodynamicSystems",
+   "supersonicFlight",
+   "advAerodynamics",
+   "highAltitudeFlight",
+   "heavyAerodynamics",
+   "hypersonicFlight",
+   "experimentalAerodynamics",
+   "aerospaceTech",
+   "nanolathing",
+   "metaMaterials",
+   "experimentalMotors",
+   "specializedControl",
+   "precisionPropulsion"
   ],
  "sandbox_test_crafts": [
    {"craft": "Sandbox Minmus Test / Sandbox Lander Test", "purpose": "first landing-code tests on Minmus", "crafts": [{"slug": "sandbox-minmus-test", "name": "Sandbox Minmus Test"}, {"slug": "sandbox-lander-test", "name": "Sandbox Lander Test"}]},
@@ -276,23 +292,26 @@
     {"ut": 44664263, "n": 53, "label_ko": "Duna 2 출발", "label_en": "Duna 2 departs", "approx": true},
     {"ut": 45264027, "n": 49, "label_ko": "Eve 궤도 진입", "label_en": "Eve orbit insertion", "approx": true},
     {"ut": 45817458, "n": 49, "label_ko": "Eve 착수", "label_en": "Eve splashdown"},
-    {"ut": 46526189, "n": 49, "label_ko": "Gilly 착륙", "label_en": "Gilly landing"}
+    {"ut": 46526189, "n": 49, "label_ko": "Gilly 착륙", "label_en": "Gilly landing"},
+    {"ut": 51150000, "n": 52, "label_ko": "Eeloo 1 중간 보정", "label_en": "Eeloo 1 mid-course fix", "approx": true},
+    {"ut": 51617000, "n": 53, "label_ko": "Duna 도착", "label_en": "Duna arrival", "approx": true},
+    {"ut": 51693000, "n": 53, "label_ko": "Duna 2 착륙", "label_en": "Duna 2 landing", "approx": true},
+    {"ut": 51800000, "label_ko": "연구 트리 완료", "label_en": "Tech tree complete", "approx": true}
    ],
   "future": [
-    {"ut": 51610000, "n": 53, "label_ko": "Duna 도착", "label_en": "Duna arrival", "approx": true},
     {"ut": 52787080, "n": 44, "label_ko": "Jool 도착", "label_en": "Jool arrival"},
     {"ut": 59190000, "n": 51, "label_ko": "Dres 도착", "label_en": "Dres arrival", "approx": true},
-    {"ut": 69400000, "n": 52, "label_ko": "Eeloo 도착", "label_en": "Eeloo arrival", "approx": true}
+    {"ut": 69100000, "n": 52, "label_ko": "Eeloo 도착", "label_en": "Eeloo arrival", "approx": true}
    ]
  },
  "real_days": [
    {"date": "2026-09-24", "n_first": 1, "n_last": 20, "ut_end": 1790000, "approx": true, "src": "LOG 09-24 entry: Duna window computed \"from UT 1.79M\" after #18 (lower bound)"},
    {"date": "2026-09-25", "n_first": 21, "n_last": 34, "ut_end": 11790000, "approx": true, "src": "LOG 09-26 Eve 1 entry: \"now ~11,790,000\" early on day 3 (upper bound)"},
    {"date": "2026-09-26", "n_first": 35, "n_last": 46, "ut_end": 38425858, "src": "LOG 09-26 \"Next steps\": state before the 2nd PC restart, UT 38,425,858"},
-   {"date": "2026-09-27", "n_first": 47, "n_last": 53, "ut_end": 50800305, "src": "career_now.ut"}
+   {"date": "2026-09-27", "n_first": 47, "n_last": 53, "ut_end": 51800000, "src": "career_now.ut"}
   ],
- "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation", "heavyLanding": "Heavy Landing", "veryHeavyRocketry": "Very Heavy Rocketry", "advancedMotors": "Adv. Motors", "specializedElectrics": "Specialized Electrics", "experimentalElectrics": "Experimental Electrics", "highPerformanceFuelSystems": "High-Perf. Fuel Systems", "propulsionSystems": "Propulsion Systems", "unmannedTech": "Unmanned Tech", "composites": "Composites", "advMetalworks": "Adv. MetalWorks", "ionPropulsion": "Ion Propulsion", "experimentalScience": "Experimental Science", "advUnmanned": "Adv. Unmanned", "largeUnmanned": "Large Probes"},
- "landings_by_body": {"_note": "landing MISSIONS (launch numbers), not touchdowns: the crewed ones landed and came home; Moho 1 (#47) is an uncrewed one-way lander; Eve 2 (#49) put its lander in Eve's sea and its carrier on Gilly (both uncrewed, one way)", "minmus": [10, 18, 20, 22, 25, 38], "mun": [16, 23], "duna": [30], "moho": [47], "eve": [49], "gilly": [49]},
+ "research_names": {"start": "Start", "basicRocketry": "Basic Rocketry", "engineering101": "Engineering 101", "generalRocketry": "General Rocketry", "survivability": "Survivability", "stability": "Stability", "advRocketry": "Advanced Rocketry", "basicScience": "Basic Science", "heavyRocketry": "Heavy Rocketry", "generalConstruction": "General Construction", "flightControl": "Flight Control", "fuelSystems": "Fuel Systems", "landing": "Landing", "electrics": "Electrics", "heavierRocketry": "Heavier Rocketry", "spaceExploration": "Space Exploration", "miniaturization": "Miniaturization", "advConstruction": "Adv. Construction", "actuators": "Actuators", "precisionEngineering": "Precision Engineering", "advFuelSystems": "Adv. Fuel Systems", "nuclearPropulsion": "Nuclear Propulsion", "advFlightControl": "Adv. Flight Control", "advExploration": "Adv. Exploration", "advElectrics": "Adv. Electrics", "electronics": "Electronics", "specializedConstruction": "Specialized Construction", "scienceTech": "Scientific Tech", "advLanding": "Adv. Landing", "fieldScience": "Field Science", "advScienceTech": "Adv. Science Tech", "largeVolumeContainment": "Large Volume Containment", "commandModules": "Command Modules", "largeElectrics": "Large Electrics", "aviation": "Aviation", "automation": "Automation", "heavyLanding": "Heavy Landing", "veryHeavyRocketry": "Very Heavy Rocketry", "advancedMotors": "Adv. Motors", "specializedElectrics": "Specialized Electrics", "experimentalElectrics": "Experimental Electrics", "highPerformanceFuelSystems": "High-Perf. Fuel Systems", "propulsionSystems": "Propulsion Systems", "unmannedTech": "Unmanned Tech", "composites": "Composites", "advMetalworks": "Adv. MetalWorks", "ionPropulsion": "Ion Propulsion", "experimentalScience": "Experimental Science", "advUnmanned": "Adv. Unmanned", "largeUnmanned": "Large Probes", "aerodynamicSystems": "Aerodynamics", "supersonicFlight": "Supersonic Flight", "advAerodynamics": "Adv. Aerodynamics", "highAltitudeFlight": "High Altitude Flight", "heavyAerodynamics": "Heavy Aerodynamics", "hypersonicFlight": "Hypersonic Flight", "experimentalAerodynamics": "Exp. Aerodynamics", "aerospaceTech": "Aerospace Tech", "nanolathing": "Nanolathing", "metaMaterials": "Meta-Materials", "experimentalMotors": "Experimental Motors", "specializedControl": "Specialized Control", "precisionPropulsion": "Precision Propulsion"},
+ "landings_by_body": {"_note": "landing MISSIONS (launch numbers), not touchdowns: the crewed ones landed and came home; Moho 1 (#47) is an uncrewed one-way lander; Eve 2 (#49) put its lander in Eve's sea and its carrier on Gilly (both uncrewed, one way); Duna 2 (#53) is an uncrewed one-way Duna lander", "minmus": [10, 18, 20, 22, 25, 38], "mun": [16, 23], "duna": [30, 53], "moho": [47], "eve": [49], "gilly": [49]},
  "crafts": [
    {"slug": "hopper-1", "name": "Hopper 1", "first_n": 1},
    {"slug": "orbiter-1", "name": "Orbiter 1", "first_n": 4, "mass_t": 17.3},
@@ -330,16 +349,17 @@
    {"n": 47, "cause": "code", "text_ko": "탈출 점화 26초 늦어 Moho를 놓침", "text_en": "Ejection lit 26 s late, missed Moho"},
    {"n": 48, "cause": "design", "text_ko": "뭉툭한 방열판 머리, 음속 근처에서 뒤집힘", "text_en": "Blunt heat-shield nose, flipped near Mach 1"},
    {"n": 50, "cause": "game", "text_ko": "낡은 계약 목록: 궤도는 맞췄는데 계약 불발", "text_en": "Stale contract list: orbit right, contract failed", "hidden": true},
-   {"n": 49, "cause": "code", "text_ko": "분리 직후 stage가 엔진 건너뛰고 방열판 분리", "text_en": "Staging skipped the engine, dropped the heat shield"}
+   {"n": 49, "cause": "code", "text_ko": "분리 직후 stage가 엔진 건너뛰고 방열판 분리", "text_en": "Staging skipped the engine, dropped the heat shield"},
+   {"n": 53, "cause": "pilot", "text_ko": "항력 4배 과소평가: 진입 중 낙하산 시험 놓침", "text_en": "Drag underestimated 4x: parachute test missed", "hidden": true}
   ],
  "live_missions": [
    {"slug": "jool-1", "n": 44, "type": "probe", "body": "jool", "crew": [], "where_ko": "Jool로 이동 중", "where_en": "En route to Jool", "next_ko": "Jool 도착", "next_en": "Jool arrival", "next_ut": 52787080, "from": "kerbin", "to": "jool"},
    {"slug": "eve-2", "n": 49, "type": "probe", "body": "gilly", "crew": [], "where_ko": "Gilly 착륙 · 착륙선은 Eve 바다", "where_en": "On Gilly · lander in Eve's sea", "next_ko": "Gilly 착륙", "next_en": "Gilly landing", "next_ut": 46526189},
    {"slug": "dres-1", "n": 51, "type": "probe", "body": "dres", "crew": [], "where_ko": "Dres로 이동 중", "where_en": "En route to Dres", "next_ko": "Dres 도착", "next_en": "Dres arrival", "next_ut": 59190000, "from": "kerbin", "to": "dres"},
-   {"slug": "duna-2", "n": 53, "type": "probe", "body": "duna", "crew": [], "where_ko": "Duna로 이동 중", "where_en": "En route to Duna", "next_ko": "Duna 도착", "next_en": "Duna arrival", "next_ut": 51610000, "from": "kerbin", "to": "duna"},
-   {"slug": "eeloo-1", "n": 52, "type": "probe", "body": "eeloo", "crew": [], "where_ko": "Eeloo로 이동 중", "where_en": "En route to Eeloo", "next_ko": "Eeloo 도착", "next_en": "Eeloo arrival", "next_ut": 69400000, "from": "kerbin", "to": "eeloo"},
+   {"slug": "duna-2", "n": 53, "type": "probe", "body": "duna", "crew": [], "where_ko": "Duna 착륙 · 옆으로 누움", "where_en": "Landed on Duna · on its side", "next_ko": "Duna 착륙", "next_en": "Duna landing", "next_ut": 51693000},
+   {"slug": "eeloo-1", "n": 52, "type": "probe", "body": "eeloo", "crew": [], "where_ko": "Eeloo로 이동 중", "where_en": "En route to Eeloo", "next_ko": "Eeloo 도착", "next_en": "Eeloo arrival", "next_ut": 69100000, "from": "kerbin", "to": "eeloo"},
    {"slug": "ike-station-1", "n": 45, "type": "probe", "body": "ike", "crew": [], "where_ko": "Ike 궤도 (정거장)", "where_en": "Ike orbit (station)", "next_ko": "계약 완료", "next_en": "Contract done", "next_ut": 30752200},
-   {"slug": "minmus-lab-1", "n": 41, "type": "station", "body": "minmus", "crew": ["Bob", "Gwenbro"], "where_ko": "Minmus 극궤도 14 km", "where_en": "Minmus polar orbit, 14 km", "next_ko": "실험실 방문", "next_en": "Lab visits", "sci_per_day": 3.5},
+   {"slug": "minmus-lab-1", "n": 41, "type": "station", "body": "minmus", "crew": ["Bob", "Gwenbro"], "where_ko": "Minmus 극궤도 14 km", "where_en": "Minmus polar orbit, 14 km", "next_ko": "실험실 방문", "next_en": "Lab visits", "sci_per_day": 8.0},
    {"slug": "polar-relay-1", "n": 27, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-1", "n": 31, "type": "satellite", "body": "kerbin"},
    {"slug": "keo-relay-2", "n": 32, "type": "satellite", "body": "kerbin"},
@@ -361,10 +381,12 @@
    {"n": 47, "gain": 1516, "how": "전송", "note": "Moho high orbit +556, low orbit +537, surface +423"},
    {"n": 41, "gain": 400, "how": "실험실 전송", "note": "UT 42.35M"}, {"n": 41, "gain": 441, "how": "실험실 전송", "note": "UT 43.37M"},
    {"n": 49, "gain": 1154, "how": "전송", "note": "Eve low +164, high +117, flying high/low + splashed +432; Gilly space-high +177, surface +264"},
-   {"n": 41, "gain": 473, "how": "실험실 전송", "note": "UT 45.82M"}, {"n": 41, "gain": 276, "how": "실험실 전송", "note": "UT 46.8M"}, {"n": 41, "gain": 248, "how": "실험실 전송", "note": "UT 47.8M"}, {"n": 41, "gain": 219, "how": "실험실 전송", "note": "UT 48.8M"}, {"n": 41, "gain": 193, "how": "실험실 전송", "note": "UT 49.8M"}
+   {"n": 41, "gain": 473, "how": "실험실 전송", "note": "UT 45.82M"}, {"n": 41, "gain": 276, "how": "실험실 전송", "note": "UT 46.8M"}, {"n": 41, "gain": 248, "how": "실험실 전송", "note": "UT 47.8M"}, {"n": 41, "gain": 219, "how": "실험실 전송", "note": "UT 48.8M"}, {"n": 41, "gain": 193, "how": "실험실 전송", "note": "UT 49.8M"},
+   {"n": 53, "gain": 709, "how": "전송", "note": "Duna low orbit +128, high +117, flying high/low + landed +464 (the hop's own science not counted)"},
+   {"n": 41, "gain": 321, "how": "실험실 전송", "note": "UT 51.80M (+320.9, including the 170.5 left aboard at 50.8M)"}
   ],
  "science_aboard": [
-   {"slug": "minmus-lab-1", "data": "256/750"}
+   {"slug": "minmus-lab-1", "data": "592/750"}
   ],
  "pad_dv_note": "KSP's own per-stage delta-v (Vessel.stages: pad = at the pad's pressure, vac = vacuum; [stage, pad, vac]) for the current crafts/<slug>.json on the sandbox pad, 2026-09-27. Eeloo 1 matches its career pad check (LOG). Eve 2's total leaves out the lander's own Terrier stage (KSP lists no delta-v for it on the pad)",
  "pad_dv": [

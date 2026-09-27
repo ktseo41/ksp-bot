@@ -120,6 +120,7 @@ TEXT = {
     '전송': ('전송', 'sent'),
     '실험실 전송': ('실험실 전송', 'lab-sent'),
     'total': ('합계', 'total'),
+    'tree complete': ('트리 완료', 'Tree complete'),
     'on the way': ('싣고 오는 중', 'On the way home'),
     # 08 crew
     'flights': (lambda n: f'{n}회', lambda n: plural(n, 'flight')),

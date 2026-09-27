@@ -1165,6 +1165,66 @@ active vessel. A copy with only the active vessel changed to Moho 1 (a one-byte 
 rails, and the game went back to the space center. Lesson: Eve 2 on Gilly jumps ~11 m/s every time it is loaded with
 physics. To fly it again, expect the bounce and be ready to `land`, or don't switch to it.
 
+## 7.34 Duna 2 lands, a hop for a parachute test, and the tech tree is complete
+The session resumed at UT 50.806M (funds 5.04M, science 4,985). Duna 2 carries three Mk2-R parachutes, so the part-test
+contract "Test Mk2-R in flight over Duna" (8–10 km, 550–590 m/s, 162k advance) was accepted, to be done on the way down.
+It ended up being the most work of the session.
+
+- **Eeloo 1 mid-course (UT 51.15M)**: `correct Eeloo --pe 70000 --inc-to 0 --plan` found a direct 3D Lambert solution of
+  381.1 m/s (planned 380–450), almost pure normal (-379), a prograde 70 km periapsis, v_inf 2,220. The search took
+  minutes, though, and the node was already 160 s in the past. It was moved to now + 150 s (periapsis 65 km, same pass)
+  and 381 m/s was burned (residual 0.2). Sun orbit inclination 5.75°, **Eeloo encounter, SOI at UT 69.10M**. The pass
+  now reads periapsis 1,094 km, inclination 175° (retrograde): 0.015 m/s of burn error grown over 833 days. That is left
+  to the trim 20 days out (~68.9M) and the in-SOI `correct --inc-to 0`.
+- **Duna 2 trim, 20 days out (UT 51.18M)**: the far-out `correct` search could not leave the retrograde side: 23 m/s gave
+  periapsis 974 km, inclination 152°, a retrograde pass. To turn a retrograde pass into a prograde one, the aim point has
+  to move to the other side of the planet, and on the way it **passes through the planet's centre**. Every solution in
+  between hits the planet, the cost shoots up, and a search taking small steps can't climb that wall. So nothing was
+  burned and it was solved by hand: a line search that kept the search's direction and only scaled the size crossed the
+  centre at x1.2 (periapsis 86 km, inclination 39°, now prograde). A small compass search from there found **28.2 m/s →
+  periapsis 300 km, inclination 1.1°**; burned at thrust 0.2, it gave 239 km and 1.9°. A code TODO: seed the far-out
+  search across the centre by scaling the best retrograde node until the pass flips.
+- **Duna arrival (UT 51.617M)**: v_inf 721, prograde, no Ike patch, link 0.76. In-SOI `correct` 2.6 m/s → periapsis
+  100.2 km, inclination 1.4°. `capture --apo 1000000`: 351 m/s (planned 351), link forecast clear → 100.2×999.2 km. Low
+  orbit science +128, high +117. Circularized for 196 m/s to 99.9×100.2 km, 809 m/s left on the Poodle.
+- **Choosing the landing site**: the terrain height (surface_height) was sampled along the equator. The plains are at
+  longitude 25–50° (450–1,100 m) and -30…-20°. The usual `--under Kerbin` entry would have come down next to 3.5 km
+  highlands near longitude -10°. So the entry time was set by hand: `deorbit --pe 8000 --at 51692182` put the periapsis
+  over longitude 63° (with Kerbin 36° up there for the link). The long flight through the air drags the touchdown point
+  back west, so the periapsis goes beyond the east end of the plain. Deorbit 54 m/s on the Poodle, then `stage` (the
+  Terrier alone, 4.57 t, 1,947 m/s).
+- **Landing**: `land --pe 8000 --science --test 8000 10000 550 590`, with a new option. Entry at 863 m/s at 53 km, peak
+  902 m/s at 34 km, **drag 4.3 m/s² at a dynamic pressure of 4 kPa** (CdA 4.8 m²), 692 m/s at 15 km. **Landed at 1.02,
+  24.97** (976 m, 13° short of the aim point, on the plain), 26/26 parts, the parachutes taking the last km at 9 m/s.
+  **Contract "Science data from surface of Duna" done (+132,825)**; flying high/low and landed science +464 (science 5,694).
+- **But the part test was missed**: at 8 km the craft was doing 359 m/s, and the window is 550–590. The error was in
+  the drag. My estimate of the entry speed assumed drag roughly equal to gravity; the real drag was four times that.
+  This entry reaches 10 km at ~540 m/s even with no braking at all, so the window was out of reach from the start. The
+  decompiled code was read too: a parachute test counts **only when the part is activated by staging**
+  (ModuleTestSubject's useEvent is off), and kRPC's `arm()` is not an activation. In flight, the contract reads the
+  speed as srfSpeed.
+- **`test-hop`: flying the test from the surface**: the lander still had 1,523 m/s and nothing left to do. So a new
+  command, `test-hop 8000 10000 550 590`, takes off from the ground and flies through the window. The guidance is
+  predictive: it keeps predicting the altitude at which the speed will be 555 m/s from the current state, steers for 3 s,
+  then flies a gravity turn; the drag area is measured in flight. **The parachute was staged at 8,993 m and 555 m/s:
+  contract done (+405,000)**. The catch was the cost: about 1,370 m/s for the climb against 930 offline. The cause was
+  transonic drag: CdA swung 3.5 → 10.2 → 5.9 through Mach 1, while the offline model held it at 4.8. 157 m/s left. At
+  the cut-off an `attitude` event fired (92°/s): at 6.4 kPa, nose-first is the unstable way round for this craft.
+- **A 0.0-fuel landing on its side**: 157 m/s was too little for the normal descent routine, so a scratch script took
+  over. Fall broadside to let the drag slow it (184 → 148 m/s), flip at 2 km, full thrust from 714 m at 155 m/s.
+  **Touchdown with 0.0 fuel, 26/26 parts, lying on its side** (0.99, 33.17, 711 m). The sensors, RA-15s and RTG are
+  alive, so it can still answer a Duna surface science contract. Funds 5.20M → **5.74M**, reputation 600, science 5,704.
+  One more lesson on the side: `pkill -f` matching a command line also kills the shell that runs it, which is why the
+  emergency script started 15 s late.
+- **Lessons**: an entry's speed at a given height is set by the drag, so measure it before promising a window. And a
+  climb through Mach 1 in Duna's air costs about 450 m/s more than a constant-CdA model says.
+- **The lab, and the tech tree complete (UT 51.80M)**: a Minmus Lab 1 visit. `lab transmit` **+320.9** (including the
+  170.5 that stayed aboard at 50.8M; link 1.0 this time). `lab process` added two experiments: data 226 → 592, science per
+  day 3.0 → 8.0. With science at 6,025, the last 13 nodes (5,530: the aero line from aerodynamics to aerospaceTech,
+  nanolathing, metaMaterials, experimentalMotors, specializedControl, precisionPropulsion) were researched in one go.
+  `tech --all` lists no open node. **The tech tree is complete**, with 495 science left. From here science is no longer
+  a constraint; the goal left is every planet (Jool 1 arriving 52.79M, Dres 1 59.19M, Eeloo 1 69.10M) and their moons.
+
 ## 8. Candidates for standalone mods
 Pieces of the current KspBot mod that could be split out and released as standalone mods:
 1. **JSON → craft builder** (`CraftBuilder.cs`): builds a craft from a text spec. Supports stack nodes, surface attach, symmetry,
