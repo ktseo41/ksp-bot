@@ -968,7 +968,43 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   727.6 at UT 54,155,117 -> Jool 37,540 x 99,828 km, Vall pe 22 km; `correct Vall --pe 60000` 2.8 m/s -> 63.4 km,
   inc 15.8, v_inf 270. Vall SOI UT 54.2697M, pe ~54.2737M (after the Jool window's launches). 3,650 m/s left.
 
+- `correct` far out: a seed across the centre when the best pass is on the wrong side (`_cross_seed`, offline test);
+  tests for the part-test helpers (43 offline tests).
+- **Jool fleet designed** (fable; docs/jool-fleet-plan.md, crafts/jool-*.json, tools/scratch/jool_*.py): five one-way
+  landers, one launch each, direct capture at the moon from the arrival hyperbola. Vall 1 / Pol 1 / Bop 1 = Dres 1's
+  stack unchanged (93.2 t); Tylo 1 new (240.4 t, Mammoth / Rhino / Poodle + Jumbo-64 / two-stage lander); Laythe 1 =
+  Eve 2's lander and launcher with a Terrier capture stage (139.8 t; capture first, then entry: a direct entry has
+  Kerbin under the horizon). All three designs built in the VAB with the plan's parts / mass / cost, no warnings.
+  **The Mun blocks ejections UT 54,241,754-54,259,754 and 54,379,154-54,397,154: eject between 54.26M and 54.379M.**
+- **Tylo 1 launched (#54, UT 54.156M)**: pad check 1727 SL TWR 1.59 / 878 SL, 1440 vac / 3217 / 2739 / 2675 (plan 1725
+  / 868 / 3217 / 2739 / 2675). First Mammoth / Rhino flight: clean, no attitude or damage events, Mammoth out at 1:23,
+  the Rhino circularized (636 m/s) with 68 m/s left: **79.8 x 80.0 km, Poodle T 3,217 untouched** (plan 2,950-3,150),
+  A 2,739, B 2,675. The spent Rhino stage is still attached (the ejection's auto-staging drops it).
+- **Stopped here at the user's request (2026-09-27): saved at the space center, UT 54,158,125, funds 4.57M, sci 1,370,
+  rep 605. No burn or node pending.**
+
 ### Next steps (plan)
+**State (2026-09-27, session 4 end): KSP saved at the space center, UT 54,158,125, funds 4.57M, sci 1,370, rep 605;
+tech tree complete; pad and VAB level 3. In flight: Tylo 1 in LKO 79.8 x 80.0 km (waiting for its ejection), Jool 1
+on its way to Vall (SOI UT 54,269,700, pe 63 km ~54,273,700, v_inf 270; 3,650 m/s left), Eeloo 1 (SOI 69.10M; pass
+retrograde 1,094 km: trim ~68.9M), Dres 1 (mid-course UT 56,159,878 ~116 m/s, arrival 59.19M), Minmus Lab 1 (Bob,
+Gwenbro; visits no longer needed for research), Duna 2 landed on its side (sensors alive), Eve 2 on Gilly (bounces
+when loaded). Next, in this order (docs/jool-fleet-plan.md "Launch order" and "Phases"):**
+1. Launch Laythe 1, Vall 1, Bop 1, Pol 1 to 80 km (`launch`, read the pad line, `ascent --alt 80000 && circularize`;
+   >= 600 s between circularizations; Laythe 1's pad line 1718 SL TWR 1.36 / 1431 SL / 2824 / 2154 and 7 stages with
+   the shield alone in the last; Dres stacks 1175 SL TWR 1.51 / 1043 SL / 2742 / 3683). Build the four first
+   (`build crafts/jool-<m>.json`; Vall 1, Laythe 1 and Tylo 1 are already in the VAB). Do not warp past 54,269,000.
+2. **Jool 1 at Vall**: `fly "Jool 1"`, `soi` (UT 54.2697M), `capture --apo X` at the pe (estimate 348 m/s to a 60 km
+   circle; first moon capture in the Jool system: it is the scout for the landers' code), science, LOG.
+3. Ejections between UT 54.275M and 54.379M, order Pol 1, Bop 1, Tylo 1, Vall 1, Laythe 1: `transfer Jool --pe <PE>
+   --plan`, read (node 1,935-1,980, arrival v_inf 1,650-1,800), `node`, then `tools/scratch/jool_phase.py`.
+4. Dres 1 mid-course UT 56,159,878; fleet mid-course UT 63.3-65.5M (conjunction 62,068,454); Duna window 64.06M (Ike
+   lander: "Explore Ike"); Eeloo 1 trim 68.9M; fleet at Jool's SOI ~77.85M.
+Code to do before the fleet arrives (plan's gaps 1-6): `correct <Moon>` from the hyperbolic approach; `land` on Tylo
+(`--max-decel` flag, braking law, stage-aware curve); arrival-time term far out; `soi` atmosphere floor;
+`test-hop`'s landing should be the broadside fall + late burn flown by hand on Duna 2.
+Records TODO (opus): career.json #54 Tylo 1 (in LKO), Jool 1 captured at Jool / en route to Vall, funds 4.57M;
+cards; writeup 7.35 (Jool 1 at Jool, the fleet's design, Tylo 1's launch); pad photos of the new crafts (sandbox).
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new
 far-out `correct`, then inside the SOI `correct --inc-to 0`; capture link forecast is in code now; contract orbit via
