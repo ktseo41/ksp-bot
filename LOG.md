@@ -910,6 +910,44 @@ Newest entries at the bottom. One entry per mission: goal, craft, result, funds/
   Backups: saves/kspbot/restore_photo_111038.sfs (original), restore_photo_moho.sfs (edited).
 - **Eve 2 on Gilly jumps ~11 m/s every time it is loaded with physics** (reproduced twice). Before flying it again:
   expect the bounce (apex ~1.2 km, back down after ~7 min) and be ready to `land`, or don't switch to it.
+## 2026-09-27 (session 4) — Eeloo 1 mid-course, Duna 2 lands (+ contract), a parachute test flown as a hop
+- Resumed at UT 50.806M (funds 5.04M, sci 4,985). Accepted "Test Mk2-R in flight over Duna" (8-10 km, 550-590 m/s;
+  +162k advance): Duna 2 carries three Mk2-R.
+- **Eeloo 1 mid-course (UT 51.15M)**: `correct Eeloo --pe 70000 --inc-to 0 --plan`: direct 3D Lambert 381.1 m/s (plan
+  380-450), pure normal (-379), pe 70 km prograde, v_inf 2,220. The search took minutes, the node was 160 s in the past:
+  moved it to now + 150 s (pe 65 km, same pass), burned 381 (residual 0.2). Sun orbit inc 5.75, **Eeloo encounter, SOI
+  UT 69.10M**; the pass reads pe 1,094 km, inc 175 (retro): 0.015 m/s of burn error over 833 d; left for the trim 20 d
+  out (~68.9M) and the in-SOI `correct --inc-to 0`. Poodle 425, Terrier 3,683.
+- **Duna 2 trim 20 d out (UT 51.18M)**: `correct` far-out search stayed on the retrograde side (23 m/s -> pe 974 km,
+  inc 152 RETROGRADE: crossing to the prograde side goes through the planet, the cost wall stops it). Not burned.
+  By hand: line search along its direction (x1.2 crosses the centre: pe 86 km, inc 39), then a small compass search
+  there: **28.2 m/s -> pe 300 km, inc 1.1**; burned at thrust 0.2 -> pe 239 km, inc 1.9. **Code TODO: far-out seeds
+  across the centre (scale the best retrograde node until the pass flips).**
+- Duna SOI UT 51.617M: v_inf 721, prograde, no Ike patch, link 0.76. In-SOI `correct` 2.6 m/s -> pe 100.2 km, inc 1.4.
+  `capture --apo 1000000`: 351 m/s (plan 351), link forecast clear -> 100.2 x 999.2 km. Science low +128, high +117.
+  Circularized 196 -> 99.9 x 100.2 km, Poodle 809 left.
+- **Landing**: equatorial terrain sampled (surface_height): plains at lon 25-50 (450-1,100 m) and -30..-20; the default
+  `--under Kerbin` entry would have come down next to 3.5 km highlands at lon -10, so `deorbit --pe 8000 --at
+  51692182` (pe over lon 63, Kerbin 36 deg up there). Deorbit 54 on the Poodle, then `stage` (Terrier alone, 4.57 t,
+  1,947). `land --pe 8000 --science --test 8000 10000 550 590` (new): entry 863 m/s at 53 km, peak 902 at 34 km,
+  **drag 4.3 m/s2 at q 4 kPa (CdA 4.8 m2)**, 692 m/s at 15 km. **Landed at 1.02, 24.97** (976 m, 13 deg short of
+  the aim), 424 m/s, 26/26 parts, chutes took the last km at 9 m/s. **Contract "Science data from surface of Duna"
+  done (+132,825)**; science flying high/low + landed +464 (sci 5,694).
+- **The part test was missed on the way down** (359 m/s at 8 km): this entry reaches 10 km at ~540 m/s even unbraked;
+  my coast estimate (drag ~ gravity) was 4x off. Decompiled: only the part's activation by staging counts for a
+  parachute (ModuleTestSubject.useEvent off; kRPC arm() is not an activation); flying, the contract reads srfSpeed.
+- **`test-hop 8000 10000 550 590`** (new; the lander had 1,523 m/s and nothing left to do): predictive guidance
+  (altitude at 555 m/s from the state now, 3 s of steering then a gravity turn, drag area measured in flight). Fired
+  at **8,993 m, 555 m/s: contract done (+405,000)**. The climb cost ~1,370 (offline 930): transonic drag, CdA 3.5 ->
+  10.2 -> 5.9 through Mach 1 (the offline model had a constant 4.8). 157 m/s left; an `attitude` event (92 deg/s) at
+  the cut-off, q 6.4 kPa (nose-first is the unstable way round). Replaced the descent by a scratch script: broadside
+  fall (184 -> 148 m/s), flip at 2 km, full thrust from 714 m at 155 m/s: **touchdown with 0.0 fuel, 26/26 parts,
+  lying on its side** at 0.99, 33.17 (711 m). Sensors, RA-15s and RTG alive: it can still answer a Duna surface
+  science contract. Funds 5.20 -> **5.74M**, rep 600, sci 5,704.
+- Lessons: (1) an entry's speed at a given height is set by the drag, measure before promising a window; (2) a
+  climb through Mach 1 in Duna's air costs ~450 m/s more than a constant-CdA model says; (3) `pkill -f` on a
+  command line kills the shell that runs it (the emergency script started 15 s late).
+
 ### Next steps (plan)
 **State (2026-09-27, session 3): UT ~43.6M, funds ~3.28M, sci 4,572. Timeline (UT):** lab visit before 44.40M
 (then ~every 1.0M); **Duna 2** launch ~44.63M (window 44,649,525; docs/duna-2-plan.md); **Eve 2 trim ~44.77M** (new

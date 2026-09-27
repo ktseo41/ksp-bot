@@ -406,7 +406,7 @@ def _land(a):
     if flight.vessel().orbit.body.has_atmosphere:
         if a.plan:  # land_atmo would burn: PLAN_ONLY only warns in its periapsis check
             raise flight.Refused("--plan is for airless landings; here use `deorbit --plan`")
-        return flight.land_atmo(a.pe, ignore_link=a.ignore_link, science=a.science)
+        return flight.land_atmo(a.pe, ignore_link=a.ignore_link, science=a.science, test=a.test)
     if a.science:
         print("--science is for atmospheric landings (flying high/low sets); here run `science --transmit` after")
     return flight.land(biomes=a.biome, max_slope=a.slope, orbits=a.orbits, at=a.at, min_elev=a.min_elev,
@@ -537,6 +537,7 @@ PHASES = {
     "inflate": lambda a: flight.inflate(),
     "node": lambda a: flight.execute_node(tol=a.tol, thrust_limit=a.thrust),
     "hop": lambda a: flight.hop(not a.no_science, a.heading, a.pitch),
+    "test-hop": lambda a: flight.test_hop(a.window, a.heading, a.max_decel),
     "survey": lambda a: flight.survey(a.kind, a.dist),
     "rendezvous": lambda a: _rdv().rendezvous(a.target, a.dist),
     "approach": lambda a: _rdv().approach(_rdv().find_target(a.target), a.dist),
@@ -674,6 +675,9 @@ def main(argv=None):
     p.add_argument("--science", action="store_true",
                    help="atmosphere, one-way probe: flying high/low science on the way down (in the background, "
                         "the descent control never waits), then the landed set and leftovers like `science --all`")
+    p.add_argument("--test", type=float, nargs=4, metavar=("ALT_LO", "ALT_HI", "SPD_LO", "SPD_HI"),
+                   help="atmosphere: a parachute test contract on the way down: the next stage (parachutes only) is "
+                        "staged inside this window (m ASL, m/s over the surface) instead of armed at the entry")
     p = add("liftoff", PHASES["liftoff"], help="take off from an airless body into orbit")
     p.add_argument("--alt", type=float, default=15000)
     p.add_argument("--heading", type=float, default=90)
@@ -729,6 +733,11 @@ def main(argv=None):
     p = add("survey", PHASES["survey"], help="orbital survey contract: run the experiment over each waypoint")
     p.add_argument("--kind", default="temperature")
     p.add_argument("--dist", type=float, default=8000.0)
+    p = add("test-hop", PHASES["test-hop"], help="landed, thin air: fly a parachute test contract's window (the next "
+                                                  "stage, parachutes only, is staged in it) and land again")
+    p.add_argument("window", type=float, nargs=4, metavar=("ALT_LO", "ALT_HI", "SPD_LO", "SPD_HI"))
+    p.add_argument("--heading", type=float, default=90)
+    p.add_argument("--max-decel", type=float, default=6.0, help="braking curve of the landing (m/s2)")
     p = add("hop", PHASES["hop"], help="suborbital hop: launch, science at apex, chutes")
     p.add_argument("--no-science", action="store_true")
     p.add_argument("--heading", type=float, default=90)

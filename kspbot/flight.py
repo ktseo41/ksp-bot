@@ -3573,10 +3573,11 @@ def land(safety=1.3, final_speed=1.5, max_decel=3.0, biomes=None, max_slope=5.0,
     _powered_descent(v, fl, ap, safety, final_speed, max_decel, max_accel=max_accel)
 
 
-def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick=None, max_accel=2.0):
+def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick=None, max_accel=2.0, coast=None):
     """Throttled suicide burn down to touchdown, holding surface retrograde (drag and chutes only help).
     tick: called every loop (land --science's situation check; it must not block). The engine's acceleration is
-    capped by _landing_accel (absurd TWR only); the throttle law is _descent_accel."""
+    capped by _landing_accel (absurd TWR only); the throttle law is _descent_accel. coast: a throttle
+    override 0..1 or None (land --test holding the contract's speed until the craft is in its altitude band)."""
     body = v.orbit.body
     g = body.surface_gravity
     v.control.legs = True
@@ -3599,6 +3600,9 @@ def _powered_descent(v, fl, ap, safety=1.3, final_speed=1.5, max_decel=3.0, tick
             ap.target_direction = (1, 0, 0)
         # descend along a constant-deceleration curve (capped, so high-TWR landers don't brake at the last moment)
         acc_cmd = _descent_accel(h, fl.vertical_speed, fl.horizontal_speed, g, a_use, safety, final_speed, max_decel)
+        thr = coast() if coast else None
+        if thr is not None:
+            acc_cmd = thr * a_use
         v.control.throttle = max(0.0, min(a_use, acc_cmd) / max(a_max, 1e-3))
         time.sleep(0.03)
     v.control.throttle = 0.0
@@ -3656,18 +3660,206 @@ def _entry_science_bg(v, fl):
     return tick, finish
 
 
+def part_test_throttle(alt, spd, agl, window, min_agl=7000.0, margin=10.0, above=2500.0):
+    """land --test: the throttle override before the test has fired (pure): 0.0 engine off, 1.0 full brake, None
+    the landing law. window = (alt_lo, alt_hi, spd_lo, spd_hi) of the part-test contract. Under spd_hi - margin
+    the craft coasts (gravity adds ~1 m/s2 on Duna, the thin air takes about as much) until it has fallen below
+    alt_hi, where the test fires; over it and within `above` of the window the brake is forced (the landing law
+    alone stops braking up there: it would carry ~600 m/s through the band). Given up (None) below alt_lo or
+    under min_agl over the ground (570 m/s needs ~4 km of height to stop at 13 m/s2)."""
+    alt_lo, alt_hi, spd_lo, spd_hi = window
+    if alt <= alt_lo or agl <= min_agl:
+        return None
+    if spd < spd_hi - margin:
+        return 0.0
+    return 1.0 if alt < alt_hi + above else None
+
+
+def _stage_test(v, fl, window, chutes):
+    """land --test ALT_LO ALT_HI SPD_LO SPD_HI: a part-test contract on the way down (Duna 2: "Test Mk2-R in flight
+    over Duna", 8-10 km at 550-590 m/s). Parachutes have no "Run Test" button (ModuleTestSubject.useEvent is off):
+    only the part's activation by staging counts (OnActive; kRPC's arm() is ModuleParachute.Deploy and does not),
+    and the contract reads vessel.altitude and, flying, vessel.srfSpeed (decompiled ReachAltitudeEnvelope /
+    ReachSpeedEnvelope). So the next stage must hold parachutes only (refused otherwise: nothing else may fire in
+    the descent) and is staged inside the window. Returns (tick, coast) for _powered_descent; tick arms the chutes
+    the plain way once the window is behind (missed or done)."""
+    alt_lo, alt_hi, spd_lo, spd_hi = window
+    nxt = _stage_parts(v, v.control.current_stage - 1)
+    if not nxt or not all(p.parachute is not None for p in nxt):
+        raise Refused(f"--test: the next stage ({v.control.current_stage - 1}) must hold parachutes only, it has "
+                      f"{[p.title for p in nxt]}")
+    st = {"done": False, "said": False}
+
+    def finish(why):
+        st["done"] = True
+        for c in chutes:
+            if not _chute_deployed(c):
+                try:
+                    c.arm()
+                except Exception:
+                    pass
+        say(why)
+
+    def tick():
+        if st["done"]:
+            return
+        alt, spd = fl.mean_altitude, fl.speed
+        if alt_lo < alt < alt_hi and spd_lo < spd < spd_hi:
+            v.control.activate_next_stage()
+            finish(f"part test: parachute stage fired at {alt:.0f} m, {spd:.0f} m/s")
+        elif alt <= alt_lo:
+            finish(f"part test missed: {spd:.0f} m/s at {alt:.0f} m (window {spd_lo:.0f}-{spd_hi:.0f} m/s, "
+                   f"{alt_lo:.0f}-{alt_hi:.0f} m); chutes armed")
+
+    def coast():
+        if st["done"]:
+            return None
+        thr = part_test_throttle(fl.mean_altitude, fl.speed, fl.surface_altitude, window)
+        if thr == 0.0 and not st["said"]:
+            st["said"] = True
+            say(f"part test: engine off at {fl.speed:.0f} m/s, {fl.mean_altitude:.0f} m, falling into the window")
+        return thr
+    return tick, coast
+
+
+def hop_predict(h, vx, vh, m, thrust, ve, cda, rho, g, radius, v_fire, delta, t_delta=3.0, scale_h=7500.0,
+                dt=0.25, t_max=120.0):
+    """test-hop's predictor (pure): the altitude at which the surface speed reaches v_fire when the thrust is held
+    delta rad above the velocity vector for t_delta s and along it afterwards (a gravity turn), from the state
+    (h m, vx horizontal, vh vertical m/s, m kg) at full thrust (N, exhaust speed ve), with the drag q * cda / m
+    and the density rho at h falling off with scale_h. None when the speed is not reached in t_max s or the
+    craft comes back down first. (Held for the whole climb, the steering looked far stronger than it is: the
+    limit shrinks with the dynamic pressure, and the guidance turned too little at the start.)"""
+    h0 = h
+    t = 0.0
+    while t < t_max:
+        v = math.hypot(vx, vh)
+        if v >= v_fire:
+            return h
+        pitch = (math.atan2(vh, vx) if v > 1 else math.pi / 2) + (delta if t < t_delta else 0.0)
+        drag = 0.5 * rho * math.exp(-(h - h0) / scale_h) * v * cda / m  # per unit of velocity
+        a = thrust / m
+        ax = a * math.cos(pitch) - drag * vx
+        ah = a * math.sin(pitch) - drag * vh - g + vx * vx / (radius + h)
+        vx += ax * dt
+        vh += ah * dt
+        h += vh * dt
+        m -= thrust / ve * dt
+        t += dt
+        if h < h0 - 50:
+            return None
+    return None
+
+
+def hop_delta_limit(q):
+    """How far (rad) test-hop may point the thrust off the velocity vector at the dynamic pressure q (Pa): the
+    turn is made right after the liftoff, in still air; the draggy top leads on the way up, so in the fast air
+    the Terrier's gimbal and the wheel only trim."""
+    return math.radians(60 if q < 300 else 12 if q < 2000 else 5)
+
+
+def test_hop(window, heading=90.0, max_decel=6.0):
+    """A landed craft flies a part-test contract's window and lands again (Duna 2: its entry came through the
+    "Mk2-R at 8-10 km, 550-590 m/s" band 100 m/s too slow: the drag there is 4 m/s2, CdA 4.8 m2 from the recorder).
+    Only the staging of the part counts (_stage_test), so the next stage must hold parachutes only. Lift off, then
+    steer the thrust a few degrees off the velocity vector so that the predicted altitude at spd_lo + 5 m/s
+    (hop_predict, the drag area measured on the way up) is the middle of the altitude band: steep is cheap (less
+    air), the band is crossed at ~250 m/s of climb, so the stage fires the moment the speed is in. Then engine
+    off, surface retrograde (the stable way round for a lander: tank first) and the powered descent without
+    chutes (they were cut at the first landing); max_decel 6 m/s2 keeps the braking late."""
+    v = vessel()
+    body = v.orbit.body
+    fl = v.flight(body.reference_frame)
+    alt_lo, alt_hi, spd_lo, spd_hi = window
+    if v.situation.name not in ("landed", "splashed"):
+        raise Refused(f"test-hop starts landed ({v.name} is {v.situation.name})")
+    _ensure_control(v)
+    nxt = _stage_parts(v, v.control.current_stage - 1)
+    if not nxt or not all(p.parachute is not None for p in nxt):
+        raise Refused(f"test-hop: the next stage ({v.control.current_stage - 1}) must hold parachutes only, it has "
+                      f"{[p.title for p in nxt]}")
+    if v.available_thrust <= 0:
+        raise Refused("test-hop: no thrust")
+    v_fire = spd_lo + 5.0
+    h_aim = 0.5 * (alt_lo + alt_hi)
+    g = body.surface_gravity
+    ap = v.auto_pilot
+    ap.reference_frame = v.surface_reference_frame
+    ap.target_pitch_and_heading(90, heading)
+    ap.engaged = True
+    v.control.sas = False
+    v.control.throttle = 1.0
+    say(f"test-hop: liftoff, aiming at {h_aim:.0f} m with {v_fire:.0f} m/s")
+    cda = 4.8
+    deltas = [math.radians(d) for d in (-60, -45, -30, -20, -12, -8, -5, -3, -1.5, 0, 1.5, 3, 5, 8, 12)]
+    fired = False
+    t_say = 0.0
+    while True:
+        h, spd, vs, hs = fl.mean_altitude, fl.speed, fl.vertical_speed, fl.horizontal_speed
+        if alt_lo < h < alt_hi and v_fire <= spd < spd_hi:
+            v.control.activate_next_stage()
+            v.control.throttle = 0.0
+            fired = True
+            say(f"test-hop: parachute stage fired at {h:.0f} m, {spd:.0f} m/s")
+            break
+        if h >= alt_hi or spd >= spd_hi or v.available_thrust <= 0 or (spd > 100 and vs < 0):
+            v.control.throttle = 0.0
+            say(f"test-hop: window missed ({spd:.0f} m/s at {h:.0f} m, vs {vs:.0f}); landing")
+            break
+        q = fl.dynamic_pressure
+        if q > 300:
+            d = fl.drag
+            cda += 0.1 * (math.sqrt(d[0] ** 2 + d[1] ** 2 + d[2] ** 2) / q - cda)
+        if spd < 40:
+            pitch = 90.0
+            pred = None
+        else:
+            lim = hop_delta_limit(q)
+            thrust, ve = v.available_thrust, v.specific_impulse * 9.80665
+            best = None
+            for dl in deltas:
+                if abs(dl) > lim + 1e-9:
+                    continue
+                hp = hop_predict(h, hs, vs, v.mass, thrust, ve, cda, fl.atmosphere_density, g,
+                                 body.equatorial_radius, v_fire, dl)
+                # a path that never gets there counts as far too low (steer up)
+                err = abs((hp if hp is not None else alt_lo - 5000) - h_aim) + 20 * abs(dl)
+                if best is None or err < best[0]:
+                    best = (err, dl, hp)
+            pred = best[2]
+            pitch = max(8.0, min(90.0, math.degrees(math.atan2(vs, max(hs, 0.1)) + best[1])))
+        ap.target_pitch_and_heading(pitch, heading)
+        if time.time() > t_say:
+            t_say = time.time() + 5
+            say(f"test-hop: {h:.0f} m, {spd:.0f} m/s, pitch {pitch:.0f}, predicted "
+                f"{'-' if pred is None else format(pred, '.0f')} m at {v_fire:.0f} m/s, CdA {cda:.1f}", screen=False)
+        time.sleep(0.03)
+    left = v.specific_impulse * 9.80665 * math.log(v.mass / v.dry_mass) if v.dry_mass > 0 else 0.0
+    say(f"test-hop: {left:.0f} m/s left for the landing")
+    ap.reference_frame = v.surface_velocity_reference_frame
+    ap.target_direction = (0, -1, 0)
+    _powered_descent(v, fl, ap, max_decel=max_decel)
+    return fired
+
+
 @_contained(_fallback_descent)
-def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False, science=False):
+def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False, science=False, test=None):
     """Land on a body with a thin atmosphere (Duna) from a low orbit: deorbit burn to periapsis pe_alt,
     hold surface retrograde through entry, arm every parachute (they open when safe), and fly the powered
     descent below burn_alt. Its own deorbit burn (from above the atmosphere) is checked like `deorbit`'s: the
     periapsis ground point, refused for an uncrewed craft with Kerbin < 20 deg up there unless ignore_link.
     science (one-way probe, Duna 2): flying high / flying low science on the way down in the background
-    (_entry_science_bg), the landed set after the touchdown."""
+    (_entry_science_bg), the landed set after the touchdown. test: (alt_lo, alt_hi, spd_lo, spd_hi) of a
+    parachute test contract: the chutes are not armed on the way in but staged inside that window (_stage_test)."""
     v = vessel()
     body = v.orbit.body
     fl = v.flight(body.reference_frame)
     ap = v.auto_pilot
+    if test and v.available_thrust > 0:  # checked before anything burns
+        nxt = _stage_parts(v, v.control.current_stage - 1)
+        if not nxt or not all(p.parachute is not None for p in nxt):
+            raise Refused(f"--test: the next stage ({v.control.current_stage - 1}) must hold parachutes only, it "
+                          f"has {[p.title for p in nxt]}: drop the transfer stage first")
     if v.orbit.periapsis_altitude > pe_alt + 5000 and fl.mean_altitude > body.atmosphere_depth:
         est = _retro_dv(v.orbit, ut(), pe_alt)
         if est and v.orbit.periapsis_altitude >= body.atmosphere_depth:  # else it comes down anyway
@@ -3687,7 +3879,19 @@ def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False, science=False):
     # only chutes that get dropped later (the lander's): the capsule's own chutes are needed at home
     chutes = [c for c in v.parts.parachutes if c.part.decouple_stage >= 0] or list(v.parts.parachutes)
     armed = False
-    while fl.surface_altitude > burn_alt and v.situation.name not in ("landed", "splashed"):
+    coast = None
+    if test:
+        t_tick, coast = _stage_test(v, fl, test, chutes)
+        armed = True  # the test stages them (or arms them once the window is behind)
+        s_tick = tick
+        brake_asl = test[1] + 4000  # 900 -> 580 m/s takes ~25 s and 2-3 km of height: start above the window
+
+        def tick():
+            if s_tick:
+                s_tick()
+            t_tick()
+    while (fl.surface_altitude > burn_alt and not (test and fl.mean_altitude < brake_asl)
+           and v.situation.name not in ("landed", "splashed")):
         if tick:
             tick()
         if not armed and fl.mean_altitude < atmo * 0.6:
@@ -3702,7 +3906,7 @@ def land_atmo(pe_alt=5000, burn_alt=12000, ignore_link=False, science=False):
             if not _chute_deployed(c):
                 c.arm()
     say(f"powered descent from {fl.surface_altitude:.0f} m AGL at {fl.speed:.0f} m/s")
-    _powered_descent(v, fl, ap, tick=tick)
+    _powered_descent(v, fl, ap, tick=tick, coast=coast)
     if finish:
         finish()
 
