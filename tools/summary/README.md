@@ -1,27 +1,37 @@
 # Career summary images
 
 Shareable images for the user's blog/X posts, 1080×1350 @2x.
-- **v2 (current, 10 cards)**: `docs/media/summary/v2/NN-slug.{html,png}`, scripts in `tools/summary/v2/`, plan in
-  `docs/summary-cards-plan.md`.
+- **v2 (current, 10 cards, Korean and English)**: `docs/media/summary/v2/NN-slug.{html,png}` (Korean) and
+  `NN-slug.en.{html,png}` (English, same folder so the relative image paths stay valid), scripts in `tools/summary/v2/`,
+  plan in `docs/summary-cards-plan.md`.
 - **v1 (day-1 snapshot)**: `docs/media/summary/0N-*.png` (2026-09-24, launches #1-#20). `img1-5.py` are kept as they are
   and can't be regenerated from today's `career.json` (hard-coded #1-#20 layout, fields v2 removed, `career-save.json`).
 
 ## v2: regenerate
-`python3 tools/summary/v2/build.py` (or `... build.py 01 07` for some cards): crops the photos into
-`docs/media/summary/v2/img/`, writes the ten HTML files, renders each with headless Chrome
+`python3 tools/summary/v2/build.py` (or `... build.py 01 07` for some cards, `... build.py --lang ko|en` for one
+language; the default builds both): crops the photos into `docs/media/summary/v2/img/`, writes the ten HTML files per
+language, renders each with headless Chrome
 (`--window-size=1080,1350 --force-device-scale-factor=2 --virtual-time-budget=8000`) and checks every PNG is 2160×2700.
 Fonts (Space Grotesk, JetBrains Mono, Noto Sans KR) load from Google Fonts: offline, the text disappears, so open the
 PNGs after a build. Never touches the game.
+
+Languages: `common2.LANG` is set per pass by `build.py`; card wording lives in one table, `TEXT` in `common2.py`
+(key -> (Korean, English), plain strings or small functions for the rule-based headlines), read with `T(key)`; record
+text is read with `loc(obj, 'label')` (-> `label_ko` / `label_en`). English output is checked for leftover Hangul.
+SVG gradient ids restart per card, so a card's file doesn't depend on which other cards were built.
 
 Cards: 01 scoreboard · 02 journey (map + what is flying) · 03 how (command pipeline) · 04/05 launches (first/second half)
 · 06 crafts · 07 science · 08 crew · 09 failures · 10 game time.
 
 Rules the scripts keep: every number and name on a card comes from `docs/record/career.json` (scripts hold only layout,
 colours, icons, the photo/crop table in `common2.py` and the KSP calendar 21,600 s/day, 426 days/year); rendering is
-rule-based (no per-launch layout); each headline is <= 18 characters (asserted); values derived from the current UT or
-marked `approx` get a `~`.
+rule-based (no per-launch layout); values derived from the current UT or marked `approx` get a `~`; each headline fits
+one line (asserted): Korean <= 18 characters, English by width (the computed font size must stay >= 52 px).
 
 ## v2: keep the data current (at the end of every mission, in `docs/record/career.json`)
+Every `*_ko` text field has an English sibling right after it (`label_en`, `text_en`, `where_en`, `next_en`,
+`status_en`, `rules_en`): add both when adding a record (the English build fails on a missing `*_en`), keep them the
+same facts and about as short. `science_hauls[].how` stays Korean (회수/전송/실험실 전송); `TEXT` translates it.
 - `career_launches`: the new launch (`n, craft, slug, dest, stat, crew, result, date, note`; `revert_death_count`,
   `diverted_to` when they apply). Results: success, reverted, crew lost, failed, partial, in progress, en route.
 - `career_now`: `ut`, `funds`, `science`, `reputation`, `facilities`, `real_days`, `date`; a `funds_timeline` point
@@ -32,7 +42,7 @@ marked `approx` get a `~`.
 - `ut_anchors.past/future` (move an anchor to `past` once it happened), `real_days` (the last day's `ut_end`).
 - `science_hauls` (big recoveries/transmissions), `science_aboard`, `research` (+ `research_names`).
 - `kerbals.roster` (`status_ko`, `flights`, deaths), `kerbals.rescued`, `incidents` (`text_ko` <= 28 characters,
-  `hidden` to keep one off card 09), `landings_by_body`.
+  `text_en` <= 52, `hidden` to keep one off card 09), `landings_by_body`.
 
 ## Pad photos (cards 04/05 show a placeholder when one is missing)
 None missing as of #53. For a new design: `shoot_crafts.py` when the game is free, crop into

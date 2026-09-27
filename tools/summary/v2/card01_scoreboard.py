@@ -8,7 +8,7 @@ FIRST_N = {f['n'] for f in RECORD['firsts']}
 
 # farthest body flown to (reached or en route)
 far = max((dest_body(l['dest'])[0] for l in LAUNCHES), key=BODY_ORDER.index)
-headline = f'{CN["real_days"]}일·발사 {N}번·{BODY_NAME[far]}까지'
+headline = T('h01', days=CN['real_days'], n=N, far=BODY_NAME[far])
 
 css = '''
 .launch{display:flex;gap:22px;align-items:stretch}
@@ -207,8 +207,8 @@ body = f'''
   <div class="tile"><div class="l">{icon('gyro', 22, '#b28cff')} Tech</div><div class="n" style="color:var(--tech)">{n_tech}<small>R&amp;D Lv.{rd}</small></div>
     <div class="tdots">{'<i></i>' * n_tech}</div></div>
   <div class="tile"><div class="l">{icon('skull', 22, '#ff4d5e')} Kerbals</div>
-    <div class="n"><span style="color:var(--dead)">{n_dead}</span><small>사망</small></div>
-    <div class="n" style="font-size:40px"><span style="color:#9ccc3c">+{n_resc}</span><small>구조</small></div>
+    <div class="n"><span style="color:var(--dead)">{n_dead}</span><small>{T('dead')}</small></div>
+    <div class="n" style="font-size:40px"><span style="color:#9ccc3c">+{n_resc}</span><small>{T('rescued')}</small></div>
     </div>
   <div class="tile"><div class="l">{icon('star', 22, '#ffcf4a')} Rep</div><div class="n" style="color:var(--gold)">{CN['reputation']:.0f}</div>
     <div class="sub">reputation</div></div>

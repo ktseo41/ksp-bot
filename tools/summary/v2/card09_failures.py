@@ -1,8 +1,8 @@
 from common2 import *
 
 INC = [i for i in RECORD['incidents'] if not i.get('hidden')]
-headline = '실패 목록이 곧 개발 일지'
-CAUSE = {'code': ('우리 코드', '#56c8ff'), 'design': ('설계', '#ff9a2e'), 'pilot': ('조종', '#b28cff'), 'game': ('게임', '#a9b3cf')}
+headline = T('h09')
+CAUSE = {c: (T(c), col) for c, col in (('code', '#56c8ff'), ('design', '#ff9a2e'), ('pilot', '#b28cff'), ('game', '#a9b3cf'))}
 
 css = '''
 .causes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
@@ -43,10 +43,11 @@ def ic_for(i):
 rows = []
 for i in INC:
     assert len(i['text_ko']) <= 28, i  # plan §2: one line, <= 28 characters
+    assert len(i['text_en']) <= 52, i  # English: one line in the row (two would still fit)
     ic, col = ic_for(i)
     name, ccol = CAUSE[i['cause']]
     rows.append(f'<div class="it"><div class="ic" style="background:{col}22">{icon(ic, 30, col)}</div>'
-                f'<div class="n"><span>#</span>{i["n"]}</div><div class="tx">{esc(i["text_ko"])}</div>'
+                f'<div class="n"><span>#</span>{i["n"]}</div><div class="tx">{esc(loc(i, "text"))}</div>'
                 f'<div class="tag" style="color:{ccol};background:{ccol}1f;border:1px solid {ccol}55">{name}</div></div>')
 
 body = f'''

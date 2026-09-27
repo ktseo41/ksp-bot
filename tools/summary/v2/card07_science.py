@@ -12,7 +12,7 @@ for h in H0:
         _lab[h['n']]['gain'] += h['gain']; _lab[h['n']]['count'] += 1
     else:
         H.append(dict(h))
-headline = f'큰 수확 {len(H0)}번, +{num(total)}'
+headline = T('h07', n=len(H0), total=num(total))
 NAMES = RECORD['research_names']
 TECH = RECORD['research']
 rd = CN['facilities']['R&D']
@@ -77,7 +77,7 @@ for h in H:
     w = max(h['gain'] / mx * 80, 3)  # leave room for the label after the longest bar
     rows.append(f'<div class="hr">{th}<div class="nm">{esc(craft_name(l["slug"]))}<span>#{h["n"]}</span></div>'
                 f'<div class="tr"><div class="fill" style="width:{w:.1f}%;background:{col}"></div>'
-                f'<span class="how" style="left:calc({w:.1f}% + 12px);color:{col}">{esc(h["how"])}{" ×" + str(h["count"]) if h.get("count", 1) > 1 else ""}</span></div>'
+                f'<span class="how" style="left:calc({w:.1f}% + 12px);color:{col}">{esc(T(h["how"]))}{" ×" + str(h["count"]) if h.get("count", 1) > 1 else ""}</span></div>'
                 f'<div class="v" style="color:{col}">+{num(h["gain"])}</div></div>')
 
 ab = []
@@ -85,7 +85,7 @@ for a in RECORD['science_aboard']:
     m = next((x for x in RECORD['live_missions'] if x['slug'] == a['slug']), {})
     who = ', '.join(m.get('crew', []))
     if 'sci' in a:
-        v, unit = f'{"~" if a.get("approx") else ""}{num(a["sci"])}', 'sci 탑재'
+        v, unit = f'{"~" if a.get("approx") else ""}{num(a["sci"])}', T('sci aboard')
     else:
         v, unit = esc(a['data']), 'lab data'
     ab.append(f'<div class="ab">{planet(m.get("body", "kerbin"), 44)}<div class="t"><span>{esc(craft_name(a["slug"]))} · {who}</span>'
@@ -97,8 +97,8 @@ tech = ''.join(f'<div class="tn"><div class="hx">{icon(TECH_ICON.get(t, "gyro"),
 body = f'''
 {header('flask', 'Science', headline, color='var(--sci)')}
 <div class="hauls">{''.join(rows)}</div>
-<div class="tot">합계 <b>+{num(total)}</b></div>
-<div class="sub lbl">{icon('flask', 22, '#56c8ff')} 싣고 오는 중<span class="ln"></span></div>
+<div class="tot">{T('total')} <b>+{num(total)}</b></div>
+<div class="sub lbl">{icon('flask', 22, '#56c8ff')} {T('on the way')}<span class="ln"></span></div>
 <div class="aboard">{''.join(ab)}</div>
 <div class="sub lbl">{icon('gyro', 24, '#b28cff')}<b>{len(TECH)}</b> Tech<span class="ln"></span><span class="badge">R&amp;D Lv.{rd}</span></div>
 <div class="tg">{tech}</div>

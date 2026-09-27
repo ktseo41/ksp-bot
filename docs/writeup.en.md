@@ -959,7 +959,7 @@ and three transmissions failed silently.
   periods.
 
 ## 7.24 Progress cards v2
-The user asked for new shareable images to post on the blog and X. The first set (`docs/media/summary/01~05`) was made on the first
+The user asked for new shareable images to post on the blog and X. The first set (`docs/media/summary/01–05`) was made on the first
 evening, at 20 launches, and was out of date. fable planned and reviewed it (`docs/summary-cards-plan.md`), and opus made it
 (`tools/summary/v2/`, output is the 10 images in `docs/media/summary/v2/`). Scoreboard, places visited so far, how it works, two launch
 lists, crafts, science, crew, failures, time. Two rules. Every number is read only from `docs/record/career.json`, and a missing number
@@ -967,8 +967,8 @@ first goes into career.json with a LOG line number as its source. No touching th
 sandbox save kept only for photos, and only 6 of 8 crafts got photographed (the Minmus Science 2 and Survey 1 launches timed out). From
 now on career.json is updated and the cards rebuilt after every mission.
 
-![Progress card 02](media/summary/v2/02-journey.png)
-*Card 02 "Landed on two moons and one planet". Currently flying: Jool 1, Ike Station 1, Minmus Lab 1.*
+![Progress card 02](media/summary/v2/02-journey.en.png)
+*Card 02 "Landed on 3 moons and 3 planets". Flying now: Jool 1, Eve 2, Dres 1, Duna 2, Eeloo 1, Ike Station 1, Minmus Lab 1.*
 
 ## 7.25 Moho 1 (#46): a probe that flew level at 38 km and burned up
 Moho is the planet closest to the sun. Its orbit is inclined and eccentric, so both getting there and getting captured take a lot of Δv.

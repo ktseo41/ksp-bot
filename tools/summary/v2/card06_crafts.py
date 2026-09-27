@@ -3,7 +3,7 @@ from common2 import *
 CR = RECORD['crafts']
 FIRSTS = {f['n']: f for f in RECORD['firsts']}
 n_designs = len({l['slug'] for l in LAUNCHES})
-headline = '호퍼에서 핵엔진 탐사선까지'
+headline = T('h06')
 
 css = '''
 .row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:24px;align-items:end;position:relative}
@@ -25,6 +25,9 @@ css = '''
 '''
 
 MAXH, MINF = 800, .55
+if lang() == 'en':  # English first-labels wrap to 4-5 lines: shorter photos, slightly smaller text
+    MAXH = 760
+    css += '.col .rs{font-size:17px;line-height:1.25}'
 phs, cols = [], []
 for i, c in enumerate(CR):
     h = MAXH * (MINF + (1 - MINF) * i / (len(CR) - 1))  # grows left to right (presentation only)
@@ -41,7 +44,7 @@ for i, c in enumerate(CR):
     st = ''.join(st)
     f = FIRSTS.get(c['first_n'])
     if f:
-        rs = f'{icon("star", 18, "#ffcf4a", "ic")}<span>{esc(f["label_ko"])}</span>'
+        rs = f'{icon("star", 18, "#ffcf4a", "ic")}<span>{esc(loc(f, "label"))}</span>'
     else:
         rs = f'{icon("check", 18, "#35d67c", "ic")}<span class="mono">{esc(BY_N[c["first_n"]]["stat"])}</span>'
     cols.append(f'<div class="col"><div class="nm">{esc(c["name"])}</div><div class="st">{st}</div><div class="rs">{rs}</div></div>')

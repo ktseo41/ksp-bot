@@ -1,7 +1,7 @@
 from common2 import *
 
 HOW = RECORD['how']
-headline = '명령 하나 = 비행 단계 하나'
+headline = T('h03')
 
 css = '''
 .cols{display:grid;grid-template-columns:370px 1fr;gap:30px;margin-top:34px;align-items:start}
@@ -95,7 +95,7 @@ loop = (f'<div class="loop"><div class="pk" style="left:{KX}px;top:{KY}px">{plan
         f'<div class="pk" style="left:{TX}px;top:{TY}px">{planet(target.lower(), 70)}<span>{esc(target)}</span></div>{"".join(lp)}</div>')
 
 R_IC = [('shield', '#ff9a2e'), ('wrench', '#b28cff'), ('coin', '#f7d75c'), ('revert', '#ff9a2e')]
-rules = ''.join(f'<div class="rule"><div class="ic">{icon(ic, 28, col)}</div>{t}</div>' for t, (ic, col) in zip(map(esc, HOW['rules_ko']), R_IC))
+rules = ''.join(f'<div class="rule"><div class="ic">{icon(ic, 28, col)}</div>{t}</div>' for t, (ic, col) in zip(map(esc, loc(HOW, 'rules')), R_IC))
 
 body = f'''
 {header('term', 'How it plays', headline)}

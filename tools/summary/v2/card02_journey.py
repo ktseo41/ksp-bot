@@ -7,7 +7,7 @@ LB = {k: v for k, v in RECORD['landings_by_body'].items() if not k.startswith('_
 MOONS, PLANETS = {'mun', 'minmus', 'ike', 'gilly'}, {'duna', 'eve', 'jool', 'moho', 'dres', 'eeloo'}
 n_moons = sum(1 for b in LB if b in MOONS)
 n_planets = sum(1 for b in LB if b in PLANETS)
-headline = f'달 {KO_NUM[n_moons]}·행성 {KO_NUM[n_planets]}에 착륙'
+headline = T('h02', moons=n_moons, planets=n_planets)
 
 
 def mission(slug):
@@ -21,7 +21,7 @@ def by_body(body, types):
 def eta(ut):
     d = days_from_now(ut)
     if d < 0:  # the event already happened (e.g. a contract completed): how long ago
-        return f'~{fmt_ydays(-d) if -d >= YEAR_D else num(-d) + "d"} 전'
+        return T('ago', t=f'~{fmt_ydays(-d) if -d >= YEAR_D else num(-d) + "d"}')
     return f'~d+{num(d)}' if d < YEAR_D else f'~{fmt_ydays(d)}'  # from the current UT: approximate
 
 
@@ -123,15 +123,15 @@ def lab(x, y, name, lines, color='var(--text)', align='left'):
 def body_lines(b):
     out = []
     if b in LB:
-        out.append(f'{icon("flag", 18, "#ffcf4a")}<span class="m">착륙</span> <b>{len(LB[b])}</b>')
-    for t, ic, word in (('satellite', 'sat', '위성'), ('station', 'station', '정거장')):
+        out.append(f'{icon("flag", 18, "#ffcf4a")}<span class="m">{T("landed")}</span> <b>{len(LB[b])}</b>')
+    for t, ic in (('satellite', 'sat'), ('station', 'station')):
         n = len(by_body(b, (t,)))
         if n:
-            out.append(f'{icon(ic, 18, "#a8e8cf")}<span class="m">{word}</span> <b>{n}</b>')
+            out.append(f'{icon(ic, 18, "#a8e8cf")}<span class="m">{T(t, n=n)}</span> <b>{n}</b>')
     for m in by_body(b, ('crewed',)):
-        out.append(f'{icon("kerbal", 18, "#9ccc3c")}{", ".join(m["crew"])} · <span class="m">{m["next_ko"]}</span> <b>{eta(m["next_ut"])}</b>')
+        out.append(f'{icon("kerbal", 18, "#9ccc3c")}{", ".join(m["crew"])} · <span class="m">{loc(m, "next")}</span> <b>{eta(m["next_ut"])}</b>')
         if m.get('sci_aboard'):
-            out.append(f'{icon("flask", 18, "#56c8ff")}<b>~{num(m["sci_aboard"])}</b><span class="m">sci 탑재</span>')
+            out.append(f'{icon("flask", 18, "#56c8ff")}<b>~{num(m["sci_aboard"])}</b><span class="m">{T("sci aboard")}</span>')
     return out
 
 
@@ -156,11 +156,12 @@ for m, (mx_, my_), col, (nx_, ny_) in travel:
         # on the outer side of the bow: to the right of a path bowing right, under one bowing down
         # on the outer side of the bow (right of a path bowing right, under one bowing down); if that box hits a label
         # already placed, try the other sides of the marker
-        name, line = esc(craft_name(m['slug'])), f'{m["next_ko"]} {eta(m["next_ut"])}'
+        name, line = esc(craft_name(m['slug'])), f'{loc(m, "next")} {eta(m["next_ut"])}'
         w, h = max(_width_em(name) * 27, _width_em(line) * 19 + 24), 62
         right, under = (mx_ + 30, my_ - 16, 'left'), (mx_ - 40, my_ + 22, 'left')
         left, above = (mx_ - 26, my_ - 16, 'right'), (mx_ - 40, my_ - 16 - h - 8, 'left')
         cands = [right, under, left, above] if abs(nx_) >= abs(ny_) else [under, right, left, above]
+        cands += [(mx_ + 30 + dx, my_ - 16, 'left') for dx in (40, 80)]  # last resort (longer English lines): further right
         def overlap(box):
             return sum(max(0, min(box[0] + box[2], b[0] + b[2]) - max(box[0], b[0]))
                        * max(0, min(box[1] + box[3], b[1] + b[3]) - max(box[1], b[1])) for b in placed)
@@ -168,7 +169,7 @@ for m, (mx_, my_), col, (nx_, ny_) in travel:
         box, (lx, ly, al) = next((c for c in boxes_ if not overlap(c[0])), min(boxes_, key=lambda c: overlap(c[0])))
         placed.append(box)
         labels.append(lab(lx, ly, name,
-                          [f'{icon("arrow", 18, col)}<span class="m">{m["next_ko"]}</span> <b>{eta(m["next_ut"])}</b>'], col, al))
+                          [f'{icon("arrow", 18, col)}<span class="m">{loc(m, "next")}</span> <b>{eta(m["next_ut"])}</b>'], col, al))
 mapdiv = f'<div class="map">{"".join(svg)}{"".join(nodes)}{"".join(labels)}</div>'
 
 # ---- live missions rows
@@ -177,21 +178,21 @@ rows = []
 for m in LIVE:
     if m['type'] not in ('probe', 'crewed', 'station'):
         continue
-    crew = ', '.join(m['crew']) if m['crew'] else '무인'
+    crew = ', '.join(m['crew']) if m['crew'] else T('uncrewed')
     ic = {'probe': 'sat', 'crewed': 'kerbal', 'station': 'station'}[m['type']]
     p = ROW_PHOTO.get(m['slug']) or photo(m['slug'])
     th = f'<div class="th"><img src="{p}"></div>' if p else '<div class="th ph0"></div>'
     if 'next_ut' in m:
-        nx = f'<b>{eta(m["next_ut"])}</b><span>{m["next_ko"]}</span>'
+        nx = f'<b>{eta(m["next_ut"])}</b><span>{loc(m, "next")}</span>'
     else:
-        nx = f'<b>~{m["sci_per_day"]:g}</b><span>sci / 일</span>'
+        nx = f'<b>~{m["sci_per_day"]:g}</b><span>{T("sci / day")}</span>'
     rows.append(f'<div class="rw">{th}<div class="nm">{craft_name(m["slug"])}<span>{icon(ic, 18, "#8e98b6")}{crew} · #{m["n"]}</span></div>'
-                f'<div class="wh">{planet(m["body"], 26)}{m["where_ko"]}</div><div class="nx">{nx}</div></div>')
+                f'<div class="wh">{planet(m["body"], 26)}{loc(m, "where")}</div><div class="nx">{nx}</div></div>')
 
 body = f'''
 {header('planet', 'Where it has been', headline)}
 {mapdiv}
-<div class="rows"><div class="t lbl">{icon('live', 20, '#56c8ff')} 지금 날고 있는 것</div>{''.join(rows)}</div>
+<div class="rows"><div class="t lbl">{icon('live', 20, '#56c8ff')} {T('flying now')}</div>{''.join(rows)}</div>
 '''
 
 write('02-journey.html', page('Where it has been', css, body, 2, seed=19))

@@ -5,7 +5,7 @@ K = RECORD['kerbals']
 n_dead = len(K['deaths_that_stood'])
 n_rev = K['deaths_undone_by_revert_count']
 n_resc = len(K['rescued'])
-headline = f'사망 {n_dead}번, 구조 {n_resc}명'
+headline = T('h08', dead=n_dead, rescued=n_resc)
 REACHED = {'success', 'in progress', 'en route', 'failed', 'partial'}  # the craft got there (reverted / crew lost did not)
 
 css = '''
@@ -67,8 +67,8 @@ for r in K['roster']:
     cards.append(f'''<div class="kc">{corner}
 <div class="top"><img src="../crew/{r['name'].lower()}.png"><div><div class="nm">{esc(r['name'])}</div>
 <div class="tr">{icon(TRAIT_ICON[r['trait']], 20, '#8e98b6')}{r['trait']}</div>
-<div class="now">{icon('live', 16, '#56c8ff')}{esc(r['status_ko'])}</div></div></div>
-<div class="row"><span class="ri">{icon('rocket', 20)}</span><span class="none" style="color:var(--muted)">{len(r['flights'])}회</span>{vis}</div>
+<div class="now">{icon('live', 16, '#56c8ff')}{esc(loc(r, 'status'))}</div></div></div>
+<div class="row"><span class="ri">{icon('rocket', 20)}</span><span class="none" style="color:var(--muted)">{T('flights', n=len(r['flights']))}</span>{vis}</div>
 <div class="row"><span class="ri">{icon('skull', 20)}</span>{deaths or '<span class="none">—</span>'}</div>
 </div>''')
 
@@ -84,15 +84,15 @@ rescue_first = next(f for f in RECORD['firsts'] if f['kind'] == 'rescue')
 body = f'''
 {header('kerbal', 'Crew', headline)}
 <div class="sum">
-  <div style="color:var(--dead)">{icon('skull', 30, '#ff4d5e')}{n_dead}<span>확정</span></div>
-  <div style="color:rgba(255,77,94,.55)">{icon('skull', 30, 'rgba(255,77,94,.5)')}{n_rev}<span>revert로 되돌림</span></div>
+  <div style="color:var(--dead)">{icon('skull', 30, '#ff4d5e')}{n_dead}<span>{T('stood')}</span></div>
+  <div style="color:rgba(255,77,94,.55)">{icon('skull', 30, 'rgba(255,77,94,.5)')}{n_rev}<span>{T('reverted')}</span></div>
   <div style="color:#9ccc3c">{icon('respawn', 30, '#9ccc3c')}{n_dead}<span>respawn</span></div>
 </div>
 <div class="crew">{''.join(cards)}</div>
-<div class="resc"><div class="t lbl">{icon('kerbal', 22, '#9ccc3c')} 구조된 {n_resc}명</div><div class="g">{resc}</div></div>
+<div class="resc"><div class="t lbl">{icon('kerbal', 22, '#9ccc3c')} {T('n rescued', n=n_resc)}</div><div class="g">{resc}</div></div>
 <div class="photos">
   <div class="ph"><img src="../crafts/photo-pad-explosion.jpg"><div class="tg">{icon('boom', 22, '#ff9a2e')}t=0 · {' · '.join(f'#{n}' for n in boom)}</div></div>
-  <div class="ph"><img src="{photo('rescue-3-grab-wide')}"><div class="tg up">{icon('star', 20, '#ffcf4a')}#{rescue_first['n']} · Klaw · {esc(rescue_first['label_ko'])}</div></div>
+  <div class="ph"><img src="{photo('rescue-3-grab-wide')}"><div class="tg up">{icon('star', 20, '#ffcf4a')}#{rescue_first['n']} · Klaw · {esc(loc(rescue_first, 'label'))}</div></div>
 </div>
 '''
 

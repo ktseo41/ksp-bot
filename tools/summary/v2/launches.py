@@ -3,7 +3,6 @@ from common2 import *
 
 FIRST_N = {f['n'] for f in RECORD['firsts']}
 MOONS = {'mun', 'minmus', 'ike'}
-KO_DAYS = {1: '첫날', 2: '첫 이틀', 3: '사흘'}
 
 css = '''
 .keys{display:flex;flex-direction:column;gap:10px;margin-top:18px}
@@ -107,9 +106,9 @@ def build(part, idx, seed):
         moons = len({dest_body(l['dest'])[0] for l in ls if l['result'] == 'success' and dest_body(l['dest'])[0] in MOONS
                      and any(l['n'] in v for kk, v in RECORD['landings_by_body'].items() if not kk.startswith('_'))})
         dead = sum(1 for l in ls if l['result'] == 'crew lost')
-        headline = f'{KO_DAYS[len(dates)]}: 달 {KO_NUM[moons]}, 사망 {dead}'
+        headline = T('h04', days=len(dates), moons=moons, dead=dead)
     else:
-        headline = f'{KO_ORD[all_dates.index(dates[0]) + 1]} 날부터: 구조·행성·정거장'
+        headline = T('h05', day=all_dates.index(dates[0]) + 1, last=all_dates.index(dates[-1]) + 1)
     counts = {}
     for l in ls:
         counts[code(l)] = counts.get(code(l), 0) + 1

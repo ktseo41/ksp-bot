@@ -1,7 +1,7 @@
 """Shared pieces for the v2 progress cards (docs/summary-cards-plan.md).
 
 Everything shown on a card comes from docs/record/career.json (RECORD). This module only holds layout, colours,
-icons and the photo/crop table (which picture belongs to which craft slug).
+icons, the photo/crop table (which picture belongs to which craft slug) and the card wording in both languages (TEXT).
 """
 import html
 import os
@@ -52,8 +52,94 @@ def num(n, dec=0):
     return f'{n:,.{dec}f}'
 
 
+# ---------------------------------------------------------------- language (build.py --lang ko|en)
+# Korean cards: NN-slug.html, English cards: NN-slug.en.html (same folder, so relative image paths stay valid).
+LANG = 'ko'
+
+
+def set_lang(lang):
+    global LANG
+    assert lang in ('ko', 'en'), lang
+    LANG = lang
+
+
+def lang():
+    """the current language (for modules imported once, like launches.py, whose `LANG` copy would be stale)."""
+    return LANG
+
+
+def loc(d, field):
+    """a record field in the card language: loc(first, 'label') -> first['label_ko'] / first['label_en']."""
+    return d[f'{field}_{LANG}']
+
+
 KO_NUM = {1: '하나', 2: '둘', 3: '셋', 4: '넷', 5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟', 9: '아홉'}
 KO_ORD = {1: '첫째', 2: '둘째', 3: '셋째', 4: '넷째', 5: '다섯째'}
+KO_DAYS = {1: '첫날', 2: '첫 이틀', 3: '사흘'}
+EN_DAYS = {1: 'Day one', 2: 'First two days', 3: 'First three days'}
+
+
+def plural(n, word, many=None):
+    """plural(1, 'moon') -> '1 moon', plural(3, 'moon') -> '3 moons'."""
+    return f'{n} {word if n == 1 else many or word + "s"}'
+
+
+# every piece of card wording: key -> (Korean, English); a str (formatted with the keyword arguments) or a callable
+TEXT = {
+    # headlines (rule-based: the numbers come from career.json, computed in the card scripts)
+    'h01': (lambda days, n, far: f'{days}일·발사 {n}번·{far}까지',
+            lambda days, n, far: f'{plural(days, "day")}, {plural(n, "launch", "launches")}, out to {far}'),
+    'h02': (lambda moons, planets: f'달 {KO_NUM[moons]}·행성 {KO_NUM[planets]}에 착륙',
+            lambda moons, planets: f'Landed on {plural(moons, "moon")} and {plural(planets, "planet")}'),
+    'h03': ('명령 하나 = 비행 단계 하나', 'One command = one flight phase'),
+    'h04': (lambda days, moons, dead: f'{KO_DAYS[days]}: 달 {KO_NUM[moons]}, 사망 {dead}',
+            lambda days, moons, dead: f'{EN_DAYS[days]}: {plural(moons, "moon")}, {plural(dead, "death")}'),
+    'h05': (lambda day, last: f'{KO_ORD[day]} 날부터: 구조·행성·정거장',
+            lambda day, last: f'{f"Days {day}–{last}" if last > day else f"Day {day}"}: rescues, planets, a station'),
+    'h06': ('호퍼에서 핵엔진 탐사선까지', 'From a hopper to a nuclear probe'),
+    'h07': (lambda n, total: f'큰 수확 {n}번, +{total}', lambda n, total: f'{plural(n, "big haul")}, +{total}'),
+    'h08': (lambda dead, rescued: f'사망 {dead}번, 구조 {rescued}명',
+            lambda dead, rescued: f'{plural(dead, "death")}, {rescued} rescued'),
+    'h09': ('실패 목록이 곧 개발 일지', 'The failure list is the dev log'),
+    'h10': (lambda days, years: f'{days}일 만에 게임 속 ~{years}년',
+            lambda days, years: f'~{plural(years, "game year")} in {plural(days, "real day")}'),
+    # 01 scoreboard
+    'dead': ('사망', 'dead'),
+    'rescued': ('구조', 'rescued'),
+    # 02 journey
+    'ago': ('{t} 전', '{t} ago'),
+    'landed': ('착륙', 'landed'),
+    'satellite': (lambda n: '위성', lambda n: 'satellite' if n == 1 else 'satellites'),
+    'station': (lambda n: '정거장', lambda n: 'station' if n == 1 else 'stations'),
+    'sci aboard': ('sci 탑재', 'sci aboard'),
+    'uncrewed': ('무인', 'uncrewed'),
+    'sci / day': ('sci / 일', 'sci / day'),
+    'flying now': ('지금 날고 있는 것', 'Flying now'),
+    # 07 science (science_hauls[].how holds the Korean word)
+    '회수': ('회수', 'recovered'),
+    '전송': ('전송', 'sent'),
+    '실험실 전송': ('실험실 전송', 'lab-sent'),
+    'total': ('합계', 'total'),
+    'on the way': ('싣고 오는 중', 'On the way home'),
+    # 08 crew
+    'flights': (lambda n: f'{n}회', lambda n: plural(n, 'flight')),
+    'stood': ('확정', 'stood'),
+    'reverted': ('revert로 되돌림', 'undone by revert'),
+    'n rescued': (lambda n: f'구조된 {n}명', lambda n: f'{n} rescued'),
+    # 09 failures (cause names)
+    'code': ('우리 코드', 'our code'),
+    'design': ('설계', 'design'),
+    'pilot': ('조종', 'piloting'),
+    'game': ('게임', 'game'),
+    # 10 time
+    'in': ('{t} 뒤', 'in {t}'),
+}
+
+
+def T(key, **kw):
+    """card wording in the current language (TEXT)."""
+    v = TEXT[key][LANG == 'en']
+    return v(**kw) if callable(v) else v.format(**kw) if kw else v
 
 # ---------------------------------------------------------------- results
 RESULT_CODE = {'success': 'ok', 'reverted': 'rev', 'crew lost': 'dead', 'failed': 'fail', 'partial': 'fail',
@@ -259,7 +345,7 @@ ICONS2 = '''
 <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.3" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M12 6.8V12l3.6 2.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
 </defs></svg>'''
 
-HEAD2 = '''<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>{title}</title>
+HEAD2 = '''<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><title>{title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+KR:wght@500;700&display=block" rel="stylesheet">
 <style>{css}</style></head><body>'''
@@ -281,25 +367,36 @@ body{font-family:'Space Grotesk','Noto Sans KR',system-ui,sans-serif;word-break:
 
 
 def _width_em(s):
+    """rough width in em of bold Space Grotesk (Latin values measured in headless Chrome, a little generous)."""
     w = 0.0
     for ch in s:
         if '가' <= ch <= '힣':
             w += 1.0
         elif ch == ' ':
+            w += 0.25
+        elif ch in ',.:·':
             w += 0.28
-        elif ch in '·,.:—–-':
-            w += 0.4 if ch not in '—–' else 0.9
+        elif ch in '—–':
+            w += 0.9 if ch == '—' else 0.55
+        elif ch == '-':
+            w += 0.4
         elif ch.isupper():
-            w += 0.66
-        else:
+            w += 0.62
+        elif ch.isdigit():
             w += 0.58
+        else:
+            w += 0.56
     return w
 
 
 def header(ic, kicker, headline, color='var(--text)', maxpx=66):
-    """kicker row + date chip + one Korean headline (<= 18 characters incl. spaces, plan §5.4)."""
-    assert len(headline) <= 18, (headline, len(headline))
+    """kicker row + date chip + one headline on one line: Korean <= 18 characters incl. spaces (plan §5.4); English by
+    width (the computed font size must stay >= 52 px)."""
+    if LANG == 'ko':
+        assert len(headline) <= 18, (headline, len(headline))
     size = min(maxpx, int(960 / _width_em(headline)))
+    if LANG == 'en':
+        assert size >= 52, (headline, size)
     chip = f'{CN["date"]} · day {CN["real_days"]}'
     return (f'<div class="hdr"><div class="kicker">{icon(ic, 26, "#8e98b6")}<span>{kicker}</span></div>'
             f'<div class="datechip">{chip}</div></div>'
@@ -309,11 +406,15 @@ def header(ic, kicker, headline, color='var(--text)', maxpx=66):
 def page(title, css, body, idx, seed=7):
     dots = ''.join(f'<i class="{"on" if i == idx else ""}"></i>' for i in range(1, TOTAL + 1))
     footer = f'<div class="footer"><span>KSP 1.12 · career · flown by Claude</span><span class="dots">{dots}</span></div>'
-    return (HEAD2.format(title=title, css=BASE_CSS + CSS2 + css) + ICONS + ICONS2 + stars(seed)
+    return (HEAD2.format(lang=LANG, title=title, css=BASE_CSS + CSS2 + css) + ICONS + ICONS2 + stars(seed)
             + f'<div class="page">{body}</div>' + footer + '</body></html>')
 
 
 def write(name, html):
+    """name = the Korean file name ('02-journey.html'); English goes next to it as '02-journey.en.html'."""
+    if LANG == 'en':
+        name = name[:-5] + '.en.html'
+        assert not re.search('[\u3131-\u318e\uac00-\ud7a3]', re.sub(r'<[^>]+>', '', html)), name  # no Hangul left
     os.makedirs(OUT, exist_ok=True)
     # guard: no digits may come from the script except layout; this only checks for accidental "None"/"nan"
     assert 'None' not in re.sub(r'<[^>]+>', '', html), name
