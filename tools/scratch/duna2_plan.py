@@ -5,7 +5,7 @@ import math
 import os
 import sys
 
-sys.path.insert(0, ".")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 from kspbot.kepler import Orbit, _cross, _dot, _mag, _norm, rotate  # noqa: E402
 from kspbot.flight import _lambert  # noqa: E402
 
@@ -129,7 +129,7 @@ for dd in (0, 30, 60, 120):
     print(f"  +{dd:3d} d: Kerbin-Duna {_mag(dk) / 1e9:.1f} Gm, Sun-Duna-Kerbin {ang(tuple(-x for x in duna.position(t)), dk):.0f} deg")
 
 # ---- stages from the spec
-spec = json.load(open("./crafts/duna-2.json"))
+spec = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "crafts", "duna-2.json")))
 MASS = {"probeCoreOcto.v2": 0.1, "batteryBank": 0.05, "sasModule": 0.05, "science.module": 0.2, "fuelTank": 2.25,
         "liquidEngine3.v2": 0.5, "parachuteRadial": 0.1, "GooExperiment": 0.05, "RelayAntenna50": 0.3,
         "ksp.r.largeBatteryPack": 0.02, "sensorThermometer": 0.005, "sensorBarometer": 0.005,

@@ -1,8 +1,9 @@
 import json
 from collections import defaultdict
 from common import *
+from common import _ROOT
 
-SAVE = './docs/record/career-save.json'
+SAVE = os.path.join(_ROOT, 'docs', 'record', 'career-save.json')
 d = json.load(open(SAVE))
 
 # group subjects: (body, group) -> sci

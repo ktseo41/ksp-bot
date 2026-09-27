@@ -1,7 +1,8 @@
 import json
 from common import *
+from common import _ROOT
 
-SAVE = './docs/record/career-save.json'
+SAVE = os.path.join(_ROOT, 'docs', 'record', 'career-save.json')
 d = json.load(open(SAVE))
 logs = {k['name'].split()[0]: k['career_log'] for k in d['kerbals'] if k['type'] == 'Crew'}
 cnt = lambda who, ev: logs[who].count(ev)

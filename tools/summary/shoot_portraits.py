@@ -1,5 +1,5 @@
 import sys, time, os, subprocess
-sys.path.insert(0, "./tools/summary")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kspbot.core import bot, sc, KSP_DIR
 from shoot_crafts import daylight
 for name in sys.argv[1:]:

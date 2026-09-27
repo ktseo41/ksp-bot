@@ -1,7 +1,9 @@
 from PIL import Image
 import sys
-SRC='./runs/craft-%s.png'
-OUT='./docs/media/summary/crafts/%s.jpg'
+import os
+_ROOT=os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..'))
+SRC=os.path.join(_ROOT,'runs','craft-%s.png')
+OUT=os.path.join(_ROOT,'docs','media','summary','crafts','%s.jpg')
 ASPECT=0.552
 WIDE={'mun-lander-4','mun-lander-7','sandbox-minmus-test','sandbox-lander-test','duna-1'}
 # slug: (cx, top, bottom, craft_width) as fractions
