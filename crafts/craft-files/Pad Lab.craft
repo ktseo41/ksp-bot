@@ -1,0 +1,154 @@
+ship = Pad Lab
+version = 1.12.5
+description = sits on the pad: LaunchPad-biome science, then recover
+type = VAB
+size = 3,10,3
+steamPublishedFileId = 0
+persistentId = 63348424
+rot = 0,0,0,1
+missionFlag = Squad/Flags/default
+vesselType = Ship
+PART
+{
+	part = mk1pod.v2_4290000000
+	partName = Part
+	persistentId = 455527711
+	pos = 0,15,0
+	attPos = 0,0,0
+	attPos0 = 0,15,0
+	rot = 0,0,0,1
+	attRot = 0,0,0,1
+	attRot0 = 0,0,0,1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 0
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	link = GooExperiment_4290000001
+	link = sensorThermometer_4290000002
+	link = sensorBarometer_4290000003
+	link = science.module_4290000004
+	attN = bottom,science.module_4290000004_0|-0.40503791|0
+}
+PART
+{
+	part = GooExperiment_4290000001
+	partName = Part
+	persistentId = 1610735294
+	pos = 2.24502656E-08,15.1499996,-0.376652926
+	attPos = 0,0,0
+	attPos0 = 2.24502656E-08,0.149999619,-0.376652926
+	rot = 0,2.98023259E-08,0,-1
+	attRot = 0,0,0,1
+	attRot0 = 0,2.98023259E-08,0,-1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	srfN = srfAttach,mk1pod.v2_4290000000
+}
+PART
+{
+	part = sensorThermometer_4290000002
+	partName = Part
+	persistentId = 1232726607
+	pos = 2.60716053E-08,15.1499996,0.437408924
+	attPos = 0,0,0
+	attPos0 = 2.60716053E-08,0.149999619,0.437408924
+	rot = 0,1,0,-2.98023259E-08
+	attRot = 0,0,0,1
+	attRot0 = 0,1,0,-2.98023259E-08
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	srfN = srfAttach,mk1pod.v2_4290000000
+}
+PART
+{
+	part = sensorBarometer_4290000003
+	partName = Part
+	persistentId = 2122216705
+	pos = 0.218205005,15.1499996,0
+	attPos = 0,0,0
+	attPos0 = 0.218205005,0.149999619,0
+	rot = 0,0.707106829,0,-0.707106829
+	attRot = 0,0,0,1
+	attRot0 = 0,0.707106829,0,-0.707106829
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	srfN = srfAttach,mk1pod.v2_4290000000
+}
+PART
+{
+	part = science.module_4290000004
+	partName = Part
+	persistentId = 1394412013
+	pos = 0,13.9824619,0
+	attPos = 0,0,0
+	attPos0 = 0,-1.01753807,0
+	rot = 0,0,0,1
+	attRot = 0,0,0,1
+	attRot0 = 0,0,0,1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 0
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	attN = top,mk1pod.v2_4290000000_0|0.612500012|0
+}

@@ -1,0 +1,219 @@
+ship = Hopper 1
+version = 1.12.5
+description = 
+type = VAB
+size = 3,10,3
+steamPublishedFileId = 0
+persistentId = 443174450
+rot = 0,0,0,1
+missionFlag = Squad/Flags/default
+vesselType = Ship
+PART
+{
+	part = mk1pod.v2_4290000000
+	partName = Part
+	persistentId = 1395590366
+	pos = 0,15,0
+	attPos = 0,0,0
+	attPos0 = 0,15,0
+	rot = 0,0,0,1
+	attRot = 0,0,0,1
+	attRot0 = 0,0,0,1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 0
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	link = parachuteSingle_4290000001
+	link = GooExperiment_4290000002
+	link = solidBooster.sm.v2_4290000003
+	attN = top,parachuteSingle_4290000001_0|0.642375588|0
+	attN = bottom,solidBooster.sm.v2_4290000003_0|-0.40503791|0
+}
+PART
+{
+	part = parachuteSingle_4290000001
+	partName = Part
+	persistentId = 1564614288
+	pos = 0,15.6574574,0
+	attPos = 0,0,0
+	attPos0 = 0,0.657457352,0
+	rot = 0,0,0,1
+	attRot = 0,0,0,1
+	attRot0 = 0,0,0,1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = 0
+	resPri = 0
+	dstg = 0
+	sidx = 0
+	sqor = 0
+	sepI = -1
+	attm = 0
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	attN = bottom,mk1pod.v2_4290000000_0|-0.0150811253|0
+}
+PART
+{
+	part = GooExperiment_4290000002
+	partName = Part
+	persistentId = 952516487
+	pos = 0.439610988,14.8999996,-1.07288365E-08
+	attPos = 0,0,0
+	attPos0 = 0.439610988,-0.100000381,-1.07288365E-08
+	rot = 0,0.707106829,0,-0.707106829
+	attRot = 0,0,0,1
+	attRot0 = 0,0.707106829,0,-0.707106829
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = -1
+	resPri = 0
+	dstg = -1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	srfN = srfAttach,mk1pod.v2_4290000000
+}
+PART
+{
+	part = solidBooster.sm.v2_4290000003
+	partName = Part
+	persistentId = 1888875886
+	pos = 0,13.8374624,0
+	attPos = 0,0,0
+	attPos0 = 0,-1.16253757,0
+	rot = 0,0,0,1
+	attRot = 0,0,0,1
+	attRot0 = 0,0,0,1
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = 1
+	resPri = 0
+	dstg = 1
+	sidx = 0
+	sqor = 1
+	sepI = -1
+	attm = 0
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	link = basicFin_4290000004
+	link = basicFin_4290000005
+	link = basicFin_4290000006
+	attN = top,mk1pod.v2_4290000000_0|0.757499993|0
+}
+PART
+{
+	part = basicFin_4290000004
+	partName = Part
+	persistentId = 1538723403
+	pos = 0.63350898,13.3374624,0
+	attPos = 0,0,0
+	attPos0 = 0.63350898,-0.5,0
+	rot = 0,1.00000012,0,0
+	attRot = 0,0,0,1
+	attRot0 = 0,1.00000012,0,0
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = 1
+	resPri = 0
+	dstg = 1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	sym = basicFin_4290000005
+	sym = basicFin_4290000006
+	srfN = srfAttach,solidBooster.sm.v2_4290000003
+}
+PART
+{
+	part = basicFin_4290000005
+	partName = Part
+	persistentId = 374130138
+	pos = -0.316754788,13.3374624,-0.548635244
+	attPos = 0,0,0
+	attPos0 = -0.316754788,-0.5,-0.548635244
+	rot = 0,0.49999997,0,-0.866025507
+	attRot = 0,0,0,1
+	attRot0 = 0,0.49999997,0,-0.866025507
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = 1
+	resPri = 0
+	dstg = 1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	sym = basicFin_4290000004
+	sym = basicFin_4290000006
+	srfN = srfAttach,solidBooster.sm.v2_4290000003
+}
+PART
+{
+	part = basicFin_4290000006
+	partName = Part
+	persistentId = 536867462
+	pos = -0.316754699,13.3374624,0.548635304
+	attPos = 0,0,0
+	attPos0 = -0.316754699,-0.5,0.548635304
+	rot = 0,0.50000006,0,0.866025507
+	attRot = 0,0,0,1
+	attRot0 = 0,0.50000006,0,0.866025507
+	mir = 1,1,1
+	symMethod = Radial
+	autostrutMode = Off
+	rigidAttachment = False
+	istg = 1
+	resPri = 0
+	dstg = 1
+	sidx = -1
+	sqor = -1
+	sepI = -1
+	attm = 1
+	sameVesselCollision = False
+	modCost = 0
+	modMass = 0
+	modSize = 0,0,0
+	sym = basicFin_4290000004
+	sym = basicFin_4290000005
+	srfN = srfAttach,solidBooster.sm.v2_4290000003
+}

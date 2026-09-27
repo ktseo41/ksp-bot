@@ -28,6 +28,7 @@ Claude Code (WSL)  ->  uv run ksp <command>  ->  kRPC 0.6.0 + KspBot mod  ->  KS
 - **`mod/KspBot/`** (C#): a small helper mod for what kRPC lacks: building a craft from a JSON part list, tech research,
   facility upgrades, contracts, crew hiring, KSP's flight event log, save autoload.
 - **`crafts/`**: every craft the agent designed, as JSON part lists (`uv run ksp build crafts/<name>.json`).
+  [crafts/craft-files/](crafts/craft-files/) has the same crafts as `.craft` files you can load in your own game.
 - **Flight recorder** (`kspbot/recorder.py`): every flight command logs 1 Hz telemetry plus events (damage, staging,
   lost parts, attitude) to `runs/flights/`. After a failure the agent reads the recording, finds the cause and fixes
   the code or the design before flying again.
