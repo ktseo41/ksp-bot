@@ -207,6 +207,13 @@ needed too) → Tracking Station 2 + Launch Pad 2 → VAB 2 (lifts the 30-part l
 - A 90 t SRB rocket has no way to control pitch → solved with 4 AV-R8 fins + an inline reaction wheel.
 - A narrow, tall lander tips over → switched to an FL-T200 core + 3 radial FL-T400s + 6 legs (holds up to a 33° tilt).
 - Currently proven craft: `crafts/mun-lander-3.json` (43 parts, 93 t, lander Δv about 4100 m/s after reaching LKO).
+- **A part never used: launch clamps (TT18-A).** They are in generalConstruction, researched on day one, so they were
+  available from the start at 200 each, yet none of the 53 launches used them. On 2026-09-27 the user asked: "Why weren't
+  parts like this used? It just didn't know about them? Or they weren't needed?" Going through the records showed they
+  were not left out as unnecessary: they were never considered at all. Pad sway and bending had been solved with rigid +
+  autostrut, so nothing prompted the idea. Clamps would have prevented Minmus Lab 1 (#41) being knocked over twice on the
+  pad by an EVA kick (7.15). From the next tall or heavy craft, and any craft with a pad EVA, they will be used (LOG next
+  steps, item 6).
 
 ## 7. What was hard (failures and causes) — probably the most fun part of the post
 Tooling (code) bugs:
@@ -257,7 +264,8 @@ Game and environment problems:
 - Every flight start brought up a KSP expansion ad popup that blocked progress → added popup closing to the mod. Game sound is muted automatically.
 - Claude Code's permission classifier once blocked a revert call → that death was left as final.
 
-Where the human stepped in: the autonomous operating principle, relaxing the revert rule, pointing out the rocket wobble, asking for mute, the principle of recording and observing first.
+Where the human stepped in: the autonomous operating principle, relaxing the revert rule, pointing out the rocket wobble, asking for mute, the principle of recording and observing first,
+the question why launch clamps were never used (2026-09-27, §6).
 
 ## 7.5 Bob stranded and rescued (success)
 
@@ -680,7 +688,7 @@ experiment data you put into it into science points over time. It went into a 14
   thermometer, barometer, gravioli detector, storage box, HG-55 antenna), FL-T400 (2 Gigantor solar panels, magnetometer, 2 Z-400
   batteries), Terrier. The launcher was Rescue 5's (7.14) as is (87 t, 75k).
 - **Pad EVA tests killed people twice** (both reverted): the moment a kerbal appears at the MPL hatch, the whole craft gets kicked once.
-  In 0.5 s the tilt went from 0 → 3.6° with 1 m/s of velocity, and the 87 t rocket fell over on the pad. `eva check`, which looks for
+  In 0.5 s the tilt went from 0 → 3.6° with 1 m/s of velocity, and the 87 t rocket fell over on the pad (launch clamps would have held it; see §6). `eva check`, which looks for
   other parts' colliders within 1 m of the hatch, was written, but this craft had no overlapping parts (now an overlap refuses the EVA
   outright). Measured in low orbit, an EVA from the MPL adds about 6°/s and 0.08 m/s to the floating station (normally 0.02°/s). With
   the station's SAS on, it settles to about 2°/s in 8 s and the kerbal stays on the ladder. So the rule: do orbital EVAs with SAS on,
