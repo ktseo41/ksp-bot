@@ -27,6 +27,17 @@ class FarCorrection(unittest.TestCase):
         for a, b in zip(x, (1.3, -0.4, 0.05)):
             self.assertAlmostEqual(a, b, delta=0.01)
 
+    def test_cross_seed(self):
+        # the pass flips side once the burn is 1.12x the best wrong-side node
+        x0 = [8.6, 3.0, -21.3]
+        dv0 = math.sqrt(sum(a * a for a in x0))
+        side = lambda y: math.sqrt(sum(a * a for a in y)) > 1.12 * dv0
+        y = F._cross_seed(x0, side, cap=93.0)
+        self.assertAlmostEqual(math.sqrt(sum(a * a for a in y)) / dv0, 1.125, places=3)
+        self.assertIsNone(F._cross_seed(x0, side, cap=1.1 * dv0))  # the cap comes first
+        self.assertIsNone(F._cross_seed([0.0, 0.0, 0.0], side, cap=93.0))
+        self.assertIsNone(F._cross_seed(x0, lambda y: False, cap=93.0))
+
     def test_pattern_search_step_cap(self):
         # a cost that falls forever along +x: the step may grow only to max_steps per iteration
         seen = []
@@ -850,6 +861,27 @@ class StageSafety(unittest.TestCase):
         self.assertEqual(F.stage_hazards(3, [("Poodle", "liquidEngine2-2.v2")], [("Poodle", 2, False)]), [])
         # parts not in any stage (-1) are ignored
         self.assertEqual(F.stage_hazards(0, [], [("Ant", -1, False)]), [])
+
+
+class PartTest(unittest.TestCase):
+    W = (8000.0, 10000.0, 550.0, 590.0)
+
+    def test_throttle_override(self):
+        f = F.part_test_throttle
+        self.assertIsNone(f(14000, 900, 13000, self.W))      # high above the window: the landing law
+        self.assertEqual(f(11400, 900, 10000, self.W), 1.0)  # close above it and too fast: brake
+        self.assertEqual(f(11000, 575, 10000, self.W), 0.0)  # speed in: coast down into the band
+        self.assertIsNone(f(9500, 575, 6000, self.W))        # too close to the ground: given up
+        self.assertIsNone(f(7900, 575, 7500, self.W))        # below the band: given up
+
+    def test_hop_predict(self):
+        # no air, vertical climb at 15 m/s2 against 3 m/s2: 555 m/s after 46 s at ~12.8 km
+        h = F.hop_predict(0.0, 0.0, 1.0, 4000.0, 60000.0, 1e9, 0.0, 0.0, 3.0, 320000.0, 555.0, 0.0)
+        self.assertAlmostEqual(h, 555.0 ** 2 / (2 * 12.0), delta=300.0)
+        # a thrust too weak to climb comes back down: no prediction
+        self.assertIsNone(F.hop_predict(1000.0, 0.0, -60.0, 4000.0, 4000.0, 3000.0, 4.8, 0.1, 3.0, 320000.0, 555.0, 0.0))
+        self.assertGreater(F.hop_delta_limit(100.0), F.hop_delta_limit(1000.0))
+        self.assertGreater(F.hop_delta_limit(1000.0), F.hop_delta_limit(5000.0))
 
 
 if __name__ == "__main__":

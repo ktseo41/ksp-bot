@@ -916,6 +916,24 @@ def _pattern_search(f, x0, steps, max_steps, min_steps, iters=60):
     return fx, x
 
 
+def _cross_seed(x0, side_ok, cap, step=0.025, n=40):
+    """A seed on the other side of the target (pure): the search's best node on the wrong side already pulls the
+    pass towards the centre (it minimised the periapsis error there), so the same burn a little longer carries the
+    aim point through the planet: x0 scaled by 1 + k step until side_ok(x) (k <= n, dv <= cap). None if none does.
+    Duna 2, 20 d out: the best retrograde node x 1.2 passed prograde at 86 km; the compass search alone never
+    crosses (every step towards the centre is a worse periapsis until the far side's is reached)."""
+    dv0 = math.sqrt(sum(a * a for a in x0))
+    if dv0 < 0.05:
+        return None
+    for k in range(1, n + 1):
+        y = [a * (1 + k * step) for a in x0]
+        if dv0 * (1 + k * step) > cap:
+            return None
+        if side_ok(y):
+            return y
+    return None
+
+
 def _far_search(node, target, pe_alt, seeds, steps, cap, w_pe, min_inc=None, inc_to=None, retro=None):
     """Far-out correction (craft around the Sun): a compass search on (prograde, normal, radial) from each seed,
     judged by KSP's own patches read FAR_SETTLE s after every edit; cost _far_cost, a miss ranks behind any
@@ -950,6 +968,26 @@ def _far_search(node, target, pe_alt, seeds, steps, cap, w_pe, min_inc=None, inc
         say(f"far search from {[round(a, 2) for a in s]}: cost {c:.2f} at {[round(a, 3) for a in x]}", screen=False)
         if best is None or c < best[0]:
             best = (c, x, s)
+    if retro is not None:
+        node.prograde, node.normal, node.radial = best[1]
+        c, pe, inc = cost(FAR_SETTLE)
+        if pe is not None and (inc > 90) != retro:
+
+            def side_ok(y):
+                node.prograde, node.normal, node.radial = y
+                trials[0] += 1
+                r = cost(FAR_SETTLE)
+                return r[1] is not None and (r[2] > 90) == retro
+            y = _cross_seed(best[1], side_ok, cap)
+            if y is None:
+                say("far search: the best pass is on the wrong side and the same burn, longer, does not cross",
+                    screen=False)
+            else:
+                c, x = _pattern_search(f, y, steps, [10 * a for a in steps], [max(0.005, a / 100) for a in steps])
+                say(f"far search across the centre from {[round(a, 2) for a in y]}: cost {c:.2f} at "
+                    f"{[round(a, 3) for a in x]}", screen=False)
+                if c < best[0]:
+                    best = (c, x, y)
     node.prograde, node.normal, node.radial = best[1]
     c, pe, inc = cost(1.0)
     dv = math.sqrt(sum(a * a for a in best[1]))
