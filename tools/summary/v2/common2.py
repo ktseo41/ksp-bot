@@ -78,9 +78,9 @@ def legend(items=('ok', 'rev', 'dead', 'fail', 'live'), size=24):
 
 # ---------------------------------------------------------------- bodies
 BODY_NAME = {'kerbin': 'Kerbin', 'mun': 'Mun', 'minmus': 'Minmus', 'duna': 'Duna', 'eve': 'Eve', 'moho': 'Moho',
-             'dres': 'Dres', 'jool': 'Jool', 'ike': 'Ike', 'kerbol': 'Kerbol'}
-# display order (the order they were reached); Dres/Jool last = farthest (Dres 1, Jool 1 are still on their way)
-BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'moho', 'dres', 'jool']
+             'dres': 'Dres', 'jool': 'Jool', 'ike': 'Ike', 'gilly': 'Gilly', 'eeloo': 'Eeloo', 'kerbol': 'Kerbol'}
+# display order (the order they were reached); Dres/Jool/Eeloo last = farthest (their probes are still on their way)
+BODY_ORDER = ['kerbin', 'minmus', 'mun', 'duna', 'eve', 'gilly', 'moho', 'dres', 'jool', 'eeloo']
 
 
 def dest_body(dest):
@@ -117,6 +117,13 @@ EXTRA = {
     'ike': (('#b8b6b2', '#77746f', '#35332f'),
             '<circle cx="36" cy="40" r="10" fill="#6a6762"/><circle cx="64" cy="64" r="8" fill="#6d6a65"/>'
             '<circle cx="60" cy="28" r="5" fill="#6d6a65"/>'),
+    'gilly': (('#c9a58f', '#8a6450', '#35231a'),
+              '<circle cx="36" cy="40" r="8" fill="#6f4e3d"/><circle cx="64" cy="62" r="10" fill="#76543f"/>'
+              '<circle cx="62" cy="30" r="4" fill="#6f4e3d"/>'),
+    'eeloo': (('#f4f6f8', '#b9c0c8', '#4c535c'),
+              '<path d="M8 38 Q30 30 50 40 T96 34" fill="none" stroke="#8d949c" stroke-width="3" opacity=".7"/>'
+              '<path d="M12 64 Q36 58 56 66 T94 62" fill="none" stroke="#9aa1a9" stroke-width="2.5" opacity=".6"/>'
+              '<circle cx="64" cy="26" r="5" fill="#a3aab2"/>'),
     'kerbol': (('#fff6c8', '#ffd24a', '#f08a16'), ''),
 }
 
@@ -170,6 +177,9 @@ CROPS = {
     # wide shots for cards 02 / 08
     'duna-1-landed': ('2026-09-25_duna-1_landed.png', (380, 180, 900, 560)),
     'rescue-3-grab-wide': ('2026-09-26_rescue-3_grabbed.png', (380, 380, 940, 660)),
+    # milestone shots for card 02 (Eve 2 row: the carrier on Gilly) and card 07 (Eve 2 haul: the lander in Eve's sea)
+    'eve-2-gilly': ('2026-09-27_eve-2-gilly-landed.png', (430, 215, 850, 470)),
+    'eve-2-splash': ('2026-09-27_eve-2-splashdown.png', (460, 230, 820, 500)),
 }
 for _s in CROPS:
     PHOTOS[_s] = f'img/{_s}.jpg'

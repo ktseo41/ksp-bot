@@ -128,10 +128,11 @@ def build(part, idx, seed):
             bodies.append(kind)
     bodies.sort(key=BODY_ORDER.index)
     keys = ''.join(f'<span>{planet(b_, 22)}{BODY_NAME[b_]}</span>' for b_ in bodies)
-    keys += f'<span><span class="pl orb">{planet("kerbin", 20)}</span>orbit</span><span><i class="star"></i>{icon("star", 18, "#ffcf4a")}first</span>'
+    keys += f'<span><span class="pl orb">{planet("kerbin", 20)}</span>orbit</span>'
+    first_key = f'<span><i class="star"></i>{icon("star", 18, "#ffcf4a")}first</span>'  # on the result line: bodies fill theirs
     body = f'''
 {header('rocket', f'Career launches · #{a} → #{b}', headline)}
-<div class="keys">{legend([k for k in RES if k in counts], size=22)}<div class="legend">{keys}</div></div>
+<div class="keys">{legend([k for k in RES if k in counts], size=22)[:-6]}{first_key}</div><div class="legend">{keys}</div></div>
 <div class="tl{' cmp' if rows > 6 else ''}" style="grid-auto-rows:{row_h}px">{''.join(cells)}</div>
 '''
     write(f'0{idx}-launches-{"ab"[part]}.html', page(f'Launches #{a}-#{b}', css, body, idx, seed=seed))

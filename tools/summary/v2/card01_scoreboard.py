@@ -8,7 +8,7 @@ FIRST_N = {f['n'] for f in RECORD['firsts']}
 
 # farthest body flown to (reached or en route)
 far = max((dest_body(l['dest'])[0] for l in LAUNCHES), key=BODY_ORDER.index)
-headline = f'{CN["real_days"]}일, 발사 {N}번, {BODY_NAME[far]}까지'
+headline = f'{CN["real_days"]}일·발사 {N}번·{BODY_NAME[far]}까지'
 
 css = '''
 .launch{display:flex;gap:22px;align-items:stretch}
@@ -47,13 +47,13 @@ css = '''
 .bodies{display:grid;grid-template-columns:repeat(''' + str(len(BODY_ORDER)) + ''',1fr);position:relative;align-items:end;margin-top:20px}
 .body{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:1}
 .body .pl{height:140px;display:flex;align-items:center;justify-content:center;position:relative}
-.body .nm{font-size:25px;font-weight:700}
+.body .nm{font-size:23px;font-weight:700}
 .body .st{display:flex;align-items:center;gap:6px;font-size:19px;color:var(--muted);height:26px;white-space:nowrap}
 .body .st b{color:var(--text)}
 .body .who{font-size:18px;color:var(--muted);height:24px}
-.traj{position:absolute;left:70px;right:70px;top:70px;height:2px;z-index:0}
-.badge{position:absolute;top:2px;right:-2px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid var(--bg)}
-.enroute{font-size:16px;font-weight:700;letter-spacing:.12em;color:#c8f0a0;border:1.5px dashed var(--jool);border-radius:999px;padding:3px 10px}
+.traj{position:absolute;left:48px;right:48px;top:70px;height:2px;z-index:0}
+.badge{position:absolute;top:8px;right:-6px;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid var(--bg)}
+.enroute{font-size:14px;font-weight:700;letter-spacing:.04em;color:#c8f0a0;border:1.5px dashed var(--jool);border-radius:999px;padding:2px 7px}
 '''
 
 # ---- funds chart
@@ -163,7 +163,8 @@ def pick(body):
     return fs[0] if fs else None
 
 
-SIZE = {'kerbin': 108, 'mun': 84, 'minmus': 70, 'duna': 96, 'eve': 104, 'moho': 72, 'dres': 70, 'jool': 118}
+SIZE = {'kerbin': 94, 'mun': 72, 'minmus': 60, 'duna': 84, 'eve': 90, 'gilly': 40, 'moho': 62, 'dres': 60, 'jool': 104,
+        'eeloo': 56}
 # a probe on its way to a body with no first yet (Dres 1): EN ROUTE from live_missions
 EN_ROUTE = {m['to']: m['n'] for m in RECORD['live_missions'] if m['type'] == 'probe' and 'to' in m}
 bodies = []
@@ -179,7 +180,7 @@ for b in BODY_ORDER:
         st = f'{icon("orbit", 20, "#8e98b6")}<b>#{f["n"]}</b>'
     else:
         badge = ''
-        # badge on the status line, launch number underneath (8 bodies: the two don't fit side by side)
+        # badge on the status line, launch number underneath (10 bodies: the two don't fit side by side)
         n_en = f['n'] if f else EN_ROUTE.get(b)
         st = '<span class="enroute">EN ROUTE</span>' if n_en else ''
         who = f'<b style="color:var(--text)">#{n_en}</b>' if n_en else who

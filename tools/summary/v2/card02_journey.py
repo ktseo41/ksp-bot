@@ -1,9 +1,10 @@
 import math
 from common2 import *
+from common2 import _width_em
 
 LIVE = RECORD['live_missions']
 LB = {k: v for k, v in RECORD['landings_by_body'].items() if not k.startswith('_')}
-MOONS, PLANETS = {'mun', 'minmus', 'ike'}, {'duna', 'eve', 'jool', 'moho', 'dres', 'eeloo'}
+MOONS, PLANETS = {'mun', 'minmus', 'ike', 'gilly'}, {'duna', 'eve', 'jool', 'moho', 'dres', 'eeloo'}
 n_moons = sum(1 for b in LB if b in MOONS)
 n_planets = sum(1 for b in LB if b in PLANETS)
 headline = f'달 {KO_NUM[n_moons]}·행성 {KO_NUM[n_planets]}에 착륙'
@@ -24,8 +25,14 @@ def eta(ut):
     return f'~d+{num(d)}' if d < YEAR_D else f'~{fmt_ydays(d)}'  # from the current UT: approximate
 
 
+# rows under the map: up to 5 at 78 px; with more, the map loses 60 px of empty sky and the rows shrink to fit
+N_ROWS = sum(1 for m in LIVE if m['type'] in ('probe', 'crewed', 'station'))
+MAP_H = 600 if N_ROWS <= 5 else 540
+ROW_H = 78 if N_ROWS <= 5 else min(78, int((5 * 78 + 4 * 8 + 600 - MAP_H + 30 - (N_ROWS - 1) * 6) / N_ROWS))
+ROW_GAP = 8 if N_ROWS <= 5 else 6
+
 css = '''
-.map{position:relative;width:968px;height:600px;margin-top:4px}
+.map{position:relative;width:968px;height:''' + str(MAP_H) + '''px;margin-top:4px}
 .map svg.bg{position:absolute;left:0;top:0}
 .pb{position:absolute;transform:translate(-50%,-50%);display:flex}
 .lab{position:absolute;display:flex;flex-direction:column;gap:3px;white-space:nowrap}
@@ -33,10 +40,10 @@ css = '''
 .lab .s{font-size:19px;color:#c9d1e8;display:flex;align-items:center;gap:6px}
 .lab .s b{font-family:'JetBrains Mono',monospace;color:var(--text)}
 .lab .s .m{color:var(--muted)}
-.rows{margin-top:6px;display:flex;flex-direction:column;gap:8px}
+.rows{margin-top:6px;display:flex;flex-direction:column;gap:''' + str(ROW_GAP) + '''px}
 .rows .t{display:flex;align-items:center;gap:12px;margin-bottom:2px}
-.rw{display:grid;grid-template-columns:96px 250px 1fr 180px;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:7px 18px 7px 7px;height:78px}
-.rw .th{width:96px;height:58px;border-radius:10px;overflow:hidden}
+.rw{display:grid;grid-template-columns:96px 250px 1fr 180px;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:7px 18px 7px 7px;height:''' + str(ROW_H) + '''px}
+.rw .th{width:96px;height:''' + str(ROW_H - 16) + '''px;border-radius:10px;overflow:hidden}
 .rw .th img{width:100%;height:100%;object-fit:cover;display:block}
 .rw .nm{font-size:23px;font-weight:700;display:flex;flex-direction:column;gap:2px;white-space:nowrap}
 .rw .nm span{font-size:17px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px}
@@ -47,10 +54,10 @@ css = '''
 '''
 
 # ---- schematic solar system: Kerbol off the left edge, orbits as arcs (scale ignored)
-SX, SY = -150, 300
+SX, SY = -150, 300 - (600 - MAP_H) * 3 // 4
 ORB = {'moho': (205, 36), 'eve': (260, -38), 'kerbin': (420, 14), 'duna': (600, -14), 'dres': (760, -4),
-       'jool': (930, 10)}  # radius, angle (deg)
-SIZE = {'moho': 50, 'eve': 76, 'kerbin': 84, 'duna': 72, 'dres': 44, 'jool': 124}
+       'jool': (930, 10), 'eeloo': (1000, -12)}  # radius, angle (deg)
+SIZE = {'moho': 50, 'eve': 76, 'kerbin': 84, 'duna': 72, 'dres': 44, 'jool': 124, 'eeloo': 42}
 
 
 def pos(b):
@@ -58,14 +65,15 @@ def pos(b):
     return SX + r * math.cos(math.radians(a)), SY + r * math.sin(math.radians(a))
 
 
-svg = [f'<svg class="bg" width="968" height="600" viewBox="0 0 968 600">']
+svg = [f'<svg class="bg" width="968" height="{MAP_H}" viewBox="0 0 968 {MAP_H}">']
 for b, (r, a) in ORB.items():
-    far = b in ('jool', 'dres')  # not reached yet: dashed, green
+    far = b in ('jool', 'dres', 'eeloo')  # not reached yet: dashed, green
     svg.append(orbit_ring(SX, SY, r, dashed=far, color='rgba(168,217,122,.35)' if far else 'rgba(255,255,255,.13)'))
 kx, ky = pos('kerbin')
 dx, dy = pos('duna')
 # moons: rings and positions around their planet (layout)
-MOON = {'mun': ('kerbin', 58, 200, 34), 'minmus': ('kerbin', 86, 232, 28), 'ike': ('duna', 56, -150, 24)}
+MOON = {'mun': ('kerbin', 58, 200, 34), 'minmus': ('kerbin', 86, 232, 28), 'ike': ('duna', 56, -150, 24),
+        'gilly': ('eve', 54, 130, 20)}
 mpos = {}
 for mn, (par, r, ang, sz) in MOON.items():
     px, py = pos(par)
@@ -129,7 +137,8 @@ def body_lines(b):
 
 # label anchor per body (layout): dx, dy from the body centre, alignment, name colour
 LAB = {'moho': (-24, 30, 'left', '#e8b89c'), 'eve': (46, -44, 'left', '#d9b8f2'), 'kerbin': (-44, 48, 'left', '#8fd0ff'), 'mun': (-24, -8, 'right', '#d3d6dc'),
-       'minmus': (-24, -90, 'right', '#a8e8cf'), 'duna': (44, -50, 'left', '#ffb08e'), 'dres': (28, -14, 'left', '#d6cfc4'), 'jool': (-2, 76, 'left', '#c8f0a0')}
+       'minmus': (-24, -90, 'right', '#a8e8cf'), 'duna': (44, -50, 'left', '#ffb08e'), 'dres': (28, -14, 'left', '#d6cfc4'), 'jool': (-2, 76, 'left', '#c8f0a0'),
+       'gilly': (16, -14, 'left', '#d8b8a4'), 'eeloo': (-28, -16, 'right', '#e6eaee')}
 nodes = [pb(SX + 90, SY, planet('kerbol', 260))]
 nodes += [pb(*pos(b), planet(b, SIZE[b], dashed=any(t[0]['to'] == b and t[0]['type'] == 'probe' for t in travel) and b not in LB))
           for b in ORB]
@@ -138,17 +147,32 @@ labels = []
 for b, (ox, oy, al, col) in LAB.items():
     x, y = where(b)
     labels.append(lab(x + ox, y + oy, BODY_NAME[b], body_lines(b), col, al))
+# planets and moons are obstacles for the in-transit labels
+placed = [(x - SIZE.get(b, 24) / 2, y - SIZE.get(b, 24) / 2, SIZE.get(b, 24), SIZE.get(b, 24))
+          for b in list(ORB) + list(MOON) for x, y in [where(b)]]
 for m, (mx_, my_), col, (nx_, ny_) in travel:
     nodes.append(pb(mx_, my_, icon('kerbal' if m['type'] == 'crewed' else 'sat', 30, '#9ccc3c' if m['type'] == 'crewed' else col)))
     if m['type'] == 'probe':
         # on the outer side of the bow: to the right of a path bowing right, under one bowing down
-        lx, ly = (mx_ + 26, my_ - 16) if abs(nx_) >= abs(ny_) else (mx_ - 40, my_ + 22)
-        labels.append(lab(lx, ly, esc(craft_name(m['slug'])),
-                          [f'{icon("arrow", 18, col)}<span class="m">{m["next_ko"]}</span> <b>{eta(m["next_ut"])}</b>'], col))
+        # on the outer side of the bow (right of a path bowing right, under one bowing down); if that box hits a label
+        # already placed, try the other sides of the marker
+        name, line = esc(craft_name(m['slug'])), f'{m["next_ko"]} {eta(m["next_ut"])}'
+        w, h = max(_width_em(name) * 27, _width_em(line) * 19 + 24), 62
+        right, under = (mx_ + 30, my_ - 16, 'left'), (mx_ - 40, my_ + 22, 'left')
+        left, above = (mx_ - 26, my_ - 16, 'right'), (mx_ - 40, my_ - 16 - h - 8, 'left')
+        cands = [right, under, left, above] if abs(nx_) >= abs(ny_) else [under, right, left, above]
+        def overlap(box):
+            return sum(max(0, min(box[0] + box[2], b[0] + b[2]) - max(box[0], b[0]))
+                       * max(0, min(box[1] + box[3], b[1] + b[3]) - max(box[1], b[1])) for b in placed)
+        boxes_ = [((lx - w if al == 'right' else lx, ly, w, h), (lx, ly, al)) for lx, ly, al in cands]
+        box, (lx, ly, al) = next((c for c in boxes_ if not overlap(c[0])), min(boxes_, key=lambda c: overlap(c[0])))
+        placed.append(box)
+        labels.append(lab(lx, ly, name,
+                          [f'{icon("arrow", 18, col)}<span class="m">{m["next_ko"]}</span> <b>{eta(m["next_ut"])}</b>'], col, al))
 mapdiv = f'<div class="map">{"".join(svg)}{"".join(nodes)}{"".join(labels)}</div>'
 
 # ---- live missions rows
-ROW_PHOTO = {'duna-1': 'img/duna-1-landed.jpg'}
+ROW_PHOTO = {'duna-1': 'img/duna-1-landed.jpg', 'eve-2': 'img/eve-2-gilly.jpg'}
 rows = []
 for m in LIVE:
     if m['type'] not in ('probe', 'crewed', 'station'):

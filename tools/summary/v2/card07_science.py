@@ -60,13 +60,17 @@ css = '''
 '''
 if len(TECH) > 42:  # an 8th row of techs: tighter rows so the grid stays above the footer
     css += '.tg{gap:2px 10px}.tn{height:46px}.hauls{gap:3px}.hr{height:46px}'
+if len(TECH) > 48:  # a 9th row: shorter haul rows and tech cells, tighter section gaps
+    css += ('.tn{height:44px}.hr{height:40px}.hr .th{height:38px}.hr .nm span{margin-top:1px}.sub{margin-top:12px}'
+            '.aboard{margin-top:10px}.ab{padding:8px 16px}.tg{margin-top:8px}.hauls{margin-top:16px}')
 
 mx = max(h['gain'] for h in H)
+HAUL_PHOTO = {49: 'img/eve-2-splash.jpg'}  # a milestone shot instead of the pad photo
 seen = set()
 rows = []
 for h in H:
     l = BY_N[h['n']]
-    p = photo(l['slug']) if l['slug'] not in seen else None
+    p = (HAUL_PHOTO.get(h['n']) or photo(l['slug'])) if l['slug'] not in seen else None
     seen.add(l['slug'])
     th = f'<div class="th"><img src="{p}"></div>' if p else '<div></div>'
     col = HOW_COL.get(h['how'], '#56c8ff')
