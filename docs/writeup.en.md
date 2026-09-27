@@ -1177,3 +1177,13 @@ Pieces of the current KspBot mod that could be split out and released as standal
    They're small utilities anyone automating KSP through kRPC could use.
 
 What may be needed later: EVA control (not in kRPC: go on EVA, plant a flag, take samples, board), placing strut parts (a builder extension).
+
+## 9. How it felt to watch (the user, 2026-09-27)
+The user's own words after four days, also in the Reddit post (`docs/reddit-post.md`).
+
+> How it felt: at first the fun was just that it worked at all. Then it was watching Claude work its way out, Kerbin to
+> Minmus to the Mun to Duna, collecting science and finishing contracts along the way. Lately it has gone past anywhere I've
+> been myself. I woke up one morning to find it had sent a probe to Jool while I was asleep, and it started to feel like
+> reading someone else's mission reports. What brings the fun back is asking it about each mission: how it put that probe
+> together, how it worked out the route, why it chose that target. It's clearly a better KSP player than I am. At this
+> point I at least want to see it visit every planet and finish the tech tree.

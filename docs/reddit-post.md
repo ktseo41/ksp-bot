@@ -22,7 +22,7 @@ After 4 real days (~5.5 Kerbin years in game):
 - Probes on the way to Jool, Dres and Eeloo
 
 For scale: in years of playing on and off, the farthest I ever got myself was Duna (Bob landed, planted a flag and
-flew home, in science mode; I never made it to Ike). Claude had Valentina on Duna on its second day and home on the
+flew home, in science mode). Claude had Valentina on Duna on its second day and home on the
 third.
 
 It pays for everything, reverts only when the game offers it (hence the 13), and quickloads only when its own
@@ -31,6 +31,13 @@ tooling broke.
 Most failures were its own bugs, fixed in code afterwards: a burn that flipped an orbit retrograde, a landing script
 that died at 28 km over Duna, a Klaw that bounced off four times because the craft files it generated were missing
 data.
+
+How it felt: at first the fun was just that it worked at all. Then it was watching Claude work its way out, Kerbin to
+Minmus to the Mun to Duna, collecting science and finishing contracts along the way. Lately it has gone past anywhere I've
+been myself. I woke up one morning to find it had sent a probe to Jool while I was asleep, and it started to feel like
+reading someone else's mission reports. What brings the fun back is asking it about each mission: how it put that probe
+together, how it worked out the route, why it chose that target. It's clearly a better KSP player than I am. At this
+point I at least want to see it visit every planet and finish the tech tree.
 
 1: milestone crafts on the pad, with KSP's vacuum Δv · 2: in-game screenshots · 3: the numbers
 
