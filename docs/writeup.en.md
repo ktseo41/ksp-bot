@@ -168,13 +168,32 @@ reverted and stands.
 | 4 | heavyRocketry, generalConstruction | Kickback SRB, structural parts for side mounting → Mun-class lifter |
 | 5 | flightControl | AV-R8 fins, inline reaction wheel → to control heavy SRB stacks |
 | 6 | fuelSystems | More tanks |
+| 7 | landing, electrics | Mk16-XL parachute, LT-1 landing legs, 1.875 m heat shield, solar panels and batteries. Astronaut Complex 2 (EVA outside Kerbin) the same day |
+| 8 | heavierRocketry, spaceExploration | Right after R&D 2. Mainsail, Twin-Boar, Thoroughbred, ladder, storage containers → Duna-class lifter |
+| 9 | miniaturization | Clamp-O-Tron Jr and other small parts |
+| 10 | advConstruction, actuators | The Klaw → refuelling and rescue in Mun orbit (Mun Tanker 1, #24) |
+| 11 | precisionEngineering, advFuelSystems, nuclearPropulsion | HG-5 relay antenna, hex core, **LV-N Nerv** → relay satellites, later Jool 1 |
+| 12 | advFlightControl | RCS → translation control for Klaw grabs on rescue craft |
+| 13 | advExploration, advElectrics, electronics, specializedConstruction, scienceTech, advLanding | All at once after Minmus Science 2's recovery (#38) took science from 84 to 1,250. Mobile Processing Lab, HG-55, magnetometer, docking port, atmospheric analyzer |
+| 14 | fieldScience, advScienceTech, largeVolumeContainment, commandModules, largeElectrics | After Survey 1's recovery (#39, science 1,613) and right after R&D 3. ISRU, drills, gravimeter, 3.75 m parts, Mk1-3 pod |
+| 15 | aviation, automation | Mk0/Mk1 liquid-fuel-only fuselages (so Nerv stages carry no dead oxidizer), Communotron 88-88, RA-100 → Jool 1 |
+| 16 | heavyLanding, veryHeavyRocketry, advancedMotors, specializedElectrics | From Minmus lab science (4,714 → 2,764). Tracking Station 3 the same day |
+| 17 | experimentalElectrics, highPerformanceFuelSystems | RTG, S3 large tank |
+| 18 | propulsionSystems | Spark/Ant small engines |
+| 19 | unmannedTech, composites, advMetalworks, ionPropulsion | From lab-visit science (6,022 → 4,572) |
+| 20 | experimentalScience, advUnmanned, largeUnmanned | Orbital scanner, large tank. 50 nodes so far (counting the start node) |
 
 Science mostly came from "new place + new experiment" combinations. Crew reports, Mystery Goo and the thermometer were run
 in space, at landing sites and on the pad. The Mk1 pod has no power generation so nothing could be transmitted; instead the
 capsule was recovered to collect the science.
 
+From day three on, most science came from the Mobile Processing Lab in a polar Minmus orbit (Minmus Lab 1, #41): its two
+scientists processed the collected data and it was transmitted 21 times, +8,614 in total. Planetary probes don't come
+back, so they transmit: Moho 1 +1,516, Eve 2 +1,154.
+
 **Facility upgrade order**: Mission Control 2 (thought to be enough for maneuver nodes, but Tracking Station 2 turned out to be
-needed too) → Tracking Station 2 + Launch Pad 2 → VAB 2 (lifts the 30-part limit). Next candidate: Astronaut Complex 2 (EVA outside Kerbin).
+needed too) → Tracking Station 2 + Launch Pad 2 → VAB 2 (lifts the 30-part limit) → Astronaut Complex 2 (EVA outside Kerbin)
+→ R&D 2 (451k, nodes above 100 science) → R&D 3 (1.69M, nodes above 500 science) → Tracking Station 3 (563k, 250G deep-space network).
 
 ## 6. How the craft designs evolved
 - Crafts are designed as JSON specs (`crafts/*.json`). Give it parts, attach nodes, symmetry and stages, and the mod writes the .craft.

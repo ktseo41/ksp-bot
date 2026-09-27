@@ -166,12 +166,31 @@ KSP 1.12.5 (Windows)
 | 4 | heavyRocketry, generalConstruction | Kickback SRB, 측면 부착용 구조 부품 → Mun급 리프터 |
 | 5 | flightControl | AV-R8 핀, 인라인 반응휠 → 무거운 SRB 스택을 제어하려고 |
 | 6 | fuelSystems | 탱크 확장 |
+| 7 | landing, electrics | Mk16-XL 낙하산, LT-1 착륙 다리, 1.875 m 방열판, 태양전지판·배터리. 같은 날 Astronaut Complex 2(Kerbin 밖 EVA) |
+| 8 | heavierRocketry, spaceExploration | R&D 2 직후. Mainsail·Twin-Boar·Thoroughbred, 사다리·저장 컨테이너 → Duna급 발사체 |
+| 9 | miniaturization | Clamp-O-Tron Jr 등 소형 부품 |
+| 10 | advConstruction, actuators | Klaw → Mun 궤도 급유와 구조(Mun Tanker 1, #24) |
+| 11 | precisionEngineering, advFuelSystems, nuclearPropulsion | HG-5 중계 안테나, 헥스 코어, **LV-N Nerv** → 중계위성, 나중의 Jool 1 |
+| 12 | advFlightControl | RCS → 구조선이 Klaw로 붙잡을 때 병진 제어 |
+| 13 | advExploration, advElectrics, electronics, specializedConstruction, scienceTech, advLanding | Minmus Science 2(#38) 회수로 과학 84 → 1,250이 되자 한 번에. 이동식 실험실(MPL), HG-55·자력계, 도킹 포트, 대기 분석기 |
+| 14 | fieldScience, advScienceTech, largeVolumeContainment, commandModules, largeElectrics | Survey 1(#39) 회수(과학 1,613) + R&D 3 직후. ISRU·드릴·중력계, 3.75 m 부품, Mk1-3 포드 |
+| 15 | aviation, automation | Mk0/Mk1 액체연료 전용 동체(Nerv 단에 쓸모없는 산화제를 싣지 않으려고), Communotron 88-88·RA-100 → Jool 1 |
+| 16 | heavyLanding, veryHeavyRocketry, advancedMotors, specializedElectrics | Minmus 실험실 과학으로(4,714 → 2,764). 같은 날 Tracking Station 3 |
+| 17 | experimentalElectrics, highPerformanceFuelSystems | RTG, S3 대형 탱크 |
+| 18 | propulsionSystems | Spark/Ant 소형 엔진 |
+| 19 | unmannedTech, composites, advMetalworks, ionPropulsion | 실험실 방문 과학으로(6,022 → 4,572) |
+| 20 | experimentalScience, advUnmanned, largeUnmanned | 궤도 스캐너, 대형 탱크. 여기까지 50개(시작 노드 포함) |
 
 과학점수는 주로 "새 장소 + 새 실험 조합"에서 나왔다. 승무원 보고, Mystery Goo, 온도계를 우주, 착륙 지점,
 패드에서 각각 실행했다. Mk1 포드에는 발전 수단이 없어서 전송하지 못했고, 대신 캡슐을 회수해서 과학을 받았다.
 
+셋째 날부터는 과학의 대부분이 Minmus 극궤도의 이동식 실험실(Minmus Lab 1, #41)에서 나왔다. 과학자 둘이 모은
+데이터를 처리해 21번 전송했고 합계 +8,614다. 행성 탐사선은 돌아오지 않으므로 과학을 전송했다: Moho 1 +1,516,
+Eve 2 +1,154.
+
 **시설 업그레이드 순서**: Mission Control 2(기동 노드용이라고 생각했지만 실제로는 Tracking Station 2도 필요했다)
-→ Tracking Station 2 + Launch Pad 2 → VAB 2(부품 30개 제한 해제). 다음 후보: Astronaut Complex 2(Kerbin 밖 EVA).
+→ Tracking Station 2 + Launch Pad 2 → VAB 2(부품 30개 제한 해제) → Astronaut Complex 2(Kerbin 밖 EVA)
+→ R&D 2(451k, 과학 100 넘는 노드) → R&D 3(1.69M, 과학 500 넘는 노드) → Tracking Station 3(563k, 심우주 통신망 250G).
 
 ## 6. 우주선 설계의 진화
 - JSON 명세로 설계한다(`crafts/*.json`). 부품, 부착 노드, 대칭, 스테이지를 지정하면 모드가 .craft를 만든다.
