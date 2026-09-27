@@ -49,6 +49,7 @@ def main(only, langs):
             png = html[:-5] + '.png'
             subprocess.run(CHROME + [f'--screenshot={png}', 'file://' + html], check=True,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            common.shrink_png(png)
             size = Image.open(png).size
             print(os.path.basename(png), size)
             if size != (2160, 2700):

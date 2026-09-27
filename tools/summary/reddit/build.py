@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(HERE, '..', 'v2'))
 sys.path.insert(0, os.path.join(HERE, '..'))
 from common2 import *  # noqa: E402,F403
 from common2 import ICONS2, HEAD2, CSS2  # noqa: E402
+from common import shrink_png  # noqa: E402
 import crop as padcrop  # noqa: E402
 from PIL import Image  # noqa: E402
 
@@ -209,6 +210,7 @@ def main():
                         f'--force-device-scale-factor={SCALE}', f'--window-size={W},{H}', '--virtual-time-budget=8000',
                         f'--screenshot={png}', 'file://' + path], check=True, stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
+        shrink_png(png)
         print(png, Image.open(png).size)
 
 

@@ -181,3 +181,10 @@ for l in RECORD['career_launches']:
 for _entry in RECORD.get('sandbox_test_crafts', []):
     for _c in _entry.get('crafts', []):
         CRAFT_NAMES[_c['slug']] = _c['name']
+
+
+def shrink_png(path):
+    """Quantize a rendered card to 256 colors in place (~8x smaller, keeps the repo light)."""
+    from PIL import Image
+    im = Image.open(path).convert('RGBA')
+    im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG).save(path, optimize=True)
